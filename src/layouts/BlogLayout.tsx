@@ -42,14 +42,14 @@ export function BlogLayout() {
             </Link>
           </div>
           
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             <Link to="/" className="text-emerald-700 font-bold font-headline">Home</Link>
             <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Plans</Link>
-            <Link to="#" className="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-full">Community</Link>
             <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Business</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Design</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Education</Link>
-            <button className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">More</button>
+            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Technology</Link>
+            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Entertainment</Link>
+            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Health</Link>
+            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Fitness</Link>
           </nav>
           
           <div className="flex items-center gap-3">
@@ -115,12 +115,14 @@ export function BlogLayout() {
         
         {/* Mobile Navigation Dropdown */}
         {isMenuOpen && (
-          <nav className="md:hidden bg-white border-t border-surface-container px-4 py-4 flex flex-col gap-2">
+          <nav className="lg:hidden bg-white border-t border-surface-container px-4 py-4 flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
             <Link to="/" onClick={() => setIsMenuOpen(false)} className="font-bold text-emerald-700 px-4 py-3 bg-emerald-50 rounded-xl">Home</Link>
             <Link to="/plans" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Plans</Link>
             <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Business</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Design</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Education</Link>
+            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Technology</Link>
+            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Entertainment</Link>
+            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Health</Link>
+            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Fitness</Link>
           </nav>
         )}
       </header>

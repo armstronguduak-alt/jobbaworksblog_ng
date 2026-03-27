@@ -19,6 +19,7 @@ import { AdminManagement } from './pages/AdminManagement';
 import { AdminUsers } from './pages/AdminUsers';
 import { AdminTransactions } from './pages/AdminTransactions';
 import { AdminContent } from './pages/AdminContent';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -26,7 +27,6 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/create-article" element={<CreateArticle />} />
         
         {/* PUBLIC BLOG LAYOUT */}
         <Route path="/" element={<BlogLayout />}>
@@ -36,20 +36,23 @@ function App() {
         </Route>
 
         {/* SECURE DASHBOARD LAYOUT */}
-        <Route path="/" element={<DashboardLayout />}>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="leaderboard" element={<Dashboard />} />
-          <Route path="earn" element={<Earn />} />
-          <Route path="wallet" element={<Wallet />} />
-          <Route path="swap" element={<Swap />} />
-          <Route path="referral" element={<Referral />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="admin" element={<AdminManagement />} />
-          <Route path="admin/users" element={<AdminUsers />} />
-          <Route path="admin/transactions" element={<AdminTransactions />} />
-          <Route path="admin/content" element={<AdminContent />} />
-          <Route path="profile" element={<Profile />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<DashboardLayout />}>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="leaderboard" element={<Dashboard />} />
+            <Route path="earn" element={<Earn />} />
+            <Route path="wallet" element={<Wallet />} />
+            <Route path="swap" element={<Swap />} />
+            <Route path="referral" element={<Referral />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="admin" element={<AdminManagement />} />
+            <Route path="admin/users" element={<AdminUsers />} />
+            <Route path="admin/transactions" element={<AdminTransactions />} />
+            <Route path="admin/content" element={<AdminContent />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="/create-article" element={<CreateArticle />} />
+          </Route>
         </Route>
 
         {/* Catch-all */}
