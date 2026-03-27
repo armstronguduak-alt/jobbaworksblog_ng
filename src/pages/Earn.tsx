@@ -47,71 +47,49 @@ export function Earn() {
 
   const fetchEarnData = async (userId: string) => {
     try {
-      setIsLoading(true);
+      if (availablePosts.length === 0) setIsLoading(true);
 
-      // Fetch completed reads count
-      const { count: readCount } = await supabase
-        .from('post_reads')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-
-      // Also count completed tasks
-      const { count: taskCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('completed_by', userId);
-
-      // Fetch wallet balance
-      const { data: walletData } = await supabase
-        .from('wallet_balances')
-        .select('balance, total_earnings')
-        .eq('user_id', userId)
-        .single();
-
-      // Fetch daily counters
       const today = new Date().toISOString().split('T')[0];
-      const { data: counterData } = await supabase
-        .from('daily_user_counters')
-        .select('read_count, comment_count')
-        .eq('user_id', userId)
-        .eq('counter_date', today)
-        .single();
 
-      // Fetch user's plan limits
-      const { data: subData } = await supabase
-        .from('user_subscriptions')
-        .select('plan_id, plan_earnings, is_completed')
-        .eq('user_id', userId)
-        .single();
+      // Fire all independent queries at once
+      const [
+        readCountRes,
+        taskCountRes,
+        walletDataRes,
+        counterDataRes,
+        subDataRes,
+        readPostIdsRes
+      ] = await Promise.all([
+        supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', userId),
+        supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', userId).single(),
+        supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', userId).eq('counter_date', today).maybeSingle(),
+        supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', userId).maybeSingle(),
+        supabase.from('post_reads').select('post_id').eq('user_id', userId)
+      ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
-      if (subData?.plan_id) {
+      if (subDataRes.data?.plan_id) {
         const { data: planData } = await supabase
           .from('subscription_plans')
           .select('daily_read_limit, daily_comment_limit, read_reward, comment_reward')
-          .eq('id', subData.plan_id)
+          .eq('id', subDataRes.data.plan_id)
           .single();
         if (planData) planDetails = planData;
       }
 
-      const readsDone = counterData?.read_count || 0;
-      const commentsDone = counterData?.comment_count || 0;
+      const readsDone = counterDataRes.data?.read_count || 0;
+      const commentsDone = counterDataRes.data?.comment_count || 0;
 
       setStats({
-        tasksCompleted: (readCount || 0) + (taskCount || 0),
-        totalEarned: walletData?.total_earnings || 0,
+        tasksCompleted: (readCountRes.count || 0) + (taskCountRes.count || 0),
+        totalEarned: walletDataRes.data?.total_earnings || 0,
         dailyReadsLeft: Math.max(0, planDetails.daily_read_limit - readsDone),
         dailyCommentsLeft: Math.max(0, planDetails.daily_comment_limit - commentsDone),
       });
 
       // Fetch available approved posts the user hasn't read yet
-      // First get IDs user has already read
-      const { data: readPostIds } = await supabase
-        .from('post_reads')
-        .select('post_id')
-        .eq('user_id', userId);
-
-      const alreadyRead = (readPostIds || []).map((r: any) => r.post_id);
+      const alreadyRead = (readPostIdsRes.data || []).map((r: any) => r.post_id);
 
       let postsQuery = supabase
         .from('posts')

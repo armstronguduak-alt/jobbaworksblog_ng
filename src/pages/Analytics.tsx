@@ -54,37 +54,25 @@ export function Analytics() {
 
   const fetchAnalytics = async (userId: string) => {
     try {
-      setIsLoading(true);
+      if (topPosts.length === 0) setIsLoading(true);
 
-      // Fetch posts by user
-      const { data: postsData } = await supabase
-        .from('posts')
-        .select('id, title, views, reads, earnings, reading_time_seconds')
-        .eq('author_user_id', userId)
-        .order('earnings', { ascending: false })
-        .limit(10);
-
-      // Fetch wallet balances
-      const { data: walletData } = await supabase
-        .from('wallet_balances')
-        .select('balance, total_earnings, referral_earnings, post_earnings')
-        .eq('user_id', userId)
-        .single();
-
-      // Fetch today's daily counters
       const today = new Date().toISOString().split('T')[0];
-      const { data: counterData } = await supabase
-        .from('daily_user_counters')
-        .select('read_count, comment_count')
-        .eq('user_id', userId)
-        .eq('counter_date', today)
-        .single();
 
-      // Fetch total post reads by user (as a reader)
-      const { count: totalReads } = await supabase
-        .from('post_reads')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+      const [postsRes, walletRes, counterRes, readsRes] = await Promise.all([
+        // Fetch posts by user
+        supabase.from('posts').select('id, title, views, reads, earnings, reading_time_seconds').eq('author_user_id', userId).order('earnings', { ascending: false }).limit(10),
+        // Fetch wallet balances
+        supabase.from('wallet_balances').select('balance, total_earnings, referral_earnings, post_earnings').eq('user_id', userId).single(),
+        // Fetch today's daily counters
+        supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', userId).eq('counter_date', today).maybeSingle(),
+        // Fetch total post reads by user (as a reader)
+        supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', userId)
+      ]);
+
+      const postsData = postsRes.data;
+      const walletData = walletRes.data;
+      const counterData = counterRes.data;
+      const totalReads = readsRes.count;
 
       let fetchedPosts: PostData[] = [];
       let totalViews = 0;

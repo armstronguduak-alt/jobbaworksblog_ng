@@ -54,25 +54,16 @@ export function Wallet() {
 
   const fetchWalletData = async (userId: string) => {
     try {
-      setIsLoading(true);
-      // Fetch balance
-      const { data: balanceData } = await supabase
-        .from('wallet_balances')
-        .select('balance')
-        .eq('user_id', userId)
-        .single();
+      if (transactions.length === 0) setIsLoading(true);
+
+      const [balanceRes, txRes] = await Promise.all([
+        supabase.from('wallet_balances').select('balance').eq('user_id', userId).single(),
+        supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+      ]);
         
-      if (balanceData) setBalance(balanceData.balance);
-
-      // Fetch transaction history
-      const { data: txData } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (txData) setTransactions(txData);
+      if (balanceRes.data) setBalance(balanceRes.data.balance);
+      if (txRes.data) setTransactions(txRes.data);
+      
     } catch (err) {
       console.error("Error fetching wallet data:", err);
     } finally {

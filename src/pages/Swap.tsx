@@ -45,7 +45,7 @@ export function Swap() {
 
   const fetchBalance = async (userId: string) => {
     try {
-      setIsLoading(true);
+      if (balance === 0 && usdtBalance === 0) setIsLoading(true);
       const { data } = await supabase
         .from('wallet_balances')
         .select('balance, usdt_balance')

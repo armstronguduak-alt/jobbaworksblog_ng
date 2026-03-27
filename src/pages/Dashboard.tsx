@@ -13,28 +13,20 @@ export function Dashboard() {
   useEffect(() => {
     async function fetchDashboardData() {
       if (!user?.id) return;
-      setIsLoading(true);
+      if (!walletData) setIsLoading(true);
 
       try {
-        // Fetch Wallet Balance (includes referral_earnings)
-        const { data: wallet } = await supabase
-          .from('wallet_balances')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const [walletRes, tasksRes] = await Promise.all([
+          supabase.from('wallet_balances').select('*').eq('user_id', user.id).single(),
+          supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user.id)
+        ]);
           
-        if (wallet) {
-          setWalletData(wallet);
+        if (walletRes.data) {
+          setWalletData(walletRes.data);
         }
 
-        // Fetch user tasks (can represent reads/activity)
-        const { count, error } = await supabase
-          .from('tasks')
-          .select('*', { count: 'exact', head: true })
-          .eq('completed_by', user.id);
-          
-        if (!error && count !== null) {
-          setArticlesRead(count);
+        if (!tasksRes.error && tasksRes.count !== null) {
+          setArticlesRead(tasksRes.count);
         }
 
       } catch (err) {

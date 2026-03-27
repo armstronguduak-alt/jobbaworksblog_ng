@@ -27,28 +27,23 @@ export function Home() {
 
   const fetchPublicData = async () => {
     try {
-      // Fetch categories
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('id, name, slug')
-        .eq('is_active', true);
+      if (featuredPosts.length === 0 && latestPosts.length === 0) setIsLoading(true);
 
-      if (catData) setCategories(catData);
-
-      // Fetch approved posts with author info + category
-      const { data: postsData } = await supabase
-        .from('posts')
-        .select(`
+      const [catRes, postsRes] = await Promise.all([
+        // Fetch categories
+        supabase.from('categories').select('id, name, slug').eq('is_active', true),
+        // Fetch approved posts with author info + category
+        supabase.from('posts').select(`
           id, title, slug, excerpt, featured_image, reading_time_seconds, published_at,
           categories:category_id (name),
           profiles:author_user_id (name, avatar_url)
-        `)
-        .eq('status', 'approved')
-        .order('published_at', { ascending: false })
-        .limit(12);
+        `).eq('status', 'approved').order('published_at', { ascending: false }).limit(12)
+      ]);
 
-      if (postsData) {
-        const normalized = postsData.map((p: any) => ({
+      if (catRes.data) setCategories(catRes.data);
+
+      if (postsRes.data) {
+        const normalized = postsRes.data.map((p: any) => ({
           ...p,
           category: p.categories || null,
           author: p.profiles || null,
