@@ -24,11 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setIsLoading(false);
-      }
+      if (session?.user) fetchProfile(session.user.id);
+      setIsLoading(false); // <--- Instantly unlocks app routing regardless of Profile fetch time
     });
 
     const {
@@ -41,8 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         setIsAdmin(false);
-        setIsLoading(false);
       }
+      setIsLoading(false); // <--- Instantly unlocks during Auth transitions
     });
 
     return () => subscription.unsubscribe();
@@ -58,12 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profileResult.error && profileResult.data) {
         setProfile(profileResult.data);
       }
-
       setIsAdmin(!!roleResult.data);
     } catch (error) {
       console.error('Error fetching profile:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 

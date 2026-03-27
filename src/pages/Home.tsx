@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useQuery } from '@tanstack/react-query';
 
 interface Post {
   id: string;
@@ -15,24 +16,13 @@ interface Post {
 }
 
 export function Home() {
-  const [featuredPosts, setFeaturedPosts] = useState<Post[]>([]);
-  const [latestPosts, setLatestPosts] = useState<Post[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('All Feed');
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPublicData();
-  }, []);
-
-  const fetchPublicData = async () => {
-    try {
-      if (featuredPosts.length === 0 && latestPosts.length === 0) setIsLoading(true);
-
+  const { data, isLoading } = useQuery({
+    queryKey: ['publicPosts'],
+    queryFn: async () => {
       const [catRes, postsRes] = await Promise.all([
-        // Fetch categories
         supabase.from('categories').select('id, name, slug').eq('is_active', true),
-        // Fetch approved posts with author info + category
         supabase.from('posts').select(`
           id, title, slug, excerpt, featured_image, reading_time_seconds, published_at,
           categories:category_id (name),
@@ -40,24 +30,24 @@ export function Home() {
         `).eq('status', 'approved').order('published_at', { ascending: false }).limit(12)
       ]);
 
-      if (catRes.data) setCategories(catRes.data);
+      const categories = catRes.data || [];
+      const normalized = (postsRes.data || []).map((p: any) => ({
+        ...p,
+        category: p.categories || null,
+        author: p.profiles || null,
+      }));
 
-      if (postsRes.data) {
-        const normalized = postsRes.data.map((p: any) => ({
-          ...p,
-          category: p.categories || null,
-          author: p.profiles || null,
-        }));
-
-        setFeaturedPosts(normalized.slice(0, 3));
-        setLatestPosts(normalized.slice(3));
-      }
-    } catch (err) {
-      console.error('Error fetching posts:', err);
-    } finally {
-      setIsLoading(false);
+      return {
+        categories,
+        featuredPosts: normalized.slice(0, 3) as Post[],
+        latestPosts: normalized.slice(3) as Post[],
+      };
     }
-  };
+  });
+
+  const featuredPosts = data?.featuredPosts || [];
+  const latestPosts = data?.latestPosts || [];
+  const categories = data?.categories || [];
 
   const filteredLatest = activeCategory === 'All Feed'
     ? latestPosts
@@ -75,7 +65,7 @@ export function Home() {
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
       {/* Hero Section */}
-      <section className="relative overflow-hidden mb-20 rounded-3xl">
+      <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
         <div className="flex flex-col md:flex-row items-center gap-12 py-12 px-6 md:px-16 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
           <div className="w-full md:w-1/2 space-y-6">
             <span className="inline-block px-4 py-1.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs uppercase tracking-widest">
@@ -106,8 +96,8 @@ export function Home() {
             </div>
           </div>
         </div>
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-3xl hidden md:block"></div>
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-container/30 rounded-full blur-3xl hidden md:block"></div>
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-3xl hidden md:block" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-container/30 rounded-full blur-3xl hidden md:block" />
       </section>
 
       {/* Category Filter */}
@@ -120,7 +110,7 @@ export function Home() {
         >
           All Feed
         </button>
-        {categories.map((cat) => (
+        {categories.map((cat: any) => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.name)}
@@ -133,138 +123,149 @@ export function Home() {
         ))}
       </nav>
 
-      {isLoading ? (
-        <div className="py-20 text-center">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-on-surface-variant font-medium">Loading articles...</p>
-        </div>
-      ) : (
-        <>
-          {/* Featured Bento Section */}
-          {featuredPosts.length > 0 && (
+      {/* Featured Bento Section */}
+      <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Insights</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
+        {/* Large Featured Card */}
+        <div className="md:col-span-8 group relative rounded-3xl overflow-hidden bg-surface-container-lowest shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:shadow-xl transition-all duration-300 min-h-[400px] flex">
+          {isLoading ? (
+            <div className="w-full h-full bg-surface-container-low animate-pulse"></div>
+          ) : featuredPosts[0] ? (
             <>
-              <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Insights</h2>
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
-                {/* Large Featured Card */}
-                {featuredPosts[0] && (
-                  <div className="md:col-span-8 group relative rounded-3xl overflow-hidden bg-surface-container-lowest shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:shadow-xl transition-all duration-300">
-                    {featuredPosts[0].featured_image ? (
-                      <img
-                        className="w-full h-[350px] md:h-[500px] object-cover group-hover:scale-105 transition-transform duration-700"
-                        alt={featuredPosts[0].title}
-                        src={featuredPosts[0].featured_image}
-                      />
-                    ) : (
-                      <div className="w-full h-[350px] md:h-[500px] bg-gradient-to-br from-primary/20 to-primary-container/30 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[80px] text-primary/20">article</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6 md:p-12">
-                      <span className="inline-block self-start px-3 py-1 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs mb-4">
-                        {featuredPosts[0].category?.name || 'Featured'}
-                      </span>
-                      <h3 className="text-2xl md:text-4xl font-bold text-white mb-4 leading-tight">{featuredPosts[0].title}</h3>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <img
-                            className="w-10 h-10 rounded-full border-2 border-white"
-                            alt="author"
-                            src={featuredPosts[0].author?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${featuredPosts[0].author?.name || 'author'}`}
-                          />
-                          <span className="text-white/90 text-sm font-medium">
-                            {featuredPosts[0].author?.name || 'Author'} • {Math.ceil(featuredPosts[0].reading_time_seconds / 60)} min read
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Side Items */}
-                <div className="md:col-span-4 flex flex-col gap-6">
-                  {featuredPosts.slice(1, 3).map((post) => (
-                    <div key={post.id} className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:-translate-y-1 transition-all">
-                      <span className="text-primary font-bold text-xs uppercase tracking-tighter mb-2 block">{post.category?.name || 'Article'}</span>
-                      <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2">{post.title}</h4>
-                      <div className="flex items-center justify-between mt-4">
-                        <span className="text-slate-400 text-xs font-medium">{Math.ceil(post.reading_time_seconds / 60)} min read</span>
-                        <span className="text-xs text-on-surface-variant">{timeAgo(post.published_at)}</span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Upgrade CTA */}
-                  <div className="bg-emerald-900 text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between h-full relative overflow-hidden">
-                    <div>
-                      <span className="material-symbols-outlined text-4xl mb-4 text-tertiary-fixed-dim">verified_user</span>
-                      <h4 className="text-lg font-bold mb-2">Join the Elite Club</h4>
-                      <p className="text-sm opacity-80">Get access to premium high-paying tasks and executive insights.</p>
-                    </div>
-                    <Link to="/signup" className="mt-6 w-full py-3 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold rounded-xl active:scale-95 transition-transform relative z-10 text-center block">
-                      Get Started
-                    </Link>
-                    <div className="absolute -right-10 -bottom-10 opacity-10">
-                      <span className="material-symbols-outlined text-9xl">shield</span>
-                    </div>
+              {featuredPosts[0].featured_image ? (
+                <img
+                  className="w-full object-cover group-hover:scale-105 transition-transform duration-700 h-full absolute inset-0"
+                  alt={featuredPosts[0].title}
+                  src={featuredPosts[0].featured_image}
+                />
+              ) : (
+                <div className="w-full bg-gradient-to-br from-primary/20 to-primary-container/30 flex items-center justify-center h-full absolute inset-0">
+                  <span className="material-symbols-outlined text-[80px] text-primary/20">article</span>
+                </div>
+              )}
+              <div className="relative z-10 w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6 md:p-12 mt-auto min-h-[60%]">
+                <span className="inline-block self-start px-3 py-1 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs mb-4">
+                  {featuredPosts[0].category?.name || 'Featured'}
+                </span>
+                <h3 className="text-2xl md:text-4xl font-bold text-white mb-4 leading-tight">{featuredPosts[0].title}</h3>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <img
+                      className="w-10 h-10 rounded-full border-2 border-white bg-white"
+                      alt="author"
+                      src={featuredPosts[0].author?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${featuredPosts[0].author?.name || 'Author'}`}
+                    />
+                    <span className="text-white/90 text-sm font-medium">
+                      {featuredPosts[0].author?.name || 'Author'} • {Math.ceil(featuredPosts[0].reading_time_seconds / 60)} min read
+                    </span>
                   </div>
                 </div>
               </div>
             </>
-          )}
-
-          {/* Latest Posts Feed */}
-          <section className="mb-20">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold font-headline text-on-primary-fixed-variant">Latest for You</h2>
+          ) : (
+            <div className="w-full flex items-center justify-center flex-col gap-4">
+              <span className="material-symbols-outlined text-[64px] text-on-surface-variant/30">auto_awesome</span>
+              <p className="font-bold text-on-surface-variant">Featured articles will appear here.</p>
             </div>
-            {filteredLatest.length === 0 ? (
-              <div className="py-16 text-center bg-surface-container-lowest rounded-3xl">
-                <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">article</span>
-                <p className="text-on-surface-variant font-medium">No articles found in this category yet.</p>
+          )}
+        </div>
+
+        {/* Side Items */}
+        <div className="md:col-span-4 flex flex-col gap-6">
+          {isLoading ? (
+            <>
+              <div className="bg-surface-container-low p-6 rounded-3xl h-32 animate-pulse"></div>
+              <div className="bg-surface-container-low p-6 rounded-3xl h-32 animate-pulse"></div>
+            </>
+          ) : featuredPosts.length > 1 ? (
+             featuredPosts.slice(1, 3).map((post) => (
+              <div key={post.id} className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:-translate-y-1 transition-all">
+                <span className="text-primary font-bold text-xs uppercase tracking-tighter mb-2 block">{post.category?.name || 'Article'}</span>
+                <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2">{post.title}</h4>
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-slate-400 text-xs font-medium">{Math.ceil(post.reading_time_seconds / 60)} min read</span>
+                  <span className="text-xs text-on-surface-variant">{timeAgo(post.published_at)}</span>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {filteredLatest.map((post) => (
-                  <div key={post.id} className="bg-surface-container-lowest p-5 rounded-3xl flex flex-col md:flex-row items-center gap-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-transparent hover:border-emerald-100 transition-all">
-                    <div className="w-full md:w-48 h-40 md:h-32 flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container-highest">
-                      {post.featured_image ? (
-                        <img className="w-full h-full object-cover" alt={post.title} src={post.featured_image} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-4xl text-on-surface-variant/30">article</span>
-                        </div>
-                      )}
+            ))
+          ) : null}
+
+          {/* Upgrade CTA */}
+          <div className="bg-emerald-900 text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between h-full relative overflow-hidden">
+            <div>
+              <span className="material-symbols-outlined text-4xl mb-4 text-tertiary-fixed-dim">verified_user</span>
+              <h4 className="text-lg font-bold mb-2">Join the Elite Club</h4>
+              <p className="text-sm opacity-80">Get access to premium high-paying tasks and executive insights.</p>
+            </div>
+            <Link to="/signup" className="mt-6 w-full py-3 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold rounded-xl active:scale-95 transition-transform relative z-10 text-center block">
+              Get Started
+            </Link>
+            <div className="absolute -right-10 -bottom-10 opacity-10">
+              <span className="material-symbols-outlined text-9xl">shield</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Latest Posts Feed */}
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold font-headline text-on-primary-fixed-variant">Latest for You</h2>
+        </div>
+        
+        {isLoading ? (
+          <div className="space-y-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-surface-container-low h-32 w-full rounded-3xl animate-pulse" />
+            ))}
+          </div>
+        ) : filteredLatest.length === 0 ? (
+          <div className="py-16 text-center bg-surface-container-lowest rounded-3xl shadow-sm border border-surface-container">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">article</span>
+            <p className="text-on-surface-variant font-medium">No articles found right now. Check back later!</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {filteredLatest.map((post) => (
+              <div key={post.id} className="bg-surface-container-lowest p-5 rounded-3xl flex flex-col md:flex-row items-center gap-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-transparent hover:border-emerald-100 transition-all">
+                <div className="w-full md:w-48 h-40 md:h-32 flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container-highest">
+                  {post.featured_image ? (
+                    <img className="w-full h-full object-cover" alt={post.title} src={post.featured_image} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="material-symbols-outlined text-4xl text-on-surface-variant/30">article</span>
                     </div>
-                    <div className="flex-grow w-full">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-surface-container-high rounded-full text-[10px] font-bold text-slate-500 uppercase">
-                          {post.category?.name || 'Article'}
-                        </span>
-                        <span className="text-slate-400 text-xs">• {timeAgo(post.published_at)}</span>
-                      </div>
-                      <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
-                        {post.title}
-                      </h3>
-                      {post.excerpt && (
-                        <p className="text-slate-500 text-sm mt-1 line-clamp-2 md:line-clamp-1">{post.excerpt}</p>
-                      )}
-                    </div>
-                    <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-between gap-4 border-t md:border-t-0 md:border-l border-surface-container pt-4 md:pt-0 md:pl-8">
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400 font-medium md:text-right text-left">Read Time</p>
-                        <p className="text-lg font-black text-emerald-700">{Math.ceil(post.reading_time_seconds / 60)}m</p>
-                      </div>
-                      <Link to="/signup" className="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold text-sm shadow-md active:scale-95 transition-all w-full md:w-auto text-center">
-                        Read Now
-                      </Link>
-                    </div>
+                  )}
+                </div>
+                <div className="flex-grow w-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 bg-surface-container-high rounded-full text-[10px] font-bold text-slate-500 uppercase">
+                      {post.category?.name || 'Article'}
+                    </span>
+                    <span className="text-slate-400 text-xs">• {timeAgo(post.published_at)}</span>
                   </div>
-                ))}
+                  <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
+                    {post.title}
+                  </h3>
+                  {post.excerpt && (
+                    <p className="text-slate-500 text-sm mt-1 line-clamp-2 md:line-clamp-1">{post.excerpt}</p>
+                  )}
+                </div>
+                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-between gap-4 border-t md:border-t-0 md:border-l border-surface-container pt-4 md:pt-0 md:pl-8">
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400 font-medium md:text-right text-left">Read Time</p>
+                    <p className="text-lg font-black text-emerald-700">{Math.ceil(post.reading_time_seconds / 60)}m</p>
+                  </div>
+                  <Link to="/signup" className="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold text-sm shadow-md active:scale-95 transition-all w-full md:w-auto text-center">
+                    Read Now
+                  </Link>
+                </div>
               </div>
-            )}
-          </section>
-        </>
-      )}
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
