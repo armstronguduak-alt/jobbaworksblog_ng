@@ -5,12 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 export function Swap() {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number>(0);
+  const [usdtBalance, setUsdtBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [swapAmount, setSwapAmount] = useState<string>('50000');
+  const [swapAmount, setSwapAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Hardcoded real-time simulation rate
   const EXCHANGE_RATE = 1600;
   const FEE_PERCENT = 0.005;
 
@@ -20,16 +20,42 @@ export function Swap() {
     }
   }, [user]);
 
+  // Real-time subscription for balance
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('swap-wallet-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.new) {
+            setBalance((payload.new as any).balance || 0);
+            setUsdtBalance((payload.new as any).usdt_balance || 0);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const fetchBalance = async (userId: string) => {
     try {
       setIsLoading(true);
       const { data } = await supabase
         .from('wallet_balances')
-        .select('balance')
+        .select('balance, usdt_balance')
         .eq('user_id', userId)
         .single();
-        
-      if (data) setBalance(data.balance);
+
+      if (data) {
+        setBalance(data.balance);
+        setUsdtBalance(data.usdt_balance || 0);
+      }
     } catch (err) {
       console.error("Error fetching balance:", err);
     } finally {
@@ -38,7 +64,6 @@ export function Swap() {
   };
 
   const numAmount = Number(swapAmount) || 0;
-  const expectedUsd = numAmount / EXCHANGE_RATE;
   const fee = numAmount * FEE_PERCENT;
   const actualUsd = (numAmount - fee) / EXCHANGE_RATE;
 
@@ -58,7 +83,7 @@ export function Swap() {
 
     setIsSubmitting(true);
     setMessage('');
-    
+
     setTimeout(() => {
       setMessage('Swap feature is temporarily disabled for maintenance.');
       setIsSubmitting(false);
@@ -70,9 +95,15 @@ export function Swap() {
       <main className="pt-8 pb-32 px-4 md:px-6 max-w-2xl mx-auto space-y-8">
         {/* Page Title */}
         <div className="space-y-2">
-          <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-primary-fixed-variant">
-            Currency Swap
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-primary-fixed-variant">
+              Currency Swap
+            </h2>
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              Live
+            </span>
+          </div>
           <p className="text-on-surface-variant leading-relaxed">
             Instantly convert your earnings between local and international currencies with the best market rates.
           </p>
@@ -81,18 +112,23 @@ export function Swap() {
         {/* Value Shield: Balance Display */}
         <section className="relative overflow-hidden bg-primary p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)]">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-          <div className="relative z-10 space-y-1">
-            <span className="text-primary-fixed text-sm font-medium tracking-wide uppercase">Available Balance</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-headline font-black text-on-primary">
-                ₦{isLoading ? '...' : balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+          <div className="relative z-10 space-y-4">
+            <div>
+              <span className="text-primary-fixed text-sm font-medium tracking-wide uppercase">Naira Balance</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-headline font-black text-on-primary">
+                  ₦{isLoading ? '...' : balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
-            <div className="pt-4 flex items-center gap-2">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 flex items-center justify-between">
+              <div>
+                <span className="text-white/60 text-xs font-medium">USDT Balance</span>
+                <p className="text-white font-bold">${usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
               <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>
                 verified_user
               </span>
-              <p className="text-primary-fixed text-xs">Secured by JobbaVault Technology</p>
             </div>
           </div>
         </section>
@@ -155,7 +191,7 @@ export function Swap() {
             </div>
           </div>
 
-          {/* Real-time Rate Display */}
+          {/* Live Rate Display */}
           <div className="bg-surface-container rounded-2xl p-4 flex items-center justify-between mt-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-tertiary-fixed-dim/20 flex items-center justify-center">
@@ -167,7 +203,10 @@ export function Swap() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Live Market</p>
+              <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider flex items-center gap-1 justify-end">
+                <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                Live Market
+              </p>
               <p className="text-xs text-outline">Updated recently</p>
             </div>
           </div>

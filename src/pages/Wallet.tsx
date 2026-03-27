@@ -18,6 +18,40 @@ export function Wallet() {
     }
   }, [user]);
 
+  // Real-time subscriptions for balance and transactions
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const balanceChannel = supabase
+      .channel('wallet-balance-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.new) {
+            setBalance((payload.new as any).balance || 0);
+          }
+        }
+      )
+      .subscribe();
+
+    const txChannel = supabase
+      .channel('wallet-tx-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchWalletData(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(balanceChannel);
+      supabase.removeChannel(txChannel);
+    };
+  }, [user]);
+
   const fetchWalletData = async (userId: string) => {
     try {
       setIsLoading(true);

@@ -1,41 +1,164 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  featured_image: string | null;
+  status: string;
+  word_count: number;
+  reading_time_seconds: number;
+  views?: number;
+  reads?: number;
+  earnings?: number;
+  created_at: string;
+  published_at: string | null;
+}
 
 export function Articles() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('All');
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const tabs = ['All Articles', 'Published', 'Drafts'];
 
+  useEffect(() => {
+    if (user?.id) {
+      fetchArticles(user.id);
+    }
+  }, [user]);
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('articles-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'posts',
+          filter: `author_user_id=eq.${user.id}`,
+        },
+        () => {
+          // Re-fetch on any change
+          fetchArticles(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const fetchArticles = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('id, title, slug, excerpt, featured_image, status, word_count, reading_time_seconds, views, reads, earnings, created_at, published_at')
+        .eq('author_user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setArticles(data as Article[]);
+      }
+    } catch (err) {
+      console.error('Error fetching articles:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Filter by tab + search
+  const filteredArticles = articles.filter((a) => {
+    const matchesTab =
+      activeTab === 'All' || activeTab === 'All Articles'
+        ? true
+        : activeTab === 'Published'
+        ? a.status === 'approved'
+        : a.status === 'draft';
+
+    const matchesSearch = searchQuery
+      ? a.title.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+
+    return matchesTab && matchesSearch;
+  });
+
+  const totalViews = articles.reduce((sum, a) => sum + (a.views || 0), 0);
+  const totalEarnings = articles.reduce((sum, a) => sum + (a.earnings || 0), 0);
+  const publishedCount = articles.filter((a) => a.status === 'approved').length;
+
+  const formatNumber = (n: number) =>
+    n >= 1_000_000
+      ? (n / 1_000_000).toFixed(1) + 'M'
+      : n >= 1_000
+      ? (n / 1_000).toFixed(1) + 'k'
+      : n.toString();
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return { label: 'Published', bg: 'bg-emerald-100 text-emerald-800' };
+      case 'pending':
+        return { label: 'Pending', bg: 'bg-amber-100 text-amber-800' };
+      case 'rejected':
+        return { label: 'Rejected', bg: 'bg-rose-100 text-rose-800' };
+      default:
+        return { label: 'Draft', bg: 'bg-surface-container-highest text-on-surface-variant' };
+    }
+  };
+
+  const timeAgo = (date: string) => {
+    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return new Date(date).toLocaleDateString();
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-32 space-y-8 w-full">
-      {/* Summary Analytics Header (Bento Style) */}
+      {/* Summary Analytics Header */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-primary p-6 md:p-8 rounded-3xl relative overflow-hidden shadow-lg group">
           <div className="absolute -right-4 -bottom-4 opacity-10 transition-transform group-hover:scale-110 duration-500">
             <span className="material-symbols-outlined text-[80px] md:text-[120px]">description</span>
           </div>
-          <p className="text-primary-fixed text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Articles</p>
-          <h2 className="text-white text-3xl md:text-4xl font-black font-headline">1,284</h2>
+          <p className="text-primary-fixed text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">My Articles</p>
+          <h2 className="text-white text-3xl md:text-4xl font-black font-headline">{articles.length}</h2>
           <div className="mt-4 flex items-center gap-2 text-tertiary-fixed text-xs md:text-sm">
-            <span className="material-symbols-outlined text-sm">trending_up</span>
-            <span>+12% this month</span>
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            <span>{publishedCount} Published</span>
           </div>
         </div>
-        
+
         <div className="bg-surface-container-lowest p-6 md:p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-emerald-100">
           <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Views</p>
-          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">42.8M</h2>
+          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">{formatNumber(totalViews)}</h2>
           <div className="mt-4 flex items-center gap-2 text-primary font-medium text-xs md:text-sm">
             <span className="material-symbols-outlined text-sm">visibility</span>
-            <span>Global reach active</span>
+            <span>Across all articles</span>
           </div>
         </div>
-        
+
         <div className="bg-surface-container-lowest p-6 md:p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-emerald-100">
-          <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Paid Out</p>
-          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">₦14.2M</h2>
+          <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Earned</p>
+          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">₦{totalEarnings.toLocaleString()}</h2>
           <div className="mt-4 flex items-center gap-2 text-tertiary font-medium text-xs md:text-sm">
             <span className="material-symbols-outlined text-sm">payments</span>
-            <span>Verified payouts</span>
+            <span>From article reads</span>
           </div>
         </div>
       </section>
@@ -45,8 +168,10 @@ export function Articles() {
         <div className="w-full lg:w-96 relative">
           <input
             className="w-full bg-surface-container-low border-none rounded-2xl py-3 md:py-4 pl-12 pr-4 focus:ring-2 focus:ring-primary-container/40 transition-all text-on-surface placeholder:text-outline text-sm md:text-base"
-            placeholder="Search by title or author..." 
-            type="text" 
+            placeholder="Search by title..."
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
         </div>
@@ -64,170 +189,109 @@ export function Articles() {
               {tab}
             </button>
           ))}
-          <button className="bg-surface-container-low text-on-surface-variant p-2 md:p-2.5 rounded-xl border border-outline-variant/20 flex-shrink-0">
-            <span className="material-symbols-outlined text-sm md:text-base">filter_list</span>
-          </button>
         </div>
       </section>
 
       {/* Articles List/Table */}
       <div className="bg-surface-container-lowest rounded-3xl overflow-hidden shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead>
-              <tr className="bg-surface-container-low/50">
-                <th className="px-6 md:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Title & Author</th>
-                <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Views</th>
-                <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Rewards</th>
-                <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Status</th>
-                <th className="px-6 md:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container">
-              {/* Article Row 1 */}
-              <tr className="group hover:bg-surface-container-low transition-colors">
-                <td className="px-6 md:px-8 py-4 md:py-6">
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-secondary-container overflow-hidden shrink-0">
-                      <img 
-                        alt="Article Thumbnail"
-                        className="w-full h-full object-cover"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6xAKC2acUbcqWUR_ozZbVxK9_sDWq05gcSMvS0boUlrcx39acuVdks4-YELr2C2pHNJ4-ShuKRb8KjNQNfNg0LOVWMhIqO16OBngf70xhfpVATTYE1nmyJefidrnVZ9eyrZNb-rotWP4CqBVqZcPatKziOJ8USdFy8KdF-23WVr9gfqB2zLJvW_619oVAZPtSNyV24xH2-LrBS-BFjXQfsl53qlUSffvJJ5bmoM-jX60brpbn6QhKBThz7PHLEguCMBTbS6Ar9P8" 
-                      />
-                    </div>
-                    <div>
-                      <p className="font-bold text-on-surface text-sm md:text-base line-clamp-1">Maximizing Freelance Earnings in Lagos</p>
-                      <p className="text-xs md:text-sm text-outline">by Adebayo K. • 2h ago</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-on-surface font-semibold text-sm md:text-base">124.5k</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-tertiary font-bold text-sm md:text-base">₦45,000</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="bg-emerald-100 text-emerald-800 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 md:px-3 py-1 rounded-full">Published</span>
-                </td>
-                <td className="px-6 md:px-8 py-4 md:py-6 text-right">
-                  <div className="flex items-center justify-end gap-1 md:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">edit</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">analytics</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-error transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">delete</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              
-              {/* Article Row 2 */}
-              <tr className="group hover:bg-surface-container-low transition-colors">
-                <td className="px-6 md:px-8 py-4 md:py-6">
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-secondary-container overflow-hidden shrink-0">
-                      <img 
-                        alt="Article Thumbnail"
-                        className="w-full h-full object-cover"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0aKr043eC1aI8GN_0cujbOPluK-03d0yODp1HpNbZ3Sn7KCFUSHKl57Rw0mS-FUKLG9o35gQnlzMmBmM8NACQXivbetYl3ATdPAXoy-YTTe8uR9BBOK89whUoQ8AAeOayP9BG0y7Mqqb1vS7Nq8dt_VeAuUFLmMTkGgsJX3wwBRuKpnWme_ZNYEzW9ikQ8EsxzW5O-y8Qvw1GdAxuiR5IcM_QTkb3LJA9BpNX5Rln4vPA5aeou4NU3J-__riv9xhFMIYWV9zn4_4" 
-                      />
-                    </div>
-                    <div>
-                      <p className="font-bold text-on-surface text-sm md:text-base line-clamp-1">The Future of Remote Work in Nigeria</p>
-                      <p className="text-xs md:text-sm text-outline">by Chioma O. • 1d ago</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-on-surface font-semibold text-sm md:text-base">89.2k</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-tertiary font-bold text-sm md:text-base">₦22,500</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="bg-emerald-100 text-emerald-800 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 md:px-3 py-1 rounded-full">Published</span>
-                </td>
-                <td className="px-6 md:px-8 py-4 md:py-6 text-right">
-                  <div className="flex items-center justify-end gap-1 md:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">edit</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">analytics</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-error transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">delete</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              
-              {/* Article Row 3 (Draft) */}
-              <tr className="group hover:bg-surface-container-low transition-colors">
-                <td className="px-6 md:px-8 py-4 md:py-6">
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-surface-container-highest overflow-hidden shrink-0 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-outline">image</span>
-                    </div>
-                    <div>
-                      <p className="font-bold text-on-surface text-sm md:text-base line-clamp-1">Top 10 Tech Hubs to Watch in 2024</p>
-                      <p className="text-xs md:text-sm text-outline">by Tunde S. • Draft</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-outline font-semibold text-sm md:text-base">—</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="text-outline font-bold text-sm md:text-base">₦0</span>
-                </td>
-                <td className="px-4 md:px-6 py-4 md:py-6">
-                  <span className="bg-surface-container-highest text-on-surface-variant text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 md:px-3 py-1 rounded-full">Draft</span>
-                </td>
-                <td className="px-6 md:px-8 py-4 md:py-6 text-right">
-                  <div className="flex items-center justify-end gap-1 md:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">edit</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">rocket_launch</span>
-                    </button>
-                    <button className="p-1.5 md:p-2 hover:bg-white rounded-lg text-outline hover:text-error transition-colors">
-                      <span className="material-symbols-outlined text-sm md:text-base">delete</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination / Footer */}
-        <div className="px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row items-center justify-between bg-surface-container-low/30 gap-4">
-          <p className="text-xs md:text-sm text-outline">Showing 1 to 10 of 1,284 articles</p>
-          <div className="flex items-center gap-1 md:gap-2">
-            <button className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-outline hover:text-primary">
-              <span className="material-symbols-outlined text-sm md:text-base">chevron_left</span>
-            </button>
-            <button className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-primary text-white font-bold shadow-md shadow-primary/20 text-sm md:text-base">1</button>
-            <button className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-on-surface font-bold hover:bg-emerald-50 transition-colors text-sm md:text-base">2</button>
-            <button className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-outline hover:text-primary">
-              <span className="material-symbols-outlined text-sm md:text-base">chevron_right</span>
-            </button>
+        {isLoading ? (
+          <div className="py-20 text-center">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-on-surface-variant font-medium">Loading your articles...</p>
           </div>
-        </div>
+        ) : filteredArticles.length === 0 ? (
+          <div className="py-20 text-center space-y-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">article</span>
+            <p className="text-on-surface-variant font-medium">
+              {searchQuery ? 'No articles match your search.' : "You haven't written any articles yet."}
+            </p>
+            <Link
+              to="/create-article"
+              className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm mt-2 hover:bg-emerald-800 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              Create Your First Article
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 md:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Title</th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Views</th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Earnings</th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Status</th>
+                    <th className="px-6 md:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container">
+                  {filteredArticles.map((article) => {
+                    const status = getStatusLabel(article.status);
+                    return (
+                      <tr key={article.id} className="group hover:bg-surface-container-low transition-colors">
+                        <td className="px-6 md:px-8 py-4 md:py-6">
+                          <div className="flex items-center gap-3 md:gap-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-secondary-container overflow-hidden shrink-0 flex items-center justify-center">
+                              {article.featured_image ? (
+                                <img alt="Thumbnail" className="w-full h-full object-cover" src={article.featured_image} />
+                              ) : (
+                                <span className="material-symbols-outlined text-outline">image</span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-on-surface text-sm md:text-base line-clamp-1">{article.title}</p>
+                              <p className="text-xs md:text-sm text-outline">
+                                {article.word_count} words • {Math.ceil(article.reading_time_seconds / 60)}m read
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 md:py-6">
+                          <span className="text-on-surface font-semibold text-sm md:text-base">
+                            {article.status === 'draft' ? '—' : formatNumber(article.views || 0)}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 md:py-6">
+                          <span className={`font-bold text-sm md:text-base ${(article.earnings || 0) > 0 ? 'text-tertiary' : 'text-outline'}`}>
+                            ₦{(article.earnings || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 md:py-6">
+                          <span className={`${status.bg} text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 md:px-3 py-1 rounded-full`}>
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="px-6 md:px-8 py-4 md:py-6 text-right">
+                          <span className="text-xs md:text-sm text-outline font-medium">{timeAgo(article.created_at)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row items-center justify-between bg-surface-container-low/30 gap-4">
+              <p className="text-xs md:text-sm text-outline">
+                Showing {filteredArticles.length} of {articles.length} articles
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Floating Action Button (FAB) relative position wrapper to not obstruct content */}
+      {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6 z-[60] pt-8">
-        <button className="flex items-center gap-2 md:gap-3 bg-gradient-to-br from-primary to-primary-container text-on-primary-container px-4 md:px-6 py-3 md:py-4 rounded-full shadow-[0px_20px_40px_rgba(0,33,16,0.25)] hover:scale-105 active:scale-95 transition-all duration-300">
+        <Link
+          to="/create-article"
+          className="flex items-center gap-2 md:gap-3 bg-gradient-to-br from-primary to-primary-container text-on-primary-container px-4 md:px-6 py-3 md:py-4 rounded-full shadow-[0px_20px_40px_rgba(0,33,16,0.25)] hover:scale-105 active:scale-95 transition-all duration-300"
+        >
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
           <span className="font-headline font-bold text-xs md:text-sm tracking-tight hidden sm:inline">Create New Article</span>
-        </button>
+        </Link>
       </div>
     </main>
   );

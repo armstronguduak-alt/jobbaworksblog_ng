@@ -7,27 +7,43 @@ export function Referral() {
   const [isLoading, setIsLoading] = useState(true);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [earnings, setEarnings] = useState<number>(0);
+  const [pendingBonus, setPendingBonus] = useState<number>(0);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
 
+  // Fetch initial data & set up real-time subscriptions
   useEffect(() => {
+    if (!user) return;
+
     async function loadReferralData() {
-      if (!user) return;
       setIsLoading(true);
 
       try {
-        // Fetch wallet balance
+        // Fetch wallet balance for referral earnings
         const { data: wallet } = await supabase
           .from('wallet_balances')
-          .select('referral_earnings')
-          .eq('user_id', user.id)
+          .select('referral_earnings, balance')
+          .eq('user_id', user!.id)
           .single();
 
         if (wallet) {
           setEarnings(wallet.referral_earnings || 0);
         }
 
+        // Fetch pending referral transactions (pending bonus)
+        const { data: pendingTx } = await supabase
+          .from('wallet_transactions')
+          .select('amount')
+          .eq('user_id', user!.id)
+          .eq('type', 'referral_bonus')
+          .eq('status', 'pending');
+
+        if (pendingTx) {
+          const total = pendingTx.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+          setPendingBonus(total);
+        }
+
         // Fetch referred users & their details
-        // Note: Doing an explicit join using standard supabase syntax
         const { data: referralData, error } = await supabase
           .from('referrals')
           .select(`
@@ -39,7 +55,7 @@ export function Referral() {
               status
             )
           `)
-          .eq('referrer_user_id', user.id)
+          .eq('referrer_user_id', user!.id)
           .order('created_at', { ascending: false });
 
         if (!error && referralData) {
@@ -53,6 +69,90 @@ export function Referral() {
     }
 
     loadReferralData();
+
+    // ─── REAL-TIME SUBSCRIPTIONS ─────────────────────────────────
+    // 1. Listen for new referrals
+    const referralsChannel = supabase
+      .channel('referrals-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'referrals',
+          filter: `referrer_user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          // When a new referral comes in, fetch the profile info
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('name, avatar_url, status')
+            .eq('id', payload.new.referred_user_id)
+            .single();
+
+          const newReferral = {
+            ...payload.new,
+            profiles: profileData || {},
+          };
+
+          setReferrals((prev) => [newReferral, ...prev]);
+        }
+      )
+      .subscribe();
+
+    // 2. Listen for wallet balance changes (earnings updates)
+    const walletChannel = supabase
+      .channel('wallet-referral-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallet_balances',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new && typeof (payload.new as any).referral_earnings === 'number') {
+            setEarnings((payload.new as any).referral_earnings);
+          }
+        }
+      )
+      .subscribe();
+
+    // 3. Listen for referral bonus transaction updates
+    const txChannel = supabase
+      .channel('referral-tx-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async () => {
+          // Re-fetch pending bonus on any transaction change
+          const { data: pendingTx } = await supabase
+            .from('wallet_transactions')
+            .select('amount')
+            .eq('user_id', user!.id)
+            .eq('type', 'referral_bonus')
+            .eq('status', 'pending');
+
+          if (pendingTx) {
+            const total = pendingTx.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+            setPendingBonus(total);
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup
+    return () => {
+      supabase.removeChannel(referralsChannel);
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(txChannel);
+    };
   }, [user]);
 
   const referralCode = profile?.referral_code || 'Loading...';
@@ -89,8 +189,28 @@ export function Referral() {
     }
   };
 
+  // Filter referrals by tab
+  const filteredReferrals = referrals.filter((ref: any) => {
+    if (activeTab === 'all') return true;
+    const profileData = ref.profiles?.[0] || ref.profiles || {};
+    const status = (profileData.status || 'active').toLowerCase();
+    return activeTab === 'active' ? status === 'active' : status !== 'active';
+  });
+
+  const activeCount = referrals.filter((ref: any) => {
+    const p = ref.profiles?.[0] || ref.profiles || {};
+    return (p.status || 'active').toLowerCase() === 'active';
+  }).length;
+
   if (isLoading) {
-     return <div className="text-center font-medium p-10">Loading Referral Data...</div>;
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          <p className="text-on-surface-variant font-semibold text-sm">Loading Referral Data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -104,9 +224,13 @@ export function Referral() {
               Refer your friends to JobbaWorks and earn a massive{' '}
               <span className="text-tertiary-fixed-dim font-bold">25% commission</span> every time they upgrade.
             </p>
-            <div className="pt-4">
+            <div className="pt-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold uppercase tracking-wider">
                 Unlimited Earnings
+              </span>
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/15 backdrop-blur-sm rounded-full text-xs font-bold uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                Live Data
               </span>
             </div>
           </div>
@@ -128,32 +252,40 @@ export function Referral() {
               </span>
               <button 
                 onClick={copyToClipboard}
-                className="flex items-center gap-2 text-primary font-bold hover:bg-primary-fixed-dim/10 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                className={`flex items-center gap-2 font-bold px-3 py-1.5 rounded-lg transition-all active:scale-95 ${
+                  copied ? 'text-emerald-600 bg-emerald-50' : 'text-primary hover:bg-primary-fixed-dim/10'
+                }`}
               >
                 <span className="material-symbols-outlined text-sm">{copied ? 'check' : 'content_copy'}</span>
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
           </div>
           <div className="space-y-3 pt-2">
             <p className="text-center text-xs text-on-surface-variant font-medium">Share via social media</p>
             <div className="flex justify-center gap-4">
-              <button onClick={shareOnWhatsApp} className="w-12 h-12 rounded-full bg-[#25D366]/10 flex items-center justify-center text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all shadow-sm">
+              <button onClick={shareOnWhatsApp} className="w-12 h-12 rounded-full bg-[#25D366]/10 flex items-center justify-center text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all shadow-sm hover:shadow-md hover:scale-105">
                 <span className="material-symbols-outlined">chat</span>
               </button>
-              <button onClick={shareOnTwitter} className="w-12 h-12 rounded-full bg-[#1DA1F2]/10 flex items-center justify-center text-[#1DA1F2] hover:bg-[#1DA1F2] hover:text-white transition-all shadow-sm">
+              <button onClick={shareOnTwitter} className="w-12 h-12 rounded-full bg-[#1DA1F2]/10 flex items-center justify-center text-[#1DA1F2] hover:bg-[#1DA1F2] hover:text-white transition-all shadow-sm hover:shadow-md hover:scale-105">
                 <span className="material-symbols-outlined">share</span>
               </button>
-              <button onClick={genericShare} className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-on-surface hover:text-white transition-all shadow-sm">
+              <button onClick={genericShare} className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-on-surface hover:text-white transition-all shadow-sm hover:shadow-md hover:scale-105">
                 <span className="material-symbols-outlined">more_horiz</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* Statistics Bento Grid */}
+        {/* Statistics Bento Grid — LIVE */}
         <section className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-transparent">
+          <div className="col-span-2 bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-transparent relative overflow-hidden">
+            <div className="absolute top-2 right-3">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-widest">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                Live
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
                 <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -171,13 +303,24 @@ export function Referral() {
           <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Active Referrals</p>
             <div className="flex items-baseline gap-1 pt-1">
-              <span className="text-2xl font-black text-emerald-900 font-headline">{referrals.length}</span>
+              <span className="text-2xl font-black text-emerald-900 font-headline">{activeCount}</span>
+              <span className="text-xs text-on-surface-variant font-medium">/ {referrals.length} total</span>
             </div>
           </div>
-          <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20 opacity-60 pointer-events-none">
+          <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20 relative overflow-hidden">
+            {pendingBonus > 0 && (
+              <div className="absolute top-2 right-3">
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 uppercase tracking-widest">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Pending
+                </span>
+              </div>
+            )}
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Pending Bonus</p>
             <div className="flex items-baseline gap-1 pt-1">
-              <span className="text-2xl font-black text-on-surface-variant font-headline">₦0.00</span>
+              <span className={`text-2xl font-black font-headline ${pendingBonus > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>
+                ₦{pendingBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </section>
@@ -222,37 +365,70 @@ export function Referral() {
           </div>
         </section>
 
-        {/* Referral List */}
+        {/* Referral List — with tabs */}
         <section className="space-y-4 pb-4">
           <div className="flex justify-between items-center px-1">
             <h3 className="font-headline font-bold text-lg text-emerald-900">Your Referrals</h3>
+            <div className="flex gap-1 bg-surface-container rounded-full p-1">
+              {(['all', 'active', 'inactive'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                    activeTab === tab
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface-variant hover:bg-surface-container-highest'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-3">
-            {referrals.length === 0 ? (
+            {filteredReferrals.length === 0 ? (
                <div className="text-center bg-surface-container-lowest p-8 border border-dashed border-outline-variant/30 rounded-2xl">
-                 <p className="text-on-surface-variant font-medium mb-1">You haven't referred anyone yet.</p>
+                 <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">group_off</span>
+                 <p className="text-on-surface-variant font-medium mb-1">
+                   {activeTab === 'all'
+                     ? "You haven't referred anyone yet."
+                     : `No ${activeTab} referrals found.`}
+                 </p>
                  <p className="text-xs text-on-surface-variant">Share your link above to start earning!</p>
                </div>
             ) : (
-              referrals.map((ref: any, index: number) => {
+              filteredReferrals.map((ref: any, index: number) => {
                 const profileData = ref.profiles?.[0] || ref.profiles || {};
                 const joinedDate = new Date(ref.created_at).toLocaleDateString();
+                const isActive = (profileData.status || 'active').toLowerCase() === 'active';
                 
                 return (
-                  <div key={index} className="bg-surface-container-lowest p-4 rounded-2xl flex items-center justify-between border border-surface-container-highest/20 shadow-sm">
+                  <div
+                    key={ref.referred_user_id || index}
+                    className="bg-surface-container-lowest p-4 rounded-2xl flex items-center justify-between border border-surface-container-highest/20 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-container border border-surface-container-highest">
-                        <img
-                          alt="Referral avatar"
-                          className="w-full h-full object-cover"
-                          src={profileData.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profileData.name || 'user'}`}
-                        />
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-container border border-surface-container-highest">
+                          <img
+                            alt="Referral avatar"
+                            className="w-full h-full object-cover"
+                            src={profileData.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profileData.name || 'user'}`}
+                          />
+                        </div>
+                        {/* Status indicator dot */}
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-container-lowest ${
+                          isActive ? 'bg-emerald-500' : 'bg-gray-400'
+                        }`}></span>
                       </div>
                       <div>
                         <p className="font-bold text-sm text-on-surface">{profileData.name || 'Unknown User'}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>
-                          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tight">Status: {profileData.status || 'Active'}</span>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full ${
+                            isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
                         </div>
                       </div>
                     </div>

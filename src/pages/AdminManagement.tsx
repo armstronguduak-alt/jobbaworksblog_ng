@@ -1,6 +1,117 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export function AdminManagement() {
+  const { isAdmin, isLoading: authLoading } = useAuth();
+  
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [pendingWithdrawalsSum, setPendingWithdrawalsSum] = useState(0);
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
+  const [activePostsCount, setActivePostsCount] = useState(0);
+  const [recentWithdrawals, setRecentWithdrawals] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAdminStats();
+    }
+  }, [isAdmin]);
+
+  // Real-time channels
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const txChannel = supabase
+      .channel('admin-tx-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
+        fetchAdminStats();
+      })
+      .subscribe();
+
+    const usersChannel = supabase
+      .channel('admin-users-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchAdminStats();
+      })
+      .subscribe();
+
+    const postsChannel = supabase
+      .channel('admin-posts-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        fetchAdminStats();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(txChannel);
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(postsChannel);
+    };
+  }, [isAdmin]);
+
+  async function fetchAdminStats() {
+    setIsLoading(true);
+    try {
+      // Fetch Total Users
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      if (usersCount !== null) setTotalUsers(usersCount);
+
+      // Fetch Pending Withdrawals sum & count
+      const { data: withdrawals } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .eq('type', 'withdrawal')
+        .eq('status', 'pending');
+      
+      if (withdrawals) {
+        setPendingWithdrawalsCount(withdrawals.length);
+        const sum = withdrawals.reduce((acc, tx) => acc + Number(tx.amount), 0);
+        setPendingWithdrawalsSum(sum);
+      }
+
+      // Fetch Total Active Posts
+      const { count: postsCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved');
+      if (postsCount !== null) setActivePostsCount(postsCount);
+
+      // Fetch Recent Withdrawals (Pending) with Profiles
+      const { data: recentWth } = await supabase
+        .from('wallet_transactions')
+        .select(`
+          id, amount, status, created_at,
+          profiles:user_id (name)
+        `)
+        .eq('type', 'withdrawal')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (recentWth) setRecentWithdrawals(recentWth);
+
+    } catch (err) {
+      console.error("Error fetching admin stats:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
+  const timeAgo = (dateStr: string) => {
+    const s = Math.floor((Date.now() - new Date(dateStr).getTime())/1000);
+    if (s < 60) return `${Math.max(1, s)}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+    return new Date(dateStr).toLocaleDateString();
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">
       {/* Welcome Header */}
@@ -18,10 +129,10 @@ export function AdminManagement() {
               <span className="material-symbols-outlined">group</span>
             </div>
             <p className="text-white/80 text-sm font-medium mb-1">Total Users</p>
-            <h3 className="text-white text-3xl font-bold font-headline">124,892</h3>
+            <h3 className="text-white text-3xl font-bold font-headline">{isLoading ? '...' : totalUsers.toLocaleString()}</h3>
             <div className="mt-4 flex items-center gap-2 text-primary-fixed text-xs font-bold">
               <span className="material-symbols-outlined text-sm">trending_up</span>
-              <span>+12% from last month</span>
+              <span>Live Database Count</span>
             </div>
           </div>
           {/* Abstract Pattern */}
@@ -36,10 +147,10 @@ export function AdminManagement() {
             <span className="material-symbols-outlined">payments</span>
           </div>
           <p className="text-on-surface-variant text-sm font-medium mb-1">Pending Withdrawals</p>
-          <h3 className="text-on-surface text-3xl font-bold font-headline">₦4,250,000</h3>
+          <h3 className="text-on-surface text-3xl font-bold font-headline">₦{isLoading ? '...' : pendingWithdrawalsSum.toLocaleString()}</h3>
           <div className="mt-4 flex items-center gap-2 text-error text-xs font-bold">
             <span className="material-symbols-outlined text-sm">priority_high</span>
-            <span>24 requests requiring action</span>
+            <span>{pendingWithdrawalsCount} requests requiring action</span>
           </div>
         </div>
 
@@ -49,10 +160,10 @@ export function AdminManagement() {
             <span className="material-symbols-outlined">post_add</span>
           </div>
           <p className="text-on-surface-variant text-sm font-medium mb-1">Total Active Posts</p>
-          <h3 className="text-on-surface text-3xl font-bold font-headline">8,642</h3>
+          <h3 className="text-on-surface text-3xl font-bold font-headline">{isLoading ? '...' : activePostsCount.toLocaleString()}</h3>
           <div className="mt-4 flex items-center gap-2 text-primary text-xs font-bold">
             <span className="material-symbols-outlined text-sm">check_circle</span>
-            <span>98% moderation accuracy</span>
+            <span>Live Articles Count</span>
           </div>
         </div>
       </div>
@@ -63,66 +174,39 @@ export function AdminManagement() {
         <div className="flex-grow space-y-6">
           <div className="flex justify-between items-end px-2">
             <h2 className="text-xl font-bold font-headline text-on-surface">Recent Withdrawal Requests</h2>
-            <Link to="#" className="text-primary text-sm font-bold hover:underline">View All</Link>
+            <Link to="/admin/transactions" className="text-primary text-sm font-bold hover:underline">View All</Link>
           </div>
           <div className="space-y-4">
-            {/* Withdrawal Item 1 */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-transparent hover:border-primary-fixed-dim/40 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
+            {isLoading ? (
+              <div className="p-6 text-center text-on-surface-variant">Loading requests...</div>
+            ) : recentWithdrawals.length === 0 ? (
+              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl">No pending withdrawals.</div>
+            ) : (
+              recentWithdrawals.map(tx => (
+                <div key={tx.id} className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-transparent hover:border-primary-fixed-dim/40 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-on-surface text-sm md:text-base truncate">{tx.profiles?.name || 'Unknown'}</p>
+                      <p className="text-[10px] md:text-xs text-on-surface-variant truncate">Ref: {tx.id.slice(0, 8)}... • {timeAgo(tx.created_at)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="font-bold text-on-surface text-sm md:text-base">₦{Number(tx.amount).toLocaleString()}</p>
+                    <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-on-surface text-sm md:text-base">Chukwudi Evans</p>
-                  <p className="text-[10px] md:text-xs text-on-surface-variant">Ref: #WTH-90210 • 2 mins ago</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-on-surface text-sm md:text-base">₦45,000.00</p>
-                <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
-              </div>
-            </div>
-
-            {/* Withdrawal Item 2 */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-transparent hover:border-primary-fixed-dim/40 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
-                </div>
-                <div>
-                  <p className="font-bold text-on-surface text-sm md:text-base">Amina Bello</p>
-                  <p className="text-[10px] md:text-xs text-on-surface-variant">Ref: #WTH-90211 • 15 mins ago</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-on-surface text-sm md:text-base">₦120,500.00</p>
-                <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
-              </div>
-            </div>
-
-            {/* Withdrawal Item 3 */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-transparent hover:border-primary-fixed-dim/40 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
-                </div>
-                <div>
-                  <p className="font-bold text-on-surface text-sm md:text-base">Tunde Adeyemi</p>
-                  <p className="text-[10px] md:text-xs text-on-surface-variant">Ref: #WTH-90212 • 1 hour ago</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-on-surface text-sm md:text-base">₦12,000.00</p>
-                <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
-              </div>
-            </div>
+              ))
+            )}
           </div>
         </div>
 
         {/* Side Insights (Offset Grid) */}
         <div className="lg:w-80 space-y-8">
           <div className="bg-inverse-surface p-6 rounded-[1.5rem] text-white shadow-lg">
-            <h4 className="font-bold mb-4 font-label">Admin Dashboards</h4>
+            <h4 className="font-bold mb-4 font-label">Admin Actions</h4>
             <div className="grid grid-cols-2 gap-3">
               <Link to="/admin/users" className="flex flex-col items-center justify-center gap-2 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
                 <span className="material-symbols-outlined text-tertiary-fixed">group</span>
@@ -136,14 +220,13 @@ export function AdminManagement() {
                 <span className="material-symbols-outlined text-secondary-fixed">article</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-center">Content</span>
               </Link>
-              <button className="flex flex-col items-center justify-center gap-2 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
+              <button disabled className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 rounded-xl opacity-50 cursor-not-allowed">
                 <span className="material-symbols-outlined text-error-container">report</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-center">Logs</span>
               </button>
             </div>
           </div>
 
-          {/* Moderation Heatmap Style Area */}
           <div className="bg-surface-container p-6 rounded-[1.5rem]">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-bold text-on-surface text-sm">Platform Health</h4>
@@ -154,15 +237,15 @@ export function AdminManagement() {
                 <div className="h-full bg-primary w-[85%]"></div>
               </div>
               <div className="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-                <span>Server Load</span>
-                <span>85% Optimal</span>
+                <span>Database Sync</span>
+                <span>Real-time Active</span>
               </div>
               <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-                <div className="h-full bg-tertiary w-[94%]"></div>
+                <div className="h-full bg-tertiary w-[100%]"></div>
               </div>
               <div className="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-                <span>Uptime</span>
-                <span>99.9%</span>
+                <span>Database Connection</span>
+                <span>Connected</span>
               </div>
             </div>
           </div>

@@ -16,7 +16,7 @@ export function Dashboard() {
       setIsLoading(true);
 
       try {
-        // Fetch Wallet Balance
+        // Fetch Wallet Balance (includes referral_earnings)
         const { data: wallet } = await supabase
           .from('wallet_balances')
           .select('*')
@@ -45,11 +45,36 @@ export function Dashboard() {
     }
 
     fetchDashboardData();
+
+    // Real-time subscription for wallet balance changes
+    if (!user?.id) return;
+    const walletChannel = supabase
+      .channel('dashboard-wallet-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallet_balances',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setWalletData(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(walletChannel);
+    };
   }, [user]);
 
   // Fallback defaults
   const balance = walletData?.balance || 0;
   const totalEarnings = walletData?.total_earnings || 0;
+  const referralEarnings = walletData?.referral_earnings || 0;
 
   if (isLoading) {
     return <div className="p-8 text-center text-on-surface-variant font-medium">Loading Overview...</div>;
@@ -162,12 +187,17 @@ export function Dashboard() {
           </div>
         </div>
         <div className="space-y-6">
-          <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm">
+          <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm relative overflow-hidden">
+            <div className="absolute top-3 right-3">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-widest">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                Live
+              </span>
+            </div>
             <span className="material-symbols-outlined text-tertiary mb-2">share</span>
             <p className="text-sm font-medium text-on-surface-variant">Referral Earnings</p>
             <h4 className="text-xl font-bold font-headline text-on-surface truncate">
-              {/* Note: This is simulated until an actual referral earnings column exists */}
-              ₦0.00
+              ₦{referralEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h4>
           </div>
           <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm">

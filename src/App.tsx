@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { BlogLayout } from './layouts/BlogLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { AdminLayout } from './layouts/AdminLayout';
 import { Home } from './pages/Home';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
@@ -9,6 +10,7 @@ import { Articles } from './pages/Articles';
 import { Plans } from './pages/Plans';
 import { Leaderboard } from './pages/Leaderboard';
 import { Settings } from './pages/Settings';
+import { Promotional } from './pages/Promotional';
 
 import { Profile } from './pages/Profile';
 import { CreateArticle } from './pages/CreateArticle';
@@ -33,27 +35,32 @@ function App() {
         {/* PUBLIC BLOG LAYOUT */}
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
-          <Route path="articles" element={<Articles />} />
-          <Route path="plans" element={<Plans />} />
+          <Route path="promotional" element={<Promotional />} />
         </Route>
 
         {/* SECURE DASHBOARD LAYOUT */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="plans" element={<Plans />} />
             <Route path="leaderboard" element={<Leaderboard />} />
+            <Route path="articles" element={<Articles />} />
             <Route path="earn" element={<Earn />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="swap" element={<Swap />} />
             <Route path="referral" element={<Referral />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="admin" element={<AdminManagement />} />
-            <Route path="admin/users" element={<AdminUsers />} />
-            <Route path="admin/transactions" element={<AdminTransactions />} />
-            <Route path="admin/content" element={<AdminContent />} />
             <Route path="profile" element={<Profile />} />
             <Route path="/create-article" element={<CreateArticle />} />
+          </Route>
+
+          {/* SECURE ADMIN LAYOUT */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminManagement />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="transactions" element={<AdminTransactions />} />
+            <Route path="content" element={<AdminContent />} />
           </Route>
         </Route>
 

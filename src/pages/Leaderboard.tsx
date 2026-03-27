@@ -7,39 +7,63 @@ export function Leaderboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchLeaderboard() {
-      // In this system, wallet_balances holds total_earnings which determines ranking
-      try {
-        const { data, error } = await supabase
-          .from('wallet_balances')
-          .select(`
-            user_id,
-            total_earnings,
-            profiles:user_id (name, avatar_url, status)
-          `)
-          .order('total_earnings', { ascending: false })
-          .limit(10);
-          
-        if (!error && data) {
-          setTopEarners(data);
-        }
-      } catch (err) {
-        console.error("Error fetching leaderboard:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     fetchLeaderboard();
   }, []);
+
+  // Real-time subscription for leaderboard changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('leaderboard-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_balances' },
+        () => {
+          fetchLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function fetchLeaderboard() {
+    try {
+      const { data, error } = await supabase
+        .from('wallet_balances')
+        .select(`
+          user_id,
+          total_earnings,
+          profiles:user_id (name, avatar_url, status)
+        `)
+        .order('total_earnings', { ascending: false })
+        .limit(20);
+
+      if (!error && data) {
+        setTopEarners(data);
+      }
+    } catch (err) {
+      console.error("Error fetching leaderboard:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div className="bg-surface font-body text-on-surface min-h-[calc(100vh-80px)]">
       <main className="max-w-3xl mx-auto px-4 md:px-6 py-8 md:py-12 pb-32 space-y-8">
         {/* Header */}
         <div className="text-center space-y-4 mb-10">
-          <span className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase">
-            Top Earners
-          </span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase">
+              Top Earners
+            </span>
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-widest bg-primary/5 px-2 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              Live
+            </span>
+          </div>
           <h2 className="font-headline text-3xl md:text-5xl font-black text-on-surface leading-tight">
             Hall of <span className="text-primary italic">Wealth.</span>
           </h2>
@@ -48,7 +72,7 @@ export function Leaderboard() {
           </p>
         </div>
 
-        {/* Top 3 Podium (Simulated logic using list) */}
+        {/* Top 3 Podium */}
         {topEarners.length >= 3 && !isLoading && (
           <div className="flex justify-center items-end gap-2 sm:gap-4 mb-20 px-2">
             {/* Rank 2 */}
@@ -107,7 +131,10 @@ export function Leaderboard() {
         {/* Full Leaderboard List */}
         <div className="bg-surface-container-lowest rounded-3xl shadow-sm border border-surface-container-highest/30 overflow-hidden">
           {isLoading ? (
-            <div className="p-12 text-center text-on-surface-variant animate-pulse font-medium">Fetching Leaderboard Data...</div>
+            <div className="p-12 text-center">
+              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-on-surface-variant font-medium">Fetching Leaderboard Data...</p>
+            </div>
           ) : topEarners.length > 3 ? (
             <div className="divide-y divide-surface-container-highest/20">
               {topEarners.slice(3).map((earner, index) => (
