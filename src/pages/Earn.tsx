@@ -1,71 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function Earn() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ tasksCompleted: 0, totalEarned: 0, dailyReadsLeft: 0, dailyCommentsLeft: 0 });
-  const [isLoading, setIsLoading] = useState(true);
-  const [availablePosts, setAvailablePosts] = useState<any[]>([]);
+  const queryClient = useQueryClient();
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchEarnData(user.id);
-    }
-  }, [user]);
-
-  // Real-time subscriptions
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const walletChannel = supabase
-      .channel('earn-wallet-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
-        () => fetchEarnData(user.id)
-      )
-      .subscribe();
-
-    const tasksChannel = supabase
-      .channel('earn-tasks-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'post_reads', filter: `user_id=eq.${user.id}` },
-        () => fetchEarnData(user.id)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(walletChannel);
-      supabase.removeChannel(tasksChannel);
-    };
-  }, [user]);
-
-  const fetchEarnData = async (userId: string) => {
-    try {
-      if (availablePosts.length === 0) setIsLoading(true);
-
+  const { data, isLoading } = useQuery({
+    queryKey: ['earnData', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
-      // Fire all independent queries at once
-      const [
-        readCountRes,
-        taskCountRes,
-        walletDataRes,
-        counterDataRes,
-        subDataRes,
-        readPostIdsRes
-      ] = await Promise.all([
-        supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', userId),
-        supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', userId).single(),
-        supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', userId).eq('counter_date', today).maybeSingle(),
-        supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', userId).maybeSingle(),
-        supabase.from('post_reads').select('post_id').eq('user_id', userId)
+      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes] = await Promise.all([
+        supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
+        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user!.id),
+        supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).single(),
+        supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', user!.id).eq('counter_date', today).maybeSingle(),
+        supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', user!.id).maybeSingle(),
+        supabase.from('post_reads').select('post_id').eq('user_id', user!.id)
       ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
@@ -81,14 +38,13 @@ export function Earn() {
       const readsDone = counterDataRes.data?.read_count || 0;
       const commentsDone = counterDataRes.data?.comment_count || 0;
 
-      setStats({
+      const stats = {
         tasksCompleted: (readCountRes.count || 0) + (taskCountRes.count || 0),
         totalEarned: walletDataRes.data?.total_earnings || 0,
         dailyReadsLeft: Math.max(0, planDetails.daily_read_limit - readsDone),
         dailyCommentsLeft: Math.max(0, planDetails.daily_comment_limit - commentsDone),
-      });
+      };
 
-      // Fetch available approved posts the user hasn't read yet
       const alreadyRead = (readPostIdsRes.data || []).map((r: any) => r.post_id);
 
       let postsQuery = supabase
@@ -102,15 +58,39 @@ export function Earn() {
         postsQuery = postsQuery.not('id', 'in', `(${alreadyRead.join(',')})`);
       }
 
-      const { data: postsData } = await postsQuery;
-      setAvailablePosts(postsData || []);
+      const { data: availablePosts } = await postsQuery;
 
-    } catch (err) {
-      console.error("Error fetching earn data:", err);
-    } finally {
-      setIsLoading(false);
+      return { stats, availablePosts: availablePosts || [], walletData: walletDataRes.data };
     }
-  };
+  });
+
+  // Real-time subscriptions updating the React Query Cache
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const walletChannel = supabase
+      .channel('earn-wallet-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['earnData', user.id] })
+      )
+      .subscribe();
+
+    const tasksChannel = supabase
+      .channel('earn-tasks-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_reads', filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['earnData', user.id] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(tasksChannel);
+    };
+  }, [user, queryClient]);
 
   const handleClaimRead = async (postId: string) => {
     if (claimingId) return;
@@ -118,14 +98,14 @@ export function Earn() {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.rpc('claim_post_read', { _post_id: postId });
+      const { data: claimData, error } = await supabase.rpc('claim_post_read', { _post_id: postId });
 
       if (error) {
         setMessage(error.message);
-      } else if (data) {
-        setMessage(data.message);
-        if (data.success && user?.id) {
-          fetchEarnData(user.id);
+      } else if (claimData) {
+        setMessage(claimData.message);
+        if (claimData.success && user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['earnData', user.id] });
         }
       }
     } catch (err) {
@@ -134,6 +114,9 @@ export function Earn() {
       setClaimingId(null);
     }
   };
+
+  const stats = data?.stats || { tasksCompleted: 0, totalEarned: 0, dailyReadsLeft: 0, dailyCommentsLeft: 0 };
+  const availablePosts = data?.availablePosts || [];
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
