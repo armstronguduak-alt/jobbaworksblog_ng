@@ -86,7 +86,7 @@ export function Articles() {
         ? true
         : activeTab === 'Published'
         ? a.status === 'approved'
-        : a.status === 'draft';
+        : (a.status === 'draft' || a.status === 'pending');
 
     const matchesSearch = searchQuery
       ? a.title.toLowerCase().includes(searchQuery.toLowerCase())

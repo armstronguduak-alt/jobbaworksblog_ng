@@ -171,8 +171,8 @@ export function Wallet() {
                 />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <span className="material-symbols-outlined text-blue-600">account_balance</span>
+                    <div className="w-12 h-12 flex items-center justify-center p-1">
+                      <img src="/opay_logo.png" alt="OPay" className="object-contain w-full h-full" />
                     </div>
                     <span className="font-bold text-sm">OPay</span>
                   </div>
@@ -191,8 +191,8 @@ export function Wallet() {
                 />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                      <span className="material-symbols-outlined text-amber-600">bolt</span>
+                    <div className="w-12 h-12 flex items-center justify-center p-1">
+                      <img src="/minipay_logo.webp" alt="Minipay" className="object-contain w-full h-full" />
                     </div>
                     <span className="font-bold text-sm">MiniPay</span>
                   </div>
@@ -211,10 +211,8 @@ export function Wallet() {
                 />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                      <span className="material-symbols-outlined text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        currency_bitcoin
-                      </span>
+                    <div className="w-12 h-12 flex items-center justify-center p-1">
+                      <img src="/usdt_logo.png" alt="USDT" className="object-contain w-full h-full" />
                     </div>
                     <span className="font-bold text-sm">USDT (TRC20)</span>
                   </div>

@@ -1,7 +1,106 @@
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export function CreateArticle() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  
+  const [title, setTitle] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [categories, setCategories] = useState<any[]>([]);
+  const [featuredImage, setFeaturedImage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Load categories
+    const fetchCats = async () => {
+      const { data } = await supabase.from('categories').select('*').eq('is_active', true);
+      if (data) {
+        setCategories(data);
+        if (data.length > 0) setCategoryId(data[0].id);
+      }
+    };
+    fetchCats();
+  }, []);
+
+  const executeCommand = (command: string, value: string | undefined = undefined) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const handleInsertLink = () => {
+    const url = prompt('Enter the link URL:');
+    if (url) executeCommand('createLink', url);
+  };
+
+  const handleInsertImage = () => {
+    const url = prompt('Enter the image URL:');
+    if (url) executeCommand('insertImage', url);
+  };
+
+  const handleInsertYoutube = () => {
+    const url = prompt('Enter YouTube Video URL:');
+    if (url) {
+      // Extract video ID
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const match = url.match(regExp);
+      const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+      if (videoId) {
+        const iframeHtml = `<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 16px 0;">
+          <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>
+        </div><p><br></p>`;
+        executeCommand('insertHTML', iframeHtml);
+      } else {
+        alert('Invalid YouTube URL');
+      }
+    }
+  };
+
+  const extractExcerpt = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent?.substring(0, 150) + '...' || '';
+  };
+
+  const handlePublish = async (status: 'pending' | 'draft') => {
+    if (!title.trim()) return alert('Please enter a title');
+    const content = editorRef.current?.innerHTML || '';
+    if (!content.trim() || content === '<br>') return alert('Please enter some content');
+    
+    setIsSubmitting(true);
+    
+    try {
+      const excerpt = extractExcerpt(content);
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
+
+      const { error } = await supabase.from('posts').insert({
+        title,
+        slug,
+        content,
+        excerpt,
+        featured_image: featuredImage || null,
+        status, // pending requires admin approval
+        author_user_id: user?.id,
+        category_id: categoryId,
+        reading_time_seconds: Math.max(60, Math.floor(content.length / 15)), // Rough estimation
+      });
+
+      if (error) throw error;
+
+      alert(status === 'pending' ? 'Article submitted for review!' : 'Draft saved!');
+      navigate('/articles');
+    } catch (err: any) {
+      console.error(err);
+      alert('Error submitting article: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed min-h-screen">
@@ -14,15 +113,15 @@ export function CreateArticle() {
           >
             <span className="material-symbols-outlined text-emerald-900">arrow_back</span>
           </button>
-          <h1 className="text-emerald-800 font-bold text-lg font-headline">Task Oasis</h1>
+          <h1 className="text-emerald-800 font-bold text-lg font-headline">Studio Editor</h1>
         </div>
         <div className="flex items-center gap-4">
-          <span className="font-headline text-sm font-bold tracking-tight text-slate-500 hidden sm:inline">Draft Auto-saved</span>
+          <span className="font-headline text-sm font-bold tracking-tight text-slate-500 hidden sm:inline">User Submission</span>
           <div className="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
             <img 
-              alt="Admin Profile" 
+              alt="Profile" 
               className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwC-6Bq7db6c8WU0dv5CNWrKWv31mLh8Oe8ZlDZ0q0BsKrxBmUnzG8iYyHyDzca2JjKWgbmoJ5AP2s-AGIEJyIKI1d93mb58BSLP5xAcNUgexC1um3bE0vp_XLo-gLBsgdAw-Jp7_1V02fHkcOh4IH_SWrtsYMWVwDczT03hX_46xQTXliq4YQ7K8V_pQn7ThyWzwTNr_JC3EQ7e1117qoILhb5b5liOcKHeXpK0XVY1870Nv4WJEEScRDmLfncl8vMF4O-Yve9Ec" 
+              src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.id}`} 
             />
           </div>
         </div>
@@ -34,7 +133,7 @@ export function CreateArticle() {
           {/* Header Section */}
           <section className="space-y-2">
             <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">Create Article</h2>
-            <p className="text-on-surface-variant text-base md:text-lg">Craft your next insightful piece for the Oasis community.</p>
+            <p className="text-on-surface-variant text-base md:text-lg">Craft your insightful piece. It will be reviewed by admins before publishing.</p>
           </section>
 
           {/* Title & Editor Canvas */}
@@ -45,48 +144,63 @@ export function CreateArticle() {
               <input
                 className="w-full bg-surface-container-low border-none rounded-xl px-4 md:px-6 py-3 md:py-4 text-lg md:text-xl font-headline font-bold focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
                 placeholder="Enter a captivating title..." 
+                value={title}
+                onChange={e => setTitle(e.target.value)}
                 type="text" 
               />
             </div>
 
             {/* Rich Text Toolbar */}
             <div className="flex flex-wrap items-center gap-1 p-2 bg-surface-container rounded-2xl overflow-x-auto">
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Bold" onMouseDown={e => { e.preventDefault(); executeCommand('bold'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_bold</span>
               </button>
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Italic" onMouseDown={e => { e.preventDefault(); executeCommand('italic'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_italic</span>
               </button>
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
-                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_list_bulleted</span>
+              <button title="Underline" onMouseDown={e => { e.preventDefault(); executeCommand('underline'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_underlined</span>
               </button>
               <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Bullet List" onMouseDown={e => { e.preventDefault(); executeCommand('insertUnorderedList'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_list_bulleted</span>
+              </button>
+              <button title="Numbered List" onMouseDown={e => { e.preventDefault(); executeCommand('insertOrderedList'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_list_numbered</span>
+              </button>
+              <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
+              <button title="Insert Link" onMouseDown={e => { e.preventDefault(); handleInsertLink(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">link</span>
               </button>
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Insert Image" onMouseDown={e => { e.preventDefault(); handleInsertImage(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">image</span>
               </button>
-              <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Insert YouTube Video" onMouseDown={e => { e.preventDefault(); handleInsertYoutube(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-rose-500 group-hover:text-rose-600">smart_display</span>
+              </button>
+              <button title="Blockquote" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'BLOCKQUOTE'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_quote</span>
               </button>
               <div className="ml-auto flex items-center gap-2 pr-2">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-outline">Markdown Enabled</span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-outline">Rich Text Editor</span>
               </div>
             </div>
 
             {/* Main Content Area */}
             <div 
+              ref={editorRef}
               className="w-full min-h-[300px] md:min-h-[450px] bg-surface-container-low rounded-2xl p-4 md:p-6 border-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/10 transition-all outline-none text-on-surface overflow-y-auto"
               contentEditable
               suppressContentEditableWarning
               data-placeholder="Start writing your story here..."
               style={{ emptyCells: 'show' }}
             >
-              <style>{
-                `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }`
-              }</style>
             </div>
+            <style>{
+              `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }
+               [contentEditable] iframe { display: block; margin: 10px auto; max-width: 100%; border-radius: 8px; }
+               [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }`
+            }</style>
           </div>
         </div>
 
@@ -95,13 +209,21 @@ export function CreateArticle() {
           {/* Featured Image Card */}
           <div className="bg-surface-container-lowest rounded-3xl p-6 md:p-8 space-y-4 shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
             <div className="flex items-center justify-between">
-              <h3 className="font-headline font-bold text-on-primary-fixed-variant">Featured Image</h3>
-              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>add_photo_alternate</span>
+              <h3 className="font-headline font-bold text-on-primary-fixed-variant">Featured Image URL</h3>
+              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>image</span>
             </div>
-            <div className="group relative aspect-video bg-surface-container-low rounded-2xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all border-2 border-dashed border-outline-variant/50 flex flex-col items-center justify-center gap-2 p-4 text-center">
-              <span className="material-symbols-outlined text-outline text-3xl">upload_file</span>
-              <span className="text-xs font-bold text-outline uppercase tracking-tighter">Click to upload</span>
-            </div>
+            <input 
+              type="text" 
+              placeholder="https://example.com/image.jpg"
+              value={featuredImage}
+              onChange={e => setFeaturedImage(e.target.value)}
+              className="w-full bg-surface-container-low border-none p-3 rounded-xl focus:ring-2 focus:ring-primary"
+            />
+            {featuredImage && (
+              <div className="aspect-video bg-surface-container-low rounded-xl overflow-hidden mt-4">
+                <img src={featuredImage} alt="Featured" className="w-full h-full object-cover" />
+              </div>
+            )}
           </div>
 
           {/* Configuration Card */}
@@ -110,42 +232,43 @@ export function CreateArticle() {
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</label>
               <div className="relative">
-                <select className="w-full appearance-none bg-surface-container border-none rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-primary/20 cursor-pointer text-on-surface">
-                  <option>Fintech Insights</option>
-                  <option>Product Updates</option>
-                  <option>Wealth Management</option>
-                  <option>Community Spotlight</option>
+                <select 
+                  className="w-full appearance-none bg-surface-container border-none rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-primary/20 cursor-pointer text-on-surface"
+                  value={categoryId}
+                  onChange={e => setCategoryId(e.target.value)}
+                >
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
                 </select>
                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
               </div>
             </div>
 
-            {/* Reward Setting */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Reader Reward</label>
-              <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold shrink-0">
-                  ₦
-                </div>
-                <input
-                  className="bg-transparent border-none p-0 focus:ring-0 text-xl font-headline font-extrabold text-primary w-full"
-                  type="number" 
-                  defaultValue="250" 
-                />
-              </div>
-              <p className="text-[10px] md:text-xs text-outline-variant leading-tight px-1 font-medium">
-                This amount will be credited to users who complete reading the article.
+            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 text-sm text-on-surface-variant">
+              <p className="flex items-center gap-2 font-bold text-primary mb-1">
+                <span className="material-symbols-outlined text-base">verified</span>
+                Review Process
               </p>
+              Your article will be reviewed by administrators. Once approved, the reward rate will be automatically determined by the reader's subscription plan.
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="space-y-3 pt-4">
-            <button className="w-full bg-gradient-to-br from-[#006b3f] to-[#008751] text-on-primary-container py-4 rounded-xl font-headline font-bold text-base md:text-lg shadow-lg hover:shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-              <span>Publish Article</span>
+            <button 
+              onClick={() => handlePublish('pending')}
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-br from-[#006b3f] to-[#008751] text-white py-4 rounded-xl font-headline font-bold text-base md:text-lg shadow-lg hover:shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <span>{isSubmitting ? 'Submitting...' : 'Submit for Review'}</span>
               <span className="material-symbols-outlined">send</span>
             </button>
-            <button className="w-full bg-surface-container-highest text-primary py-4 rounded-xl font-headline font-bold text-base md:text-lg hover:bg-surface-container-low transition-all">
+            <button 
+              onClick={() => handlePublish('draft')}
+              disabled={isSubmitting}
+              className="w-full bg-surface-container-highest text-primary py-4 rounded-xl font-headline font-bold text-base md:text-lg hover:bg-surface-container-low transition-all disabled:opacity-50"
+            >
               Save Draft
             </button>
           </div>

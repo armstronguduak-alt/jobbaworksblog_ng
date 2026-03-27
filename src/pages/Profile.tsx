@@ -1,7 +1,60 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export function Profile() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+
+  const [formData, setFormData] = useState({
+    fullName: '',
+    username: '',
+    phone: '',
+    bio: '',
+    avatarUrl: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        fullName: profile.name || '',
+        username: profile.username || '',
+        phone: profile.phone || '',
+        bio: profile.bio || '',
+        avatarUrl: profile.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profile.name || 'User'}`
+      });
+    }
+  }, [profile]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.fullName,
+          username: formData.username,
+          phone: formData.phone,
+          bio: formData.bio,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      alert('Profile updated successfully!');
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert('Failed to update profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="bg-surface text-on-surface font-body min-h-[calc(100vh-80px)] selection:bg-primary-fixed-dim selection:text-on-primary-fixed my-8 md:my-12">
@@ -28,7 +81,7 @@ export function Profile() {
                 <img 
                   alt="Profile Avatar" 
                   className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuN-sFIQeeYhTq5iWmAsOEyqxjiV1rbUkLMM9_T2DF6qXttzgpbUWet2o289MATv5dsj6a7O_GtcWpZWlR6vBQC6Jegbcv7noKYWyUeVD2QZSVjMa5XfI0aKCL1UHUfCCqJUi7edlx0YOD_Ix3wbjuGq689d63MtLeT5QgOu7eVSTfhNZWPZTA1GHg7E7UYdDrjCtYuJR1nhEAHKe1dYCEpsCQHmVEuWtL71lHrtJ7HOFPD2qL2AwsTUrTLBy9Sgd9NcA0zJ82ax4" 
+                  src={formData.avatarUrl} 
                 />
               </div>
               <button className="absolute -bottom-2 -right-2 bg-primary text-on-primary p-3 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 z-10">
@@ -45,7 +98,7 @@ export function Profile() {
           </div>
         </section>
 
-        {/* Persoanl Details Form */}
+        {/* Personal Details Form */}
         <form className="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 shadow-sm border border-surface-container-highest/20 space-y-6">
           <h3 className="font-bold text-lg font-headline mb-4 pb-4 border-b border-surface-container-highest">Personal Information</h3>
           
@@ -54,7 +107,9 @@ export function Profile() {
               <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Full Name</label>
               <input
                 className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
-                defaultValue="Chinaza Okoro" 
+                name="fullName"
+                value={formData.fullName} 
+                onChange={handleChange}
                 type="text" 
               />
             </div>
@@ -63,7 +118,9 @@ export function Profile() {
               <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Username</label>
               <input
                 className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
-                defaultValue="chinaza_o" 
+                name="username"
+                value={formData.username} 
+                onChange={handleChange}
                 type="text" 
               />
             </div>
@@ -73,7 +130,7 @@ export function Profile() {
               <div className="relative">
                 <input
                   className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl text-outline opacity-60 cursor-not-allowed"
-                  defaultValue="chinaza@example.com" 
+                  value={user?.email || ''} 
                   type="email" 
                   disabled
                 />
@@ -85,7 +142,9 @@ export function Profile() {
               <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Phone Number</label>
               <input
                 className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
-                defaultValue="+234 801 234 5678" 
+                name="phone"
+                value={formData.phone} 
+                onChange={handleChange}
                 type="tel" 
               />
             </div>
@@ -96,23 +155,28 @@ export function Profile() {
             <textarea
               className="w-full p-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all resize-none min-h-[120px]"
               placeholder="Tell us a little bit about yourself..."
-              defaultValue="Digital nomad exploring the intersection of finance and tech across Africa."
+              name="bio"
+              value={formData.bio}
+              onChange={handleChange}
             ></textarea>
           </div>
 
           <div className="pt-6 border-t border-surface-container-highest flex justify-end gap-4">
             <button
               type="button"
-              className="px-6 py-3 rounded-xl font-bold text-on-surface hover:bg-surface-container-high transition-colors"
+              className="px-6 py-3 rounded-xl font-bold text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-50"
               onClick={() => navigate(-1)}
+              disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="bg-primary text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-primary/30 active:scale-95 transition-all"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-primary text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-primary/30 active:scale-95 transition-all disabled:opacity-50"
             >
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>
