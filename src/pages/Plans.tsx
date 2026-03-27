@@ -1,4 +1,31 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+
 export function Plans() {
+  const [plans, setPlans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('*')
+          .eq('is_active', true)
+          .order('price', { ascending: true });
+        
+        if (!error && data) {
+          setPlans(data);
+        }
+      } catch (err) {
+        console.error('Error fetching plans:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPlans();
+  }, []);
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
       {/* Hero Section */}
@@ -15,109 +42,90 @@ export function Plans() {
       </section>
 
       {/* Plans Comparison Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
-        {/* Free Plan */}
-        <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] hover:translate-y-[-8px] transition-all duration-300">
-          <div className="mb-8">
-            <h3 className="text-2xl font-headline font-bold mb-2">Free Plan</h3>
-            <p className="text-on-surface-variant text-sm">Perfect for getting started</p>
-          </div>
-          <div className="mb-10 flex items-baseline gap-1">
-            <span className="text-4xl font-black text-on-surface">₦0</span>
-            <span className="text-on-surface-variant text-sm font-medium">/month</span>
-          </div>
-          <ul className="space-y-4 md:space-y-5 mb-12">
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span>Low earnings per article</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span>Base daily read limit (5)</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant opacity-50">
-              <span className="material-symbols-outlined text-outline/40">cancel</span>
-              <span className="line-through">Bonus earnings</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant opacity-50">
-              <span className="material-symbols-outlined text-outline/40">cancel</span>
-              <span className="line-through">Priority support</span>
-            </li>
-          </ul>
-          <button className="w-full py-3 md:py-4 rounded-xl font-bold bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors active:scale-95 duration-200">
-            Current Plan
-          </button>
+      {isLoading ? (
+        <div className="py-20 text-center text-on-surface-variant font-medium animate-pulse">
+          Loading active plans from the database... 
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+          {plans.map((plan) => {
+            const isFree = plan.price === 0;
+            const isPopular = plan.id === 'pro' || plan.id === 'elite';
 
-        {/* Premium Plan (Prominent Highlight) */}
-        <div className="relative bg-gradient-to-br from-[#006b3f] to-[#008751] p-6 md:p-8 rounded-2xl shadow-[0px_40px_80px_rgba(0,107,63,0.15)] transform md:scale-105 z-10 text-on-primary-container ring-4 ring-tertiary-fixed-dim/20">
-          <div className="absolute -top-4 md:-top-5 left-1/2 -translate-x-1/2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-4 md:px-6 py-1.5 md:py-2 rounded-full text-[10px] md:text-sm font-black tracking-widest uppercase shadow-lg whitespace-nowrap">
-            MOST POPULAR
-          </div>
-          <div className="mb-8 pt-4">
-            <h3 className="text-2xl md:text-3xl font-headline font-extrabold mb-2">Premium Plan</h3>
-            <p className="text-on-primary-container/80 text-sm">Maximum earnings potential</p>
-          </div>
-          <div className="mb-10 flex items-baseline gap-1">
-            <span className="text-4xl md:text-5xl font-black text-on-primary-container">₦15,000</span>
-            <span className="text-on-primary-container/70 text-xs md:text-sm font-medium">/month</span>
-          </div>
-          <ul className="space-y-4 md:space-y-5 mb-12">
-            <li className="flex items-center gap-3 text-sm">
-              <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-              <span className="font-semibold">High earnings per article</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm">
-              <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>all_inclusive</span>
-              <span className="font-semibold">Unlimited daily reads</span>
-            </li>
-            <li className="flex items-center gap-3 text-base md:text-sm">
-              <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>add_moderator</span>
-              <span className="font-semibold text-base md:text-lg">10% Bonus on all revenue</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm">
-              <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-              <span className="font-semibold">Instant payout access</span>
-            </li>
-          </ul>
-          <button className="w-full py-4 md:py-5 rounded-xl font-bold bg-surface-container-lowest text-primary hover:bg-primary-fixed transition-all shadow-xl active:scale-95 duration-200 text-base md:text-lg">
-            Subscribe Now
-          </button>
+            return (
+              <div 
+                key={plan.id}
+                className={`relative flex flex-col p-6 rounded-3xl shadow-sm transition-all duration-300 hover:-translate-y-2
+                  ${isPopular 
+                    ? 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-xl ring-4 ring-tertiary-fixed-dim/20 md:scale-105 z-10' 
+                    : 'bg-surface-container-lowest text-on-surface border border-surface-container-highest/30 hover:shadow-lg'
+                  }
+                `}
+              >
+                {isPopular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-4 py-1 rounded-full text-[10px] font-black tracking-widest uppercase shadow-md whitespace-nowrap">
+                    RECOMMENDED
+                  </div>
+                )}
+                
+                <div className={`mb-6 ${isPopular ? 'pt-2' : ''}`}>
+                  <h3 className={`text-2xl font-headline font-extrabold mb-1 ${isPopular ? 'text-white' : 'text-emerald-950'}`}>
+                    {plan.name}
+                  </h3>
+                  <p className={`text-sm ${isPopular ? 'text-white/80' : 'text-on-surface-variant'}`}>
+                    {isFree ? 'Get started for free' : 'Maximize your capacity'}
+                  </p>
+                </div>
+                
+                <div className="mb-8 flex items-baseline gap-1">
+                  <span className="text-4xl font-black">
+                    ₦{Number(plan.price).toLocaleString()}
+                  </span>
+                  <span className={`text-sm font-medium ${isPopular ? 'text-white/70' : 'text-on-surface-variant'}`}>
+                    /month
+                  </span>
+                </div>
+                
+                <ul className="space-y-4 mb-auto pb-8">
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong className="font-bold">{plan.daily_read_limit}</strong> daily reads</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong className="font-bold">{plan.daily_comment_limit}</strong> daily comments</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                    <span><strong className="font-bold">₦{plan.read_reward}</strong> per article read</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
+                    <span><strong className="font-bold">₦{plan.comment_reward}</strong> per comment</span>
+                  </li>
+                  {!isFree && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                      <span>25% Referral Commission</span>
+                    </li>
+                  )}
+                </ul>
+                
+                <button 
+                  className={`w-full py-4 rounded-xl font-bold transition-all mt-auto active:scale-95
+                    ${isPopular 
+                      ? 'bg-white text-emerald-800 shadow-md hover:bg-emerald-50' 
+                      : 'bg-primary text-white shadow-md hover:bg-emerald-800'
+                    }
+                  `}
+                >
+                  {isFree ? 'Current Plan' : 'Subscribe Now'}
+                </button>
+              </div>
+            );
+          })}
         </div>
-
-        {/* Basic Plan */}
-        <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] hover:translate-y-[-8px] transition-all duration-300">
-          <div className="mb-8">
-            <h3 className="text-2xl font-headline font-bold mb-2">Basic Plan</h3>
-            <p className="text-on-surface-variant text-sm">Stepping up your game</p>
-          </div>
-          <div className="mb-10 flex items-baseline gap-1">
-            <span className="text-4xl font-black text-on-surface">₦5,500</span>
-            <span className="text-on-surface-variant text-sm font-medium">/month</span>
-          </div>
-          <ul className="space-y-4 md:space-y-5 mb-12">
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span>Medium earnings per article</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span>Higher daily limits (20)</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span className="font-semibold">5% bonus on all revenue</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-on-surface-variant opacity-50">
-              <span className="material-symbols-outlined text-outline/40">cancel</span>
-              <span>Standard support</span>
-            </li>
-          </ul>
-          <button className="w-full py-3 md:py-4 rounded-xl font-bold border-2 border-primary text-primary hover:bg-primary/5 transition-colors active:scale-95 duration-200">
-            Subscribe
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Asymmetric Value Section */}
       <section className="mt-16 md:mt-24 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">

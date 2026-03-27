@@ -6,7 +6,7 @@ import { Menu, X, Bell } from 'lucide-react';
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, isAdmin, signOut } = useAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -116,16 +116,29 @@ export function DashboardLayout() {
             </nav>
           </div>
 
-          {/* Community Section */}
-          <div>
-            <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Community</p>
-            <nav className="flex flex-col gap-1">
-              <Link to="#" className="flex items-center gap-4 px-4 py-3 rounded-2xl font-semibold text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
-                <span className="material-symbols-outlined text-[20px]">forum</span>
-                <span className="text-[14px]">Community Chat</span>
-              </Link>
-            </nav>
-          </div>
+          {/* Admin Mode Switch */}
+          {isAdmin && (
+            <div className="mt-8">
+              <p className="px-3 text-[10px] font-bold text-error uppercase tracking-widest mb-3">Security & Operations</p>
+              <nav className="flex flex-col gap-1">
+                <Link 
+                  to="/admin" 
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all duration-200
+                    ${location.pathname.includes('/admin') 
+                      ? 'bg-error text-white shadow-md shadow-error/30' 
+                      : 'text-error hover:bg-error/10 hover:text-error'
+                    }
+                  `}
+                >
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: location.pathname.includes('/admin') ? "'FILL' 1" : "'FILL' 0" }}>
+                    shield_person
+                  </span>
+                  <span className="text-[14px]">Admin Mode</span>
+                </Link>
+              </nav>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}

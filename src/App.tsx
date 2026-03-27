@@ -7,7 +7,9 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { Articles } from './pages/Articles';
 import { Plans } from './pages/Plans';
+import { Leaderboard } from './pages/Leaderboard';
 import { Settings } from './pages/Settings';
+
 import { Profile } from './pages/Profile';
 import { CreateArticle } from './pages/CreateArticle';
 import { Earn } from './pages/Earn';
@@ -39,7 +41,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="leaderboard" element={<Dashboard />} />
+            <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="earn" element={<Earn />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="swap" element={<Swap />} />

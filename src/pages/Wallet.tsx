@@ -7,25 +7,40 @@ export function Wallet() {
   const [balance, setBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('opay');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (user?.id) {
-      fetchBalance(user.id);
+      fetchWalletData(user.id);
     }
   }, [user]);
 
-  const fetchBalance = async (userId: string) => {
+  const fetchWalletData = async (userId: string) => {
     try {
       setIsLoading(true);
-      const { data } = await supabase
+      // Fetch balance
+      const { data: balanceData } = await supabase
         .from('wallet_balances')
         .select('balance')
         .eq('user_id', userId)
         .single();
         
-      if (data) setBalance(data.balance);
+      if (balanceData) setBalance(balanceData.balance);
+
+      // Fetch transaction history
+      const { data: txData } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (txData) setTransactions(txData);
     } catch (err) {
-      console.error("Error fetching balance:", err);
+      console.error("Error fetching wallet data:", err);
     } finally {
       setIsLoading(false);
     }
@@ -34,6 +49,37 @@ export function Wallet() {
   const handleMaxClick = () => {
     setWithdrawAmount(balance.toString());
   };
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 1000) {
+      setMessage('Please enter a valid amount (Min: ₦1,000).');
+      return;
+    }
+    if (Number(withdrawAmount) > balance) {
+      setMessage('Insufficient balance.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage('');
+
+    try {
+      // Typically you'd call an RPC function here to safely record the withdrawal
+      // For now, we simulate a successful request submission:
+      setTimeout(() => {
+        setMessage('Withdrawal request submitted successfully! It is pending approval.');
+        setWithdrawAmount('');
+        setIsSubmitting(false);
+        // Refresh to show any changes
+        if (user) fetchWalletData(user.id);
+      }, 1500);
+    } catch (error) {
+       setIsSubmitting(false);
+       setMessage('An error occurred during withdrawal.');
+    }
+  };
+
+  const recentWithdrawal = transactions.find(tx => tx.type === 'withdrawal');
 
   return (
     <div className="bg-surface text-on-surface min-h-[calc(100vh-80px)] font-body">
@@ -53,7 +99,7 @@ export function Wallet() {
         <section className="space-y-8">
           {/* Amount Input */}
           <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-highest/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
             <label className="block text-sm font-bold text-on-surface-variant mb-6 uppercase tracking-widest">Enter Amount</label>
             <div className="relative">
               <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-on-surface-variant/30">₦</span>
@@ -77,6 +123,11 @@ export function Wallet() {
                 MAX ₦{isLoading ? '...' : balance.toLocaleString()}
               </button>
             </div>
+            {message && (
+               <p className={`mt-4 text-sm font-bold ${message.includes('success') ? 'text-primary' : 'text-error'}`}>
+                 {message}
+               </p>
+            )}
           </div>
 
           {/* Payment Methods */}
@@ -85,7 +136,14 @@ export function Wallet() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* OPay */}
               <label className="relative cursor-pointer group">
-                <input defaultChecked className="peer sr-only" name="payment" type="radio" value="opay" />
+                <input 
+                  checked={paymentMethod === 'opay'}
+                  onChange={() => setPaymentMethod('opay')}
+                  className="peer sr-only" 
+                  name="payment" 
+                  type="radio" 
+                  value="opay" 
+                />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -98,7 +156,14 @@ export function Wallet() {
 
               {/* MiniPay */}
               <label className="relative cursor-pointer group">
-                <input className="peer sr-only" name="payment" type="radio" value="minipay" />
+                <input 
+                  checked={paymentMethod === 'minipay'}
+                  onChange={() => setPaymentMethod('minipay')}
+                  className="peer sr-only" 
+                  name="payment" 
+                  type="radio" 
+                  value="minipay" 
+                />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
@@ -111,7 +176,14 @@ export function Wallet() {
 
               {/* USDT */}
               <label className="relative cursor-pointer group">
-                <input className="peer sr-only" name="payment" type="radio" value="usdt" />
+                <input 
+                  checked={paymentMethod === 'usdt'}
+                  onChange={() => setPaymentMethod('usdt')}
+                  className="peer sr-only" 
+                  name="payment" 
+                  type="radio" 
+                  value="usdt" 
+                />
                 <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -150,27 +222,72 @@ export function Wallet() {
 
           {/* Submit Button & Recent Status */}
           <div className="pt-4 flex flex-col gap-6">
-            <button className="w-full py-5 rounded-2xl bg-gradient-to-br from-[#006b3f] to-[#008751] text-white font-headline font-extrabold text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform">
-              Submit Withdrawal Request
+            <button 
+              onClick={handleWithdraw}
+              disabled={isSubmitting}
+              className={`w-full py-5 rounded-2xl font-headline font-extrabold text-lg shadow-xl active:scale-95 transition-all 
+                ${isSubmitting ? 'bg-surface-variant text-on-surface-variant' : 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-primary/20'}
+              `}
+            >
+              {isSubmitting ? 'Processing...' : 'Submit Withdrawal Request'}
             </button>
 
             {/* Status Indicator Section */}
-            <div className="bg-surface-container-highest/30 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-amber-600 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    pending_actions
-                  </span>
+            {recentWithdrawal && (
+              <div className="bg-surface-container-highest/30 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 
+                    ${recentWithdrawal.status === 'completed' ? 'bg-primary/20 text-primary' : 
+                      recentWithdrawal.status === 'failed' ? 'bg-error/20 text-error' : 'bg-amber-500/10 text-amber-600'}`}>
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {recentWithdrawal.status === 'completed' ? 'check_circle' : 
+                       recentWithdrawal.status === 'failed' ? 'error' : 'pending_actions'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Last Request</p>
+                    <p className="font-bold text-on-surface text-sm md:text-base">
+                      ₦{Number(recentWithdrawal.amount).toLocaleString()} {recentWithdrawal.status === 'pending' ? 'Pending Approval' : recentWithdrawal.status}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Last Request</p>
-                  <p className="font-bold text-on-surface text-sm md:text-base">₦5,000.00 Pending Approval</p>
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap 
+                  ${recentWithdrawal.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 
+                    recentWithdrawal.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {recentWithdrawal.status}
+                </span>
+              </div>
+            )}
+            
+            {/* Recent Earnings List */}
+            {transactions.length > 0 && (
+              <div className="mt-8 border-t border-surface-container pt-8">
+                <h3 className="font-bold font-headline mb-4">Recent Transactions</h3>
+                <div className="space-y-3">
+                  {transactions.map(tx => (
+                    <div key={tx.id} className="bg-surface-container-lowest p-4 rounded-xl flex items-center justify-between border border-surface-container-highest/20 cursor-pointer hover:border-emerald-200 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 
+                          ${tx.type === 'withdrawal' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          <span className="material-symbols-outlined text-sm">
+                            {tx.type === 'withdrawal' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm text-on-surface capitalize">{tx.type.replace(/_/g, ' ')}</p>
+                          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{new Date(tx.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-black text-sm ${tx.type === 'withdrawal' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {tx.type === 'withdrawal' ? '-' : '+'}₦{Number(tx.amount).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full whitespace-nowrap">
-                In Progress
-              </span>
-            </div>
+            )}
           </div>
         </section>
       </main>

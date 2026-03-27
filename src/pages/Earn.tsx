@@ -6,6 +6,7 @@ export function Earn() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ tasksCompleted: 0, totalEarned: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTasks, setActiveTasks] = useState<any[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -16,18 +17,28 @@ export function Earn() {
   const fetchEarnStats = async (userId: string) => {
     try {
       setIsLoading(true);
-      // Fetch tasks done from a specific table, assuming tasks or user_tasks exist
+      // Fetch tasks count
       const { count } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('completed_by', userId);
 
+      // Fetch wallet balance
       const { data: walletData } = await supabase
         .from('wallet_balances')
         .select('balance')
         .eq('user_id', userId)
         .single();
         
+      // Fetch any real active tasks if seeded, otherwise fallback to standard system actions
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'active')
+        .limit(3);
+
+      if (tasksData) setActiveTasks(tasksData);
+
       setStats({
         tasksCompleted: count || 0,
         totalEarned: walletData?.balance || 0
@@ -37,6 +48,10 @@ export function Earn() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClaim = (taskId: string) => {
+    alert(`Task claim initiated. (Simulated for ${taskId})`);
   };
 
   return (
@@ -59,7 +74,7 @@ export function Earn() {
                 <span className="text-white/80 text-sm">{stats.tasksCompleted} Tasks Done</span>
               </div>
               <div className="w-full h-3 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-tertiary-fixed-dim rounded-full" style={{ width: `${Math.min((stats.tasksCompleted / 4) * 100, 100)}%` }}></div>
+                <div className="h-full bg-tertiary-fixed-dim rounded-full transition-all duration-1000" style={{ width: `${Math.min((stats.tasksCompleted / 10) * 100, 100)}%` }}></div>
               </div>
             </div>
             <div className="flex items-center gap-2 text-white/90 text-sm bg-black/10 self-start px-4 py-2 rounded-full backdrop-blur-sm">
@@ -77,121 +92,108 @@ export function Earn() {
           </div>
           
           <div className="grid gap-5">
-            {/* Task Card: Read Articles */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
-                    <span className="material-symbols-outlined">description</span>
+            {activeTasks.length > 0 ? (
+               activeTasks.map((task) => (
+                 <div key={task.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
+                        <span className="material-symbols-outlined">description</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-on-surface line-clamp-1">{task.task_name || 'System Task'}</h4>
+                        <p className="text-on-surface-variant text-sm line-clamp-1">{task.platform || 'Complete to earn'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-primary font-bold">₦{task.reward_amount || '10'}</span>
+                      <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Reward</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Read 5 Articles</h4>
-                    <p className="text-on-surface-variant text-sm">Stay updated with industry news</p>
+                  <button onClick={() => handleClaim(task.id)} className="w-full py-3 bg-primary text-white font-bold rounded-xl active:scale-95 transition-all">
+                    Perform Task
+                  </button>
+                </div>
+               ))
+            ) : (
+              <>
+                {/* Fallback Task Card: Read Articles */}
+                <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
+                        <span className="material-symbols-outlined">description</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-on-surface">Read Articles</h4>
+                        <p className="text-on-surface-variant text-sm">Stay updated with industry news</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-primary font-bold">₦~</span>
+                      <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Varies</span>
+                    </div>
                   </div>
+                  <button onClick={() => window.location.href='/articles'} className="w-full py-3 bg-surface-container-highest text-primary font-bold rounded-xl active:scale-95 transition-all">
+                    Read & Earn
+                  </button>
                 </div>
-                <div className="text-right">
-                  <span className="block text-primary font-bold">₦50</span>
-                  <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Per Read</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-[11px] font-bold text-outline">
-                  <span>PROGRESS</span>
-                  <span>3/5</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-[60%] rounded-full"></div>
-                </div>
-              </div>
-              <button className="w-full py-3 bg-surface-container-highest text-primary font-bold rounded-xl active:scale-95 transition-all">
-                Continue Reading
-              </button>
-            </div>
 
-            {/* Task Card: Share Social */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-tertiary/10 flex items-center justify-center text-tertiary">
-                    <span className="material-symbols-outlined">share</span>
+                {/* Fallback Task Card: Share Social */}
+                <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-tertiary/10 flex items-center justify-center text-tertiary">
+                        <span className="material-symbols-outlined">share</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-on-surface">Share on Social</h4>
+                        <p className="text-on-surface-variant text-sm">Spread the word on Twitter</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-primary font-bold">₦150</span>
+                      <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Bonus</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Share on Social</h4>
-                    <p className="text-on-surface-variant text-sm">Spread the word on Twitter</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[11px] font-bold text-outline">
+                      <span>PROGRESS</span>
+                      <span>0/1</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
+                      <div className="h-full bg-tertiary-fixed-dim w-[0%] rounded-full"></div>
+                    </div>
                   </div>
+                  <button onClick={() => handleClaim('social')} className="w-full py-3 bg-gradient-to-br from-[#006b3f] to-[#008751] text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    Claim ₦150
+                  </button>
                 </div>
-                <div className="text-right">
-                  <span className="block text-primary font-bold">₦150</span>
-                  <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Bonus</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-[11px] font-bold text-outline">
-                  <span>PROGRESS</span>
-                  <span>1/1</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                  <div className="h-full bg-tertiary-fixed-dim w-full rounded-full"></div>
-                </div>
-              </div>
-              <button className="w-full py-3 bg-gradient-to-br from-[#006b3f] to-[#008751] text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                Claim ₦150
-              </button>
-            </div>
 
-            {/* Task Card: Refer Friend */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed-variant">
-                    <span className="material-symbols-outlined">group_add</span>
+                {/* Fallback Task Card: Refer Friend */}
+                <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed-variant">
+                        <span className="material-symbols-outlined">group_add</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-on-surface">Refer a Friend</h4>
+                        <p className="text-on-surface-variant text-sm">Grow the oasis community</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-primary font-bold">25%</span>
+                      <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Commission</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Refer a Friend</h4>
-                    <p className="text-on-surface-variant text-sm">Grow the oasis community</p>
-                  </div>
+                  <button onClick={() => window.location.href='/referral'} className="w-full py-3 bg-surface-container-low text-on-surface font-bold rounded-xl active:scale-95 transition-all">
+                    Invite Contacts
+                  </button>
                 </div>
-                <div className="text-right">
-                  <span className="block text-primary font-bold">₦500</span>
-                  <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Instant</span>
-                </div>
-              </div>
-              <button className="w-full py-3 bg-surface-container-low text-on-surface font-bold rounded-xl active:scale-95 transition-all">
-                Invite Contacts
-              </button>
-            </div>
-
-            {/* Task Card: Daily Check-in */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-outline-variant/20 flex items-center justify-center text-outline">
-                    <span className="material-symbols-outlined">calendar_today</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Daily Check-in</h4>
-                    <p className="text-on-surface-variant text-sm">Day 5 of 7 Streaks</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="block text-primary font-bold">₦20</span>
-                  <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Daily</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1 h-2 rounded-full bg-primary"></div>
-                <div className="flex-1 h-2 rounded-full bg-primary"></div>
-                <div className="flex-1 h-2 rounded-full bg-primary"></div>
-                <div className="flex-1 h-2 rounded-full bg-primary"></div>
-                <div className="flex-1 h-2 rounded-full bg-surface-container-highest"></div>
-                <div className="flex-1 h-2 rounded-full bg-surface-container-highest"></div>
-                <div className="flex-1 h-2 rounded-full bg-surface-container-highest"></div>
-              </div>
-              <button className="w-full py-3 bg-primary/10 text-primary font-bold rounded-xl active:scale-95 transition-all">
-                Check-in Now
-              </button>
-            </div>
+              </>
+            )}
           </div>
         </section>
 

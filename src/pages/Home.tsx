@@ -195,24 +195,6 @@ export function Home() {
           </div>
         </div>
       </section>
-
-      {/* Referral CTA */}
-      <section className="bg-surface-container p-6 md:p-12 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-8 border-2 border-white/50">
-        <div className="max-w-xl text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-black font-headline text-on-primary-fixed-variant mb-4">Sharing is Earning</h2>
-          <p className="text-base md:text-lg text-on-surface-variant font-medium">
-            Invite your friends to JobbaWorks and earn a massive <span className="text-primary font-bold">₦1,000</span> for every successful registration.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-          <div className="flex-grow bg-white px-6 py-4 rounded-2xl border border-outline-variant/30 font-mono text-primary font-bold text-center">
-            JOBBA-REF-2024
-          </div>
-          <button className="bg-on-surface text-white px-8 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-zinc-800 transition-colors">
-            <span className="material-symbols-outlined text-sm">content_copy</span> Copy
-          </button>
-        </div>
-      </section>
     </main>
   );
 }
