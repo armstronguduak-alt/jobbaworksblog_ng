@@ -14,11 +14,23 @@ export function Settings() {
   const [isMfaEnabled, setIsMfaEnabled] = useState(false);
   const [payoutMethods, setPayoutMethods] = useState<any[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<any>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
+  });
 
   useEffect(() => {
     checkMfaStatus();
     if (user?.id) fetchPayoutMethods();
-  }, [user]);
+    
+    // Sync dark mode state with document
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [user, isDarkMode]);
 
   const fetchPayoutMethods = async () => {
     const { data } = await supabase.auth.getSession();
@@ -74,10 +86,10 @@ export function Settings() {
             <h2 className="text-2xl md:text-3xl font-headline font-extrabold tracking-tight text-on-surface">{profile?.name || 'Platform User'}</h2>
             <p className="text-on-surface-variant font-medium text-sm md:text-base">{user?.email}</p>
             <div className="pt-2">
-              <button className="text-primary font-semibold text-sm md:text-base inline-flex items-center gap-1 hover:underline">
+              <Link to="/profile" className="text-primary font-semibold text-sm md:text-base inline-flex items-center gap-1 hover:underline">
                 Edit Profile
                 <span className="material-symbols-outlined text-base">chevron_right</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -195,7 +207,12 @@ export function Settings() {
               <span className="font-semibold text-sm md:text-base">Dark Mode</span>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" />
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={isDarkMode}
+                onChange={() => setIsDarkMode(!isDarkMode)}
+              />
               <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>

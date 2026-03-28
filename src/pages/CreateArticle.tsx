@@ -11,6 +11,7 @@ export function CreateArticle() {
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredImage, setFeaturedImage] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const editorRef = useRef<HTMLDivElement>(null);
@@ -26,6 +27,35 @@ export function CreateArticle() {
     };
     fetchCats();
   }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `featured/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('post_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('post_images')
+        .getPublicUrl(filePath);
+
+      setFeaturedImage(publicUrl);
+    } catch (err: any) {
+      console.error(err);
+      alert('Error uploading image: ' + err.message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const executeCommand = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -209,19 +239,43 @@ export function CreateArticle() {
           {/* Featured Image Card */}
           <div className="bg-surface-container-lowest rounded-3xl p-6 md:p-8 space-y-4 shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
             <div className="flex items-center justify-between">
-              <h3 className="font-headline font-bold text-on-primary-fixed-variant">Featured Image URL</h3>
+              <h3 className="font-headline font-bold text-on-primary-fixed-variant">Featured Image</h3>
               <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>image</span>
             </div>
-            <input 
-              type="text" 
-              placeholder="https://example.com/image.jpg"
-              value={featuredImage}
-              onChange={e => setFeaturedImage(e.target.value)}
-              className="w-full bg-surface-container-low border-none p-3 rounded-xl focus:ring-2 focus:ring-primary"
-            />
+            <div className="space-y-3">
+              <input 
+                type="text" 
+                placeholder="https://example.com/image.jpg"
+                value={featuredImage}
+                onChange={e => setFeaturedImage(e.target.value)}
+                className="w-full bg-surface-container-low border-none p-3 rounded-xl focus:ring-2 focus:ring-primary text-sm"
+              />
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-surface-container-highest flex-1"></div>
+                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">OR</span>
+                <div className="h-px bg-surface-container-highest flex-1"></div>
+              </div>
+              <label className="flex items-center justify-center gap-2 w-full bg-surface-container hover:bg-surface-container-high text-on-surface py-3 rounded-xl cursor-pointer transition-colors font-semibold text-sm">
+                <span className="material-symbols-outlined text-[20px]">{isUploadingImage ? 'hourglass_empty' : 'upload'}</span>
+                {isUploadingImage ? 'Uploading...' : 'Upload from Device'}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleImageUpload} 
+                  disabled={isUploadingImage}
+                />
+              </label>
+            </div>
             {featuredImage && (
-              <div className="aspect-video bg-surface-container-low rounded-xl overflow-hidden mt-4">
+              <div className="aspect-video bg-surface-container-low rounded-xl overflow-hidden mt-4 relative group">
                 <img src={featuredImage} alt="Featured" className="w-full h-full object-cover" />
+                <button 
+                  onClick={() => setFeaturedImage('')}
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-error text-white p-1.5 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
               </div>
             )}
           </div>

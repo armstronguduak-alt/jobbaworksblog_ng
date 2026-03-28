@@ -30,31 +30,44 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </div>
         
         <div className="flex flex-col gap-2 p-4 flex-grow overflow-y-auto">
-          <Link to="/" onClick={onClose} className="flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+          <Link to="/" onClick={onClose} style={{ animationDelay: '100ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <Home size={20} className="text-emerald-600" />
             <span className="font-semibold px-2">Home</span>
           </Link>
           
-          <Link to="/earn" onClick={onClose} className="flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+          <Link to="/earn" onClick={onClose} style={{ animationDelay: '200ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <Coins size={20} className="text-emerald-600" />
             <span className="font-semibold px-2">Earn</span>
           </Link>
           
-          <Link to="/leaderboard" onClick={onClose} className="flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+          <Link to="/leaderboard" onClick={onClose} style={{ animationDelay: '300ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <LayoutDashboard size={20} className="text-emerald-600" />
             <span className="font-semibold px-2">Dashboard</span>
           </Link>
           
-          <Link to="/wallet" onClick={onClose} className="flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+          <Link to="/wallet" onClick={onClose} style={{ animationDelay: '400ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <Wallet size={20} className="text-emerald-600" />
             <span className="font-semibold px-2">Wallet</span>
           </Link>
           
-          <Link to="/settings" onClick={onClose} className="flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+          <Link to="/settings" onClick={onClose} style={{ animationDelay: '500ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <Settings size={20} className="text-emerald-600" />
             <span className="font-semibold px-2">Settings</span>
           </Link>
         </div>
+        
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes fadeInLeft {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          .animate-fade-in-left {
+            animation: fadeInLeft 0.4s ease-out forwards;
+          }
+          .fill-mode-forwards {
+            animation-fill-mode: forwards;
+          }
+        `}} />
         
         <div className="p-4 border-t dark:border-slate-800">
           <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl flex items-center gap-3">

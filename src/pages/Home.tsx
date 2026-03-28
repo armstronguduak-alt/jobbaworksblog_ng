@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Post {
   id: string;
@@ -18,6 +19,7 @@ interface Post {
 export function Home() {
   const [activeCategory, setActiveCategory] = useState('All Feed');
 
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ['publicPosts'],
     queryFn: async () => {
@@ -65,40 +67,42 @@ export function Home() {
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
       {/* Hero Section */}
-      <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
-        <div className="flex flex-col md:flex-row items-center gap-12 py-12 px-6 md:px-16 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
-          <div className="w-full md:w-1/2 space-y-6">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs uppercase tracking-widest">
-              Premium Tool for the Ambitious
-            </span>
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter leading-tight font-headline text-white">
-              Turn your focus into <span className="text-tertiary-fixed-dim">wealth.</span>
-            </h1>
-            <p className="text-lg opacity-90 max-w-lg font-body leading-relaxed">
-              The ultimate destination for professional growth and daily rewards. Engage with top-tier content and get paid for your attention.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Link to="/signup" className="bg-white text-primary hover:bg-surface-container-lowest transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-xl active:scale-95 duration-200">
-                Start Earning
-              </Link>
-              <Link to="/login" className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg backdrop-blur-sm">
-                Login
-              </Link>
+      {!user && (
+        <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
+          <div className="flex flex-col md:flex-row items-center gap-12 py-12 px-6 md:px-16 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
+            <div className="w-full md:w-1/2 space-y-6">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs uppercase tracking-widest">
+                Premium Tool for the Ambitious
+              </span>
+              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter leading-tight font-headline text-white">
+                Turn your focus into <span className="text-tertiary-fixed-dim">wealth.</span>
+              </h1>
+              <p className="text-lg opacity-90 max-w-lg font-body leading-relaxed">
+                The ultimate destination for professional growth and daily rewards. Engage with top-tier content and get paid for your attention.
+              </p>
+              <div className="flex flex-wrap gap-4 pt-4">
+                <Link to="/signup" className="bg-white text-primary hover:bg-surface-container-lowest transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-xl active:scale-95 duration-200">
+                  Start Earning
+                </Link>
+                <Link to="/login" className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg backdrop-blur-sm">
+                  Login
+                </Link>
+              </div>
+            </div>
+            <div className="w-full md:w-1/2 relative hidden md:block">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
+                <img
+                  className="w-full h-[400px] object-cover"
+                  alt="Professional financial dashboard"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBq1CeKILoKqcBKgFdJn0PvEentEGBVdRE-y2-bbnopQXg2uMW9UpBxSQHcRpncxlj1Zn8p9PTAYZT3mOaWvnah82sKTHi6t40s8rN2qlK80L3ELEeSjLYUIQgo_3k7Dj7wnlBkZXA4R71dehM-F7sBQEY7mJ2ZMVLZ8dAQNN4D9v8o6906hhEn13c_SsK8DTSrkrfq_Boi1uSQVHdnlAvY-A05ukAGOvhUzGToOpGY_vDb2UiPd-TGRzph2DrnZHH0SfUj8vtkoQs"
+                />
+              </div>
             </div>
           </div>
-          <div className="w-full md:w-1/2 relative hidden md:block">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
-              <img
-                className="w-full h-[400px] object-cover"
-                alt="Professional financial dashboard"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBq1CeKILoKqcBKgFdJn0PvEentEGBVdRE-y2-bbnopQXg2uMW9UpBxSQHcRpncxlj1Zn8p9PTAYZT3mOaWvnah82sKTHi6t40s8rN2qlK80L3ELEeSjLYUIQgo_3k7Dj7wnlBkZXA4R71dehM-F7sBQEY7mJ2ZMVLZ8dAQNN4D9v8o6906hhEn13c_SsK8DTSrkrfq_Boi1uSQVHdnlAvY-A05ukAGOvhUzGToOpGY_vDb2UiPd-TGRzph2DrnZHH0SfUj8vtkoQs"
-              />
-            </div>
-          </div>
-        </div>
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-3xl hidden md:block" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-container/30 rounded-full blur-3xl hidden md:block" />
-      </section>
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-3xl hidden md:block" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-container/30 rounded-full blur-3xl hidden md:block" />
+        </section>
+      )}
 
       {/* Category Filter */}
       <nav className="flex flex-nowrap items-center gap-3 mb-12 overflow-x-auto pb-4 scrollbar-hide">

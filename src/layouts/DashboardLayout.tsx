@@ -79,10 +79,10 @@ export function DashboardLayout() {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0">
+        <Link to="/" className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
           <img src="/logo.png" alt="JobbaWorks Logo" className="w-8 h-8 rounded-lg object-contain bg-primary shadow-sm" />
           <span className="text-xl font-black text-emerald-950 font-headline tracking-tighter">JobbaWorks</span>
-        </div>
+        </Link>
 
         {/* Scrollable Nav Area */}
         <div className="flex-1 overflow-y-auto px-4 py-2 space-y-8 scrollbar-hide">
@@ -90,20 +90,24 @@ export function DashboardLayout() {
           {/* Main Menu */}
           <div>
             <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Menu</p>
-            <nav className="flex flex-col gap-1">
-              {menuItems.map((item) => {
+            <nav className="flex flex-col gap-1 overflow-x-hidden p-1">
+              {menuItems.map((item, idx) => {
                 const isActive = location.pathname.includes(item.path);
+                const staggerDelay = `${idx * 60 + 100}ms`;
                 return (
                   <Link 
                     key={item.name}
                     to={item.path}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-semibold transition-all duration-200
+                    className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-semibold transition-all duration-300 transform ${!isSidebarOpen ? 'max-md:-translate-x-8 max-md:opacity-0 delay-0' : 'max-md:translate-x-0 max-md:opacity-100'}
                       ${isActive 
                         ? 'bg-emerald-50 text-emerald-700 shadow-[inset_0px_0px_0px_1px_rgba(4,120,87,0.1)]' 
                         : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                       }
                     `}
+                    style={{
+                      transitionDelay: isSidebarOpen ? staggerDelay : '0ms'
+                    }}
                   >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
                       {item.icon}
