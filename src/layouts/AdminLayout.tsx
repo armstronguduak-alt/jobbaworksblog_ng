@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Menu, X, Bell, ShieldAlert } from 'lucide-react';
+import { Menu, X, ShieldAlert } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 
 export function AdminLayout() {

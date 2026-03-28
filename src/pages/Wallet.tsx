@@ -171,6 +171,7 @@ export function Wallet() {
           </div>
 
           {/* Payment Methods */}
+          <div>
             <h2 className="text-lg font-bold font-headline text-on-surface mb-4 px-2">Payment Method</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {payoutMethods.length === 0 ? (

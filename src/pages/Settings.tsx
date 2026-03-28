@@ -35,7 +35,7 @@ export function Settings() {
 
   const checkMfaStatus = async () => {
     const { data: factors } = await supabase.auth.mfa.listFactors();
-    const existingTotp = factors?.all.find(f => f.factorType === 'totp' && f.status === 'verified');
+    const existingTotp = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
     setIsMfaEnabled(!!existingTotp);
   };
 
@@ -44,7 +44,7 @@ export function Settings() {
       // Unenroll logic
       if (!window.confirm("Are you sure you want to disable 2FA? This makes your account less secure.")) return;
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      const existingTotp = factors?.all.find(f => f.factorType === 'totp' && f.status === 'verified');
+      const existingTotp = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
       if (existingTotp) {
         await supabase.auth.mfa.unenroll({ factorId: existingTotp.id });
         setIsMfaEnabled(false);

@@ -29,7 +29,7 @@ export function TwoFactorModal({ isOpen, onClose, onSuccess }: TwoFactorModalPro
     
     // First check if already enrolled
     const { data: factors } = await supabase.auth.mfa.listFactors();
-    const existingTotp = factors?.all.find(f => f.factorType === 'totp' && f.status === 'verified');
+    const existingTotp = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
     
     if (existingTotp) {
       setError('2FA is already enabled on this account.');

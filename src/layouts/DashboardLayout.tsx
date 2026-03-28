@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Menu, X, Bell } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { SupportChatbot } from '../components/SupportChatbot';
 
