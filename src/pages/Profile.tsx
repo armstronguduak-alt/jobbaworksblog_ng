@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useDialog } from '../contexts/DialogContext';
 
 export function Profile() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { showAlert } = useDialog();
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -47,10 +49,10 @@ export function Profile() {
         .eq('id', user.id);
 
       if (error) throw error;
-      alert('Profile updated successfully!');
+      showAlert('Profile updated successfully!', 'Success');
     } catch (err) {
       console.error('Error updating profile:', err);
-      alert('Failed to update profile.');
+      showAlert('Failed to update profile.', 'Error');
     } finally {
       setIsSaving(false);
     }

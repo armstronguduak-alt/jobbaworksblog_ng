@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useDialog } from '../contexts/DialogContext';
 
 export function CreateArticle() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { showAlert } = useDialog();
   
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -51,7 +53,7 @@ export function CreateArticle() {
       setFeaturedImage(publicUrl);
     } catch (err: any) {
       console.error(err);
-      alert('Error uploading image: ' + err.message);
+      showAlert('Error uploading image: ' + err.message);
     } finally {
       setIsUploadingImage(false);
     }
@@ -86,7 +88,7 @@ export function CreateArticle() {
         </div><p><br></p>`;
         executeCommand('insertHTML', iframeHtml);
       } else {
-        alert('Invalid YouTube URL');
+        showAlert('Invalid YouTube URL');
       }
     }
   };
@@ -98,9 +100,15 @@ export function CreateArticle() {
   };
 
   const handlePublish = async (status: 'pending' | 'draft') => {
-    if (!title.trim()) return alert('Please enter a title');
+    if (!title.trim()) {
+      showAlert('Please enter a title');
+      return;
+    }
     const content = editorRef.current?.innerHTML || '';
-    if (!content.trim() || content === '<br>') return alert('Please enter some content');
+    if (!content.trim() || content === '<br>') {
+      showAlert('Please enter some content');
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -122,11 +130,11 @@ export function CreateArticle() {
 
       if (error) throw error;
 
-      alert(status === 'pending' ? 'Article submitted for review!' : 'Draft saved!');
+      await showAlert(status === 'pending' ? 'Article submitted for review!' : 'Draft saved!');
       navigate('/articles');
     } catch (err: any) {
       console.error(err);
-      alert('Error submitting article: ' + err.message);
+      showAlert('Error submitting article: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -229,7 +237,10 @@ export function CreateArticle() {
             <style>{
               `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }
                [contentEditable] iframe { display: block; margin: 10px auto; max-width: 100%; border-radius: 8px; }
-               [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }`
+               [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }
+               [contentEditable] ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+               [contentEditable] ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+               [contentEditable] li { margin-bottom: 0.25rem; }`
             }</style>
           </div>
         </div>

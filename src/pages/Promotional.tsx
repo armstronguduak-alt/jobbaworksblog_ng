@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDialog } from '../contexts/DialogContext';
 
 const PROMO_ASSETS = [
   {
@@ -38,6 +39,7 @@ const PROMO_ASSETS = [
 
 export function Promotional() {
   const [activeTab, setActiveTab] = useState<'all' | 'banner' | 'graphic'>('all');
+  const { showAlert } = useDialog();
   
   const filteredAssets = PROMO_ASSETS.filter(
     (asset) => activeTab === 'all' || asset.category === activeTab
@@ -45,12 +47,12 @@ export function Promotional() {
 
   const handleDownload = (assetTitle: string) => {
     // Simulated direct download action
-    alert(`Downloading high-quality asset: ${assetTitle}...`);
+    showAlert(`Downloading high-quality asset: ${assetTitle}...`, 'Download');
   };
 
   const handleShare = (platform: string, assetTitle: string) => {
     // Simulated share action
-    alert(`Preparing to share ${assetTitle} to ${platform}...`);
+    showAlert(`Preparing to share ${assetTitle} to ${platform}...`, 'Share');
   };
 
   return (

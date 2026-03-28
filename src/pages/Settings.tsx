@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useDialog } from '../contexts/DialogContext';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { TwoFactorModal } from '../components/TwoFactorModal';
 import { PaymentMethodModal } from '../components/PaymentMethodModal';
 
 export function Settings() {
   const { user, profile, signOut } = useAuth();
+  const { showConfirm } = useDialog();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -54,7 +56,8 @@ export function Settings() {
   const handleToggleMfa = async () => {
     if (isMfaEnabled) {
       // Unenroll logic
-      if (!window.confirm("Are you sure you want to disable 2FA? This makes your account less secure.")) return;
+      const isConfirmed = await showConfirm("Are you sure you want to disable 2FA? This makes your account less secure.", "Warning");
+      if (!isConfirmed) return;
       const { data: factors } = await supabase.auth.mfa.listFactors();
       const existingTotp = factors?.all.find(f => f.factor_type === 'totp' && f.status === 'verified');
       if (existingTotp) {

@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 
 export function AdminContent() {
   const { isAdmin, isLoading: authLoading } = useAuth();
+  const { showAlert } = useDialog();
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,13 +46,13 @@ export function AdminContent() {
 
       if (!error) {
         setPosts(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p).filter(p => newStatus !== 'approved' && newStatus !== 'rejected' || p.id !== id));
-        alert(`Article ${newStatus} successfully.`);
+        showAlert(`Article ${newStatus} successfully.`);
       } else {
-        alert('Failed to update article status.');
+        showAlert('Failed to update article status.', 'Error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error updating article.');
+      showAlert('Error updating article.', 'Error');
     }
   };
 

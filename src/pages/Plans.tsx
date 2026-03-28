@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 
 declare global {
   interface Window {
@@ -10,6 +11,7 @@ declare global {
 
 export function Plans() {
   const { user, profile } = useAuth();
+  const { showAlert, showConfirm } = useDialog();
   const [plans, setPlans] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<string>('free');
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +52,16 @@ export function Plans() {
     }
   }
 
-  const handleUpgrade = (plan: any) => {
+  const handleUpgrade = async (plan: any) => {
     if (plan.price === 0) return;
     if (plan.id === currentPlan) return;
+
+    // Show custom dialog before Korapay payload
+    const isConfirmed = await showConfirm(
+      `You are about to subscribe to the ${plan.name} plan for ₦${Number(plan.price).toLocaleString()}. Please confirm to proceed to secure payment with Korapay.`,
+      'Confirm Subscription'
+    );
+    if (!isConfirmed) return;
 
     setProcessingPlan(plan.id);
 
@@ -105,10 +114,10 @@ export function Plans() {
           });
 
           setCurrentPlan(plan.id);
-          alert(`Successfully upgraded to ${plan.name}!`);
+          showAlert(`Successfully upgraded to ${plan.name}!`, 'Success');
         } catch (err) {
           console.error('Error updating subscription:', err);
-          alert('Payment received but there was an error updating your plan. Please contact support.');
+          showAlert('Payment received but there was an error updating your plan. Please contact support.', 'Error');
         } finally {
           setProcessingPlan(null);
         }
@@ -116,7 +125,7 @@ export function Plans() {
       onFailed: (data: any) => {
         console.error('Payment failed:', data);
         setProcessingPlan(null);
-        alert('Payment failed. Please try again.');
+        showAlert('Payment failed. Please try again.', 'Payment Failed');
       },
     });
   };

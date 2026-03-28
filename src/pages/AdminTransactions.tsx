@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 
 export function AdminTransactions() {
   const { isAdmin, isLoading: authLoading } = useAuth();
+  const { showAlert } = useDialog();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -46,13 +48,13 @@ export function AdminTransactions() {
 
       if (!error) {
         setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
-        alert('Transaction updated successfully.');
+        showAlert('Transaction updated successfully.');
       } else {
-        alert('Failed to update transaction status.');
+        showAlert('Failed to update transaction status.', 'Error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error updating transaction.');
+      showAlert('Error updating transaction.', 'Error');
     }
   };
 
