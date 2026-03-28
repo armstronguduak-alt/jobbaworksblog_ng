@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Menu, X, Bell, ShieldAlert } from 'lucide-react';
+import { NotificationsDropdown } from '../components/NotificationsDropdown';
 
 export function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -13,16 +14,24 @@ export function AdminLayout() {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path.includes('users')) return 'User Management';
-    if (path.includes('transactions')) return 'Finances';
-    if (path.includes('content')) return 'Content Moderation';
-    return 'Admin Overview';
+    if (path.includes('moderation')) return 'Post Moderation';
+    if (path.includes('categories')) return 'Categories';
+    if (path.includes('tasks')) return 'Tasks & Bounties';
+    if (path.includes('promotions')) return 'Promotions';
+    if (path.includes('articles')) return 'Articles Management';
+    if (path.includes('settings')) return 'Global Settings';
+    return 'System Overview';
   };
 
   const menuItems = [
-    { name: 'Overview', path: '/admin', icon: 'dashboard' },
-    { name: 'Users', path: '/admin/users', icon: 'group' },
-    { name: 'Finances', path: '/admin/transactions', icon: 'payments' },
-    { name: 'Content', path: '/admin/content', icon: 'article' },
+    { name: 'System Overview', path: '/admin', icon: 'admin_panel_settings' },
+    { name: 'Post Moderation', path: '/admin/moderation', icon: 'fact_check' },
+    { name: 'User Management', path: '/admin/users', icon: 'group' },
+    { name: 'Categories', path: '/admin/categories', icon: 'sell' },
+    { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
+    { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
+    { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
+    { name: 'Global Settings', path: '/admin/settings', icon: 'tune' },
   ];
 
   return (
@@ -39,10 +48,7 @@ export function AdminLayout() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          <button className="p-2 bg-rose-50 text-rose-500 rounded-xl relative">
-            <Bell size={20} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-          </button>
+          <NotificationsDropdown />
           <Link to="/profile" className="w-[38px] h-[38px] rounded-xl overflow-hidden shadow-sm border border-error/20">
             <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Admin"} alt="Admin Avatar" className="w-full h-full object-cover" />
           </Link>
@@ -78,7 +84,7 @@ export function AdminLayout() {
           
           {/* Main Menu */}
           <div>
-            <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Management</p>
+            <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">COMMAND CENTER</p>
             <nav className="flex flex-col gap-1">
               {menuItems.map((item) => {
                 const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
@@ -146,13 +152,7 @@ export function AdminLayout() {
           </div>
           
           <div className="flex items-center gap-6">
-            <button className="bg-white p-2.5 rounded-full shadow-sm border border-surface-container-highest/20 text-on-surface-variant hover:text-error transition-colors relative group">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-              <div className="absolute top-full right-0 mt-2 bg-surface text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Alerts
-              </div>
-            </button>
+            <NotificationsDropdown />
             
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">

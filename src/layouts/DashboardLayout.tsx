@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Menu, X, Bell } from 'lucide-react';
+import { NotificationsDropdown } from '../components/NotificationsDropdown';
+import { SupportChatbot } from '../components/SupportChatbot';
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -54,10 +56,7 @@ export function DashboardLayout() {
           <Link to="/" className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
              <span className="material-symbols-outlined text-[20px]">home</span>
           </Link>
-          <button className="p-2 bg-rose-50 text-rose-500 rounded-xl relative">
-            <Bell size={20} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-          </button>
+          <NotificationsDropdown />
           <Link to="/profile" className="w-[38px] h-[38px] rounded-xl overflow-hidden shadow-sm border border-surface-container">
             <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="User Avatar" className="w-full h-full object-cover" />
           </Link>
@@ -166,13 +165,7 @@ export function DashboardLayout() {
           </h1>
           
           <div className="flex items-center gap-6">
-            <button className="bg-white p-2.5 rounded-full shadow-sm border border-surface-container-highest/20 text-on-surface-variant hover:text-emerald-700 transition-colors relative group">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-              <div className="absolute top-full right-0 mt-2 bg-surface text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Notifications
-              </div>
-            </button>
+            <NotificationsDropdown />
             
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
@@ -194,6 +187,7 @@ export function DashboardLayout() {
         <div className="flex-1 overflow-y-auto mt-[70px] md:mt-0 relative pb-10">
           <Outlet />
         </div>
+        <SupportChatbot />
       </div>
     </div>
   );

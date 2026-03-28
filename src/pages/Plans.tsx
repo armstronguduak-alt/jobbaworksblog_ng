@@ -145,9 +145,12 @@ export function Plans() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
           {plans.map((plan) => {
             const isCurrent = currentPlan === plan.id;
+            const currentPlanData = plans.find(p => p.id === currentPlan);
+            const currentPlanPrice = currentPlanData ? currentPlanData.price : 0;
+            const isLowerPlan = plan.price < currentPlanPrice;
             const isFree = plan.price === 0;
             const isPopular = plan.id === 'pro' || plan.id === 'elite' || plan.id === 'executive';
-            const canUpgrade = !isFree && !isCurrent;
+            const canUpgrade = !isFree && !isCurrent && !isLowerPlan;
             const isProcessing = processingPlan === plan.id;
 
             return (
@@ -212,10 +215,11 @@ export function Plans() {
                 
                 <button 
                   onClick={() => canUpgrade && handleUpgrade(plan)}
-                  disabled={isCurrent || isProcessing}
+                  disabled={isCurrent || isProcessing || isLowerPlan}
                   className={`w-full py-4 rounded-xl font-bold transition-all mt-auto active:scale-95
                     ${isProcessing ? 'opacity-70 cursor-wait' : ''}
                     ${isCurrent ? 'bg-surface-container text-on-surface-variant cursor-default' : 
+                      isLowerPlan ? 'bg-surface-container-highest/20 text-on-surface-variant/50 cursor-not-allowed opacity-50' :
                       isPopular 
                       ? 'bg-white text-emerald-800 shadow-md hover:bg-emerald-50' 
                       : 'bg-primary text-white shadow-md hover:bg-emerald-800'
@@ -226,6 +230,8 @@ export function Plans() {
                     ? 'Processing...'
                     : isCurrent
                     ? 'Current Plan'
+                    : isLowerPlan
+                    ? 'Unavailable'
                     : isFree
                     ? 'Basic Access'
                     : 'Subscribe Now'}

@@ -7,7 +7,8 @@ export function Wallet() {
   const [balance, setBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('opay');
+  const [payoutMethods, setPayoutMethods] = useState<any[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,13 +57,23 @@ export function Wallet() {
     try {
       if (transactions.length === 0) setIsLoading(true);
 
-      const [balanceRes, txRes] = await Promise.all([
+      const [balanceRes, txRes, methodsRes] = await Promise.all([
         supabase.from('wallet_balances').select('balance').eq('user_id', userId).single(),
-        supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+        supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
+        supabase.from('payout_methods').select('*').eq('user_id', userId)
       ]);
         
       if (balanceRes.data) setBalance(balanceRes.data.balance);
       if (txRes.data) setTransactions(txRes.data);
+      if (methodsRes.data) {
+        setPayoutMethods(methodsRes.data);
+        const defaultMethod = methodsRes.data.find((m: any) => m.is_default);
+        if (defaultMethod && !selectedMethodId) {
+          setSelectedMethodId(defaultMethod.id);
+        } else if (methodsRes.data.length > 0 && !selectedMethodId) {
+          setSelectedMethodId(methodsRes.data[0].id);
+        }
+      }
       
     } catch (err) {
       console.error("Error fetching wallet data:", err);
@@ -82,6 +93,10 @@ export function Wallet() {
     }
     if (Number(withdrawAmount) > balance) {
       setMessage('Insufficient balance.');
+      return;
+    }
+    if (!selectedMethodId) {
+      setMessage('Please select a payment method.');
       return;
     }
 
@@ -156,68 +171,40 @@ export function Wallet() {
           </div>
 
           {/* Payment Methods */}
-          <div>
             <h2 className="text-lg font-bold font-headline text-on-surface mb-4 px-2">Payment Method</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* OPay */}
-              <label className="relative cursor-pointer group">
-                <input 
-                  checked={paymentMethod === 'opay'}
-                  onChange={() => setPaymentMethod('opay')}
-                  className="peer sr-only" 
-                  name="payment" 
-                  type="radio" 
-                  value="opay" 
-                />
-                <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 flex items-center justify-center p-1">
-                      <img src="/opay_logo.png" alt="OPay" className="object-contain w-full h-full" />
-                    </div>
-                    <span className="font-bold text-sm">OPay</span>
-                  </div>
+              {payoutMethods.length === 0 ? (
+                <div className="col-span-3 text-center p-6 bg-surface-container-low rounded-2xl border border-dashed border-outline/30">
+                  <p className="text-sm text-on-surface-variant mb-3">No payment methods found.</p>
+                  <a href="/settings" className="text-primary font-bold text-xs uppercase tracking-wider bg-primary/10 px-4 py-2 rounded-xl">Add Payment Details</a>
                 </div>
-              </label>
-
-              {/* MiniPay */}
-              <label className="relative cursor-pointer group">
-                <input 
-                  checked={paymentMethod === 'minipay'}
-                  onChange={() => setPaymentMethod('minipay')}
-                  className="peer sr-only" 
-                  name="payment" 
-                  type="radio" 
-                  value="minipay" 
-                />
-                <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 flex items-center justify-center p-1">
-                      <img src="/minipay_logo.webp" alt="Minipay" className="object-contain w-full h-full" />
+              ) : (
+                payoutMethods.map((pm: any) => (
+                  <label key={pm.id} className="relative cursor-pointer group flex-1 min-w-[120px]">
+                    <input 
+                      checked={selectedMethodId === pm.id}
+                      onChange={() => setSelectedMethodId(pm.id)}
+                      className="peer sr-only" 
+                      name="payment_method" 
+                      type="radio" 
+                      value={pm.id} 
+                    />
+                    <div className="p-4 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300 h-full flex flex-col justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center p-1 ${selectedMethodId === pm.id ? 'bg-primary/20 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                          <span className="material-symbols-outlined text-[20px]">
+                            {pm.method === 'minipay' ? 'account_balance_wallet' : 'account_balance'}
+                          </span>
+                        </div>
+                        <span className="font-bold text-xs uppercase text-center block w-full truncate px-1" title={pm.account_name || pm.wallet_address || pm.minipay_uid}>
+                          {pm.method === 'opay' ? 'OPay' : pm.method === 'minipay' ? 'MiniPay' : 'USDT'}
+                        </span>
+                        <span className="text-[10px] text-on-surface-variant truncate w-full flex justify-center">{pm.account_number || 'Wallet Address'}</span>
+                      </div>
                     </div>
-                    <span className="font-bold text-sm">MiniPay</span>
-                  </div>
-                </div>
-              </label>
-
-              {/* USDT */}
-              <label className="relative cursor-pointer group">
-                <input 
-                  checked={paymentMethod === 'usdt'}
-                  onChange={() => setPaymentMethod('usdt')}
-                  className="peer sr-only" 
-                  name="payment" 
-                  type="radio" 
-                  value="usdt" 
-                />
-                <div className="p-6 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 flex items-center justify-center p-1">
-                      <img src="/usdt_logo.png" alt="USDT" className="object-contain w-full h-full" />
-                    </div>
-                    <span className="font-bold text-sm">USDT (TRC20)</span>
-                  </div>
-                </div>
-              </label>
+                  </label>
+                ))
+              )}
             </div>
           </div>
 

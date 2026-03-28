@@ -37,8 +37,7 @@ export function Leaderboard() {
           total_earnings,
           profiles:user_id (name, avatar_url, status)
         `)
-        .order('total_earnings', { ascending: false })
-        .limit(20);
+        .order('total_earnings', { ascending: false });
 
       if (!error && data) {
         setTopEarners(data);

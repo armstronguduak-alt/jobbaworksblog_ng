@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { SendMessageModal } from '../components/SendMessageModal';
 
 export function AdminUsers() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -51,16 +54,40 @@ export function AdminUsers() {
       </div>
 
       <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
-        <div className="flex justify-between items-center mb-6 border-b border-surface-container pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-surface-container pb-4">
           <input 
             type="text" 
             placeholder="Search by name or email..." 
-            className="w-full max-w-sm px-4 py-2 bg-surface-container-low rounded-xl text-sm border-none focus:ring-1 focus:ring-primary outline-none"
+            className="w-full sm:max-w-sm px-4 py-2 bg-surface-container-low rounded-xl text-sm border-none focus:ring-1 focus:ring-primary outline-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div className="text-xs font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-high px-3 py-1.5 rounded-full">
-            Top 50 Results
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                if (selectedUserIds.size === usersList.length) {
+                  setSelectedUserIds(new Set());
+                } else {
+                  setSelectedUserIds(new Set(usersList.map(u => u.id)));
+                }
+              }}
+              className="px-4 py-2 bg-surface-container hover:bg-surface-variant transition-colors rounded-xl text-xs font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap"
+            >
+              {selectedUserIds.size === usersList.length && usersList.length > 0 ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
+              onClick={() => setIsMessageModalOpen(true)}
+              disabled={selectedUserIds.size === 0}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors flex items-center gap-1.5
+                ${selectedUserIds.size > 0 ? 'bg-primary text-white hover:bg-emerald-800' : 'bg-surface-container-high text-outline-variant cursor-not-allowed opacity-50'}
+              `}
+            >
+              <span className="material-symbols-outlined text-[16px]">send</span>
+              Message ({selectedUserIds.size})
+            </button>
+            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-high px-3 py-2 rounded-xl hidden md:block">
+              Top 50
+            </div>
           </div>
         </div>
         
@@ -76,7 +103,10 @@ export function AdminUsers() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/50">
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest rounded-tl-xl">User</th>
+                  <th className="p-4 w-12 rounded-tl-xl text-center">
+                    <span className="material-symbols-outlined text-outline-variant text-[18px]">check_box_outline_blank</span>
+                  </th>
+                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">User</th>
                   <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Email</th>
                   <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Status</th>
                   <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Joined</th>
@@ -86,6 +116,16 @@ export function AdminUsers() {
               <tbody className="divide-y divide-surface-container-highest/50 text-sm">
                 {usersList.map(u => (
                   <tr key={u.id} className="hover:bg-surface-container-low/30 transition-colors">
+                    <td className="p-4 cursor-pointer" onClick={() => {
+                        const newSet = new Set(selectedUserIds);
+                        if (newSet.has(u.id)) newSet.delete(u.id);
+                        else newSet.add(u.id);
+                        setSelectedUserIds(newSet);
+                      }}>
+                      <div className="flex justify-center flex-col items-center">
+                        <input type="checkbox" checked={selectedUserIds.has(u.id)} onChange={() => {}} className="cursor-pointer appearance-none w-5 h-5 border-2 border-surface-container-highest checked:bg-primary checked:border-primary rounded flex items-center justify-center relative checked:after:content-['✓'] checked:after:absolute checked:after:text-white checked:after:text-xs checked:after:font-bold" />
+                      </div>
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img 
@@ -115,6 +155,15 @@ export function AdminUsers() {
           </div>
         )}
       </div>
+
+      <SendMessageModal
+        isOpen={isMessageModalOpen}
+        onClose={() => setIsMessageModalOpen(false)}
+        selectedUsers={usersList.filter(u => selectedUserIds.has(u.id))}
+        onSuccess={() => {
+          setSelectedUserIds(new Set());
+        }}
+      />
     </main>
   );
 }

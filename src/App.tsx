@@ -22,6 +22,8 @@ const Wallet = lazy(() => import('./pages/Wallet').then(module => ({ default: mo
 const Swap = lazy(() => import('./pages/Swap').then(module => ({ default: module.Swap })));
 const Referral = lazy(() => import('./pages/Referral').then(module => ({ default: module.Referral })));
 const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ default: module.Analytics })));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
+const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
 const AdminManagement = lazy(() => import('./pages/AdminManagement').then(module => ({ default: module.AdminManagement })));
 const AdminUsers = lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })));
 const AdminTransactions = lazy(() => import('./pages/AdminTransactions').then(module => ({ default: module.AdminTransactions })));
@@ -39,6 +41,8 @@ function App() {
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
           <Route path="promotional" element={<Promotional />} />
+          <Route path="privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="terms-of-service" element={<TermsOfService />} />
         </Route>
 
         {/* SECURE DASHBOARD LAYOUT */}
