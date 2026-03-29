@@ -79,9 +79,45 @@ export function Plans() {
   const initKorapayCheckout = (plan: any) => {
     const email = user?.email || profile?.email || '';
     const name = profile?.name || 'User';
+    const TEST_KEY = 'pk_test_replace_with_your_korapay_public_key';
+
+    const processBackendUpgrade = async (reference: string) => {
+      try {
+        await supabase.rpc('process_plan_upgrade', {
+          _user_id: user?.id,
+          _new_plan_id: plan.id,
+        });
+
+        await supabase.from('wallet_transactions').insert({
+          user_id: user?.id,
+          amount: plan.price,
+          type: 'subscription_fee',
+          status: 'completed',
+          description: `Upgraded to ${plan.name} plan`,
+          meta: { plan_id: plan.id, reference },
+        });
+
+        setCurrentPlan(plan.id);
+        showAlert(`Successfully upgraded to ${plan.name}!`, 'Success');
+      } catch (err) {
+        console.error('Error updating subscription:', err);
+        showAlert('Payment received but there was an error updating your plan. Please contact support.', 'Error');
+      } finally {
+        setProcessingPlan(null);
+      }
+    };
+
+    // If API key is not set, simulate payment to allow testing
+    if (TEST_KEY.includes('replace_with_your')) {
+      setTimeout(() => {
+        const simulatedRef = `sim_${Date.now()}`;
+        processBackendUpgrade(simulatedRef);
+      }, 2000);
+      return;
+    }
 
     window.Korapay.initialize({
-      key: 'pk_test_replace_with_your_korapay_public_key', // Replace with your Korapay public key
+      key: TEST_KEY,
       reference: `jobbaworks_${plan.id}_${user?.id}_${Date.now()}`,
       amount: Number(plan.price),
       currency: 'NGN',
@@ -89,38 +125,13 @@ export function Plans() {
         name: name,
         email: email,
       },
-      notification_url: '', // Add your webhook URL for server-side verification
+      notification_url: '',
       onClose: () => {
         setProcessingPlan(null);
       },
       onSuccess: async (data: any) => {
         console.log('Payment successful:', data);
-        // Update user subscription in Supabase
-        try {
-          // Call the plan upgrade function
-          await supabase.rpc('process_plan_upgrade', {
-            _user_id: user?.id,
-            _new_plan_id: plan.id,
-          });
-
-          // Record the subscription fee transaction
-          await supabase.from('wallet_transactions').insert({
-            user_id: user?.id,
-            amount: plan.price,
-            type: 'subscription_fee',
-            status: 'completed',
-            description: `Upgraded to ${plan.name} plan`,
-            meta: { plan_id: plan.id, reference: data.reference },
-          });
-
-          setCurrentPlan(plan.id);
-          showAlert(`Successfully upgraded to ${plan.name}!`, 'Success');
-        } catch (err) {
-          console.error('Error updating subscription:', err);
-          showAlert('Payment received but there was an error updating your plan. Please contact support.', 'Error');
-        } finally {
-          setProcessingPlan(null);
-        }
+        await processBackendUpgrade(data.reference);
       },
       onFailed: (data: any) => {
         console.error('Payment failed:', data);

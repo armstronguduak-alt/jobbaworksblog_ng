@@ -197,19 +197,21 @@ export function Home() {
           ) : null}
 
           {/* Upgrade CTA */}
-          <div className="bg-emerald-900 text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between h-full relative overflow-hidden">
-            <div>
-              <span className="material-symbols-outlined text-4xl mb-4 text-tertiary-fixed-dim">verified_user</span>
-              <h4 className="text-lg font-bold mb-2">Join the Elite Club</h4>
-              <p className="text-sm opacity-80">Get access to premium high-paying tasks and executive insights.</p>
+          {!user && (
+            <div className="bg-[#0f172a] text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between h-full relative overflow-hidden">
+              <div>
+                <span className="material-symbols-outlined text-4xl mb-4 text-[#dcfce7]">verified_user</span>
+                <h4 className="text-lg font-bold mb-2">Join the LIT Club</h4>
+                <p className="text-sm opacity-80">Get access to premium high-paying tasks and executive insights.</p>
+              </div>
+              <Link to="/signup" className="mt-6 w-full py-3 bg-[#006b3f] hover:bg-[#008751] text-white font-bold rounded-xl active:scale-95 transition-all relative z-10 text-center block">
+                Get Started
+              </Link>
+              <div className="absolute -right-10 -bottom-10 opacity-10">
+                <span className="material-symbols-outlined text-9xl">shield</span>
+              </div>
             </div>
-            <Link to="/signup" className="mt-6 w-full py-3 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold rounded-xl active:scale-95 transition-transform relative z-10 text-center block">
-              Get Started
-            </Link>
-            <div className="absolute -right-10 -bottom-10 opacity-10">
-              <span className="material-symbols-outlined text-9xl">shield</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

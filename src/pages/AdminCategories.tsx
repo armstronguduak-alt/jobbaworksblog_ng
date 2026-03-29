@@ -38,14 +38,24 @@ export function AdminCategories() {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     
-    // Optimistic UI for visual demonstration, real insert handled below if needed
-    const newCategory = { id: Date.now().toString(), name: newCategoryName, slug: newCategoryName.toLowerCase().replace(/ /g, '-') };
-    setCategories([newCategory, ...categories]);
-    setNewCategoryName('');
-    showAlert('Category added securely.', 'Success');
+    setIsLoading(true);
+    const slug = newCategoryName.toLowerCase().replace(/ /g, '-');
+    try {
+      const { data, error } = await supabase.from('categories').insert([{ name: newCategoryName, slug }]).select();
+      if (error) throw error;
+      if (data) {
+        setCategories([...data, ...categories]);
+        setNewCategoryName('');
+        showAlert('Category added securely.', 'Success');
+      }
+    } catch (err: any) {
+      showAlert(`Error: ${err.message}`, 'Error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = (id: string, currentName: string) => {
@@ -59,8 +69,17 @@ export function AdminCategories() {
       'Delete Category'
     );
     if (confirmed) {
-      setCategories(prev => prev.filter(c => c.id !== id));
-      showAlert(`${currentName} category removed.`);
+      setIsLoading(true);
+      try {
+        const { error } = await supabase.from('categories').delete().eq('id', id);
+        if (error) throw error;
+        setCategories(prev => prev.filter(c => c.id !== id));
+        showAlert(`${currentName} category removed.`);
+      } catch (err: any) {
+        showAlert(`Error deleting: ${err.message}`, 'Error');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

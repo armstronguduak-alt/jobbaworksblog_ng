@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { X, Home, Coins, LayoutDashboard, Wallet, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const { profile } = useAuth();
+  const { pageToggles } = useAppSettings();
   return (
     <>
       {/* Backdrop */}
@@ -37,20 +39,26 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <span className="font-semibold px-2">Home</span>
           </Link>
           
-          <Link to="/earn" onClick={onClose} style={{ animationDelay: '200ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
-            <Coins size={20} className="text-emerald-600" />
-            <span className="font-semibold px-2">Earn</span>
-          </Link>
+          {pageToggles.earningsEnabled && (
+            <Link to="/earn" onClick={onClose} style={{ animationDelay: '200ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+              <Coins size={20} className="text-emerald-600" />
+              <span className="font-semibold px-2">Earn</span>
+            </Link>
+          )}
           
-          <Link to="/leaderboard" onClick={onClose} style={{ animationDelay: '300ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
-            <LayoutDashboard size={20} className="text-emerald-600" />
-            <span className="font-semibold px-2">Dashboard</span>
-          </Link>
+          {pageToggles.leaderboardEnabled && (
+            <Link to="/leaderboard" onClick={onClose} style={{ animationDelay: '300ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+              <LayoutDashboard size={20} className="text-emerald-600" />
+              <span className="font-semibold px-2">Dashboard</span>
+            </Link>
+          )}
           
-          <Link to="/wallet" onClick={onClose} style={{ animationDelay: '400ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
-            <Wallet size={20} className="text-emerald-600" />
-            <span className="font-semibold px-2">Wallet</span>
-          </Link>
+          {pageToggles.walletEnabled && (
+            <Link to="/wallet" onClick={onClose} style={{ animationDelay: '400ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
+              <Wallet size={20} className="text-emerald-600" />
+              <span className="font-semibold px-2">Wallet</span>
+            </Link>
+          )}
           
           <Link to="/settings" onClick={onClose} style={{ animationDelay: '500ms' }} className="animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300">
             <Settings size={20} className="text-emerald-600" />

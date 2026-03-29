@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 interface NavigationProps {
   onMenuToggle: () => void;
@@ -8,6 +9,7 @@ interface NavigationProps {
 
 export function Navigation({ onMenuToggle, isMenuOpen }: NavigationProps) {
   const location = useLocation();
+  const { pageToggles } = useAppSettings();
   const isDashboardOrWallet = location.pathname.includes('/leaderboard') || location.pathname.includes('/wallet') || location.pathname.includes('/earned');
 
   return (
@@ -29,9 +31,13 @@ export function Navigation({ onMenuToggle, isMenuOpen }: NavigationProps) {
         
         <nav className="hidden md:flex items-center gap-8">
           <Link to="/" className="text-emerald-700 dark:text-emerald-400 font-bold font-headline tracking-tight">Home</Link>
-          <Link to="/earn" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Earn</Link>
+          {pageToggles.earningsEnabled && (
+            <Link to="/earn" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Earn</Link>
+          )}
           <Link to="/articles" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Articles</Link>
-          <Link to="/leaderboard" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Dashboard</Link>
+          {pageToggles.leaderboardEnabled && (
+            <Link to="/leaderboard" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Dashboard</Link>
+          )}
         </nav>
         
         <div className="flex items-center gap-3">

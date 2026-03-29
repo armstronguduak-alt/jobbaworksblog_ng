@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Menu, X } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { SupportChatbot } from '../components/SupportChatbot';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,17 +28,19 @@ export function DashboardLayout() {
     return 'Overview'; // dashboard home
   };
 
+  const { pageToggles } = useAppSettings();
+
   const menuItems = [
-    { name: 'Overview', path: '/dashboard', icon: 'dashboard' },
-    { name: 'Earnings', path: '/analytics', icon: 'monitoring' },
-    { name: 'Wallet', path: '/wallet', icon: 'account_balance_wallet' },
-    { name: 'Swap', path: '/swap', icon: 'swap_horiz' },
-    { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events' },
-    { name: 'My Articles', path: '/articles', icon: 'article' },
-    { name: 'Tasks', path: '/earn', icon: 'task_alt' },
-    { name: 'Plans', path: '/plans', icon: 'rocket_launch' },
-    { name: 'Referrals', path: '/referral', icon: 'group_add' },
-  ];
+    { name: 'Overview', path: '/dashboard', icon: 'dashboard', show: true },
+    { name: 'Earnings', path: '/analytics', icon: 'monitoring', show: true },
+    { name: 'Wallet', path: '/wallet', icon: 'account_balance_wallet', show: pageToggles.walletEnabled },
+    { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled },
+    { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events', show: pageToggles.leaderboardEnabled },
+    { name: 'My Articles', path: '/articles', icon: 'article', show: true },
+    { name: 'Tasks', path: '/earn', icon: 'task_alt', show: pageToggles.earningsEnabled },
+    { name: 'Plans', path: '/plans', icon: 'rocket_launch', show: true },
+    { name: 'Referrals', path: '/referral', icon: 'group_add', show: pageToggles.referralsEnabled },
+  ].filter(item => item.show);
 
   return (
     <div className="flex h-screen bg-[#f8faf9] text-on-surface font-body overflow-hidden">

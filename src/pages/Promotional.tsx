@@ -1,49 +1,26 @@
-import { useState } from 'react';
+
 import { Link } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
-
-const PROMO_ASSETS = [
-  {
-    id: 1,
-    category: 'banner',
-    title: 'Standard Referral Banner',
-    description: 'Perfect for Twitter and Facebook headers.',
-    imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800&h=400',
-    tags: ['Standard', 'Wide', 'Social'],
-  },
-  {
-    id: 2,
-    category: 'graphic',
-    title: 'Instagram Square Promo',
-    description: 'High engagement square graphic highlighting JobbaWorks earnings.',
-    imageUrl: 'https://images.unsplash.com/photo-1557683304-673a23048d34?auto=format&fit=crop&q=80&w=800&h=800',
-    tags: ['Instagram', 'Square', 'Vibrant'],
-  },
-  {
-    id: 3,
-    category: 'banner',
-    title: 'Professional LinkedIn Header',
-    description: 'Corporate aesthetic for B2B referrals.',
-    imageUrl: 'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&q=80&w=800&h=400',
-    tags: ['Professional', 'Corporate', 'LinkedIn'],
-  },
-  {
-    id: 4,
-    category: 'graphic',
-    title: 'WhatsApp Status Graphic',
-    description: 'Vertical layout optimized for mobile stories and status.',
-    imageUrl: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&q=80&w=400&h=800',
-    tags: ['Mobile Story', 'WhatsApp', 'Vertical'],
-  },
-];
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
 
 export function Promotional() {
-  const [activeTab, setActiveTab] = useState<'all' | 'banner' | 'graphic'>('all');
   const { showAlert } = useDialog();
   
-  const filteredAssets = PROMO_ASSETS.filter(
-    (asset) => activeTab === 'all' || asset.category === activeTab
-  );
+  const { data: promotions, isLoading } = useQuery({
+    queryKey: ['promotions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('promotions')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const filteredAssets = promotions || [];
 
   const handleDownload = (assetTitle: string) => {
     // Simulated direct download action
@@ -92,22 +69,9 @@ export function Promotional() {
         <div className="bg-surface-container-lowest shadow-xl border border-surface-container-highest/30 rounded-3xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 mb-10 max-w-3xl mx-auto">
           <div className="flex bg-surface-container p-1 rounded-2xl w-full sm:w-auto">
             <button 
-              onClick={() => setActiveTab('all')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'all' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all bg-white text-primary shadow-sm`}
             >
               All Assets
-            </button>
-            <button 
-              onClick={() => setActiveTab('banner')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'banner' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              Banners
-            </button>
-            <button 
-              onClick={() => setActiveTab('graphic')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'graphic' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              Graphics
             </button>
           </div>
           <div className="flex items-center gap-2 text-sm font-bold text-on-surface-variant">
@@ -118,17 +82,19 @@ export function Promotional() {
 
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {isLoading && <p>Loading assets...</p>}
+          {!isLoading && filteredAssets.length === 0 && <p className="text-on-surface-variant">No promotional assets available.</p>}
           {filteredAssets.map((asset) => (
             <div key={asset.id} className="bg-surface-container-lowest rounded-3xl overflow-hidden shadow-lg border border-surface-container-highest/20 group hover:border-primary/40 transition-colors">
               <div className="relative aspect-[16/9] md:aspect-[2/1] bg-surface-container overflow-hidden">
                 <img 
-                  src={asset.imageUrl} 
+                  src={asset.image_url} 
                   alt={asset.title} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="bg-white/90 backdrop-blur-md text-emerald-950 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
-                    {asset.category}
+                    Campaign
                   </span>
                 </div>
               </div>
@@ -143,11 +109,11 @@ export function Promotional() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {asset.tags.map(tag => (
-                    <span key={tag} className="bg-surface-container px-3 py-1 rounded-lg text-xs font-semibold text-on-surface-variant">
-                      #{tag}
-                    </span>
-                  ))}
+                  {asset.cta_text && (
+                    <a href={asset.cta_url || '#'} target="_blank" rel="noreferrer" className="bg-surface-container px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                      {asset.cta_text} ↗
+                    </a>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-surface-container-highest/50 flex flex-col sm:flex-row gap-3">

@@ -1,0 +1,43 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+
+export interface PageToggles {
+  leaderboardEnabled: boolean;
+  swapEnabled: boolean;
+  referralsEnabled: boolean;
+  earningsEnabled: boolean; // aka tasks / earn
+  walletEnabled: boolean;
+  promotionsEnabled: boolean;
+}
+
+const defaultToggles: PageToggles = {
+  leaderboardEnabled: true,
+  swapEnabled: true,
+  referralsEnabled: true,
+  earningsEnabled: true,
+  walletEnabled: true,
+  promotionsEnabled: true,
+};
+
+export function useAppSettings() {
+  const { data: pageToggles, isLoading: isLoadingToggles, refetch: refetchToggles } = useQuery({
+    queryKey: ['systemSettings', 'page_toggles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'page_toggles')
+        .single();
+      
+      if (error || !data) return defaultToggles;
+      return { ...defaultToggles, ...(data.value as Partial<PageToggles>) } as PageToggles;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+
+  return {
+    pageToggles: pageToggles || defaultToggles,
+    isLoadingToggles,
+    refetchToggles
+  };
+}

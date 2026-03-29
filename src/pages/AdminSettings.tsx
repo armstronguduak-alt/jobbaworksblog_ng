@@ -1,21 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
-
-const TIERS = [
-  { id: 'free', name: 'Free Tier', price: 0, limit: 5 },
-  { id: 'starter', name: 'Starter', price: 15, limit: 6 },
-  { id: 'pro', name: 'Pro Active', price: 20, limit: 8 },
-  { id: 'elite', name: 'Elite Growth', price: 25, limit: 10 },
-  { id: 'vip', name: 'VIP Power', price: 40, limit: 12 },
-  { id: 'executive', name: 'Executive Master', price: 70, limit: 15 },
-  { id: 'platinum', name: 'Platinum Master', price: 120, limit: 18 },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function AdminSettings() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { showAlert } = useDialog();
+  const queryClient = useQueryClient();
+  const { pageToggles, refetchToggles } = useAppSettings();
+
   const [selectedTierId, setSelectedTierId] = useState('free');
   
   const [tierSettings, setTierSettings] = useState({
@@ -27,23 +23,79 @@ export function AdminSettings() {
     dailyCommentLimit: '4'
   });
 
-  const [toggles, setToggles] = useState({
-    leaderboard: true,
-    swap: true,
-    referrals: true,
-    earnings: true,
-    wallet: true
+  const [toggles, setToggles] = useState(pageToggles);
+  const [monetizationRate, setMonetizationRate] = useState('100');
+
+  // Sync internal state when pageToggles load
+  useEffect(() => {
+    setToggles(pageToggles);
+  }, [pageToggles]);
+
+  const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
+    queryKey: ['admin_subscription_plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('subscription_plans').select('*');
+      if (error) throw error;
+      return data || [];
+    }
   });
 
-  const selectedTier = TIERS.find(t => t.id === selectedTierId);
+  const selectedTier = tiersMaster?.find(t => t.id === selectedTierId);
+
+  // Update form when a tier is selected
+  useEffect(() => {
+    if (selectedTier) {
+      setTierSettings({
+        price: selectedTier.price.toString(),
+        isActive: selectedTier.is_active,
+        readReward: selectedTier.read_reward.toString(),
+        commentReward: selectedTier.comment_reward.toString(),
+        dailyReadingLimit: selectedTier.daily_read_limit.toString(),
+        dailyCommentLimit: selectedTier.daily_comment_limit.toString()
+      });
+    }
+  }, [selectedTierId, selectedTier]);
+
+  const updateTierMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('subscription_plans').update({
+        price: Number(tierSettings.price),
+        is_active: tierSettings.isActive,
+        read_reward: Number(tierSettings.readReward),
+        comment_reward: Number(tierSettings.commentReward),
+        daily_read_limit: Number(tierSettings.dailyReadingLimit),
+        daily_comment_limit: Number(tierSettings.dailyCommentLimit)
+      }).eq('id', selectedTierId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_subscription_plans'] });
+      showAlert(`Successfully updated settings for ${selectedTier?.name}.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
 
   const handleTierSave = (e: React.FormEvent) => {
     e.preventDefault();
-    showAlert(`Successfully updated settings for ${selectedTier?.name}.`);
+    updateTierMutation.mutate();
   };
 
+  const updateTogglesMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('system_settings')
+        .update({ value: toggles })
+        .eq('key', 'page_toggles');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchToggles();
+      showAlert(`Page visibility toggles saved successfully.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
+
   const handleTogglesSave = () => {
-    showAlert(`Page visibility toggles saved successfully.`);
+    updateTogglesMutation.mutate();
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
@@ -68,7 +120,7 @@ export function AdminSettings() {
         <div className="lg:col-span-4 space-y-4">
           <h3 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-4">Select Tier to Adjust</h3>
           <div className="space-y-3">
-            {TIERS.map(tier => (
+            {isTiersLoading ? <p>Loading tiers...</p> : tiersMaster?.map(tier => (
               <button
                 key={tier.id}
                 onClick={() => setSelectedTierId(tier.id)}
@@ -84,7 +136,7 @@ export function AdminSettings() {
                 </div>
                 <h4 className="text-xl font-extrabold font-headline leading-tight">{tier.name}</h4>
                 <p className={`text-xs mt-2 ${selectedTierId === tier.id ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>
-                  ₦{tier.price.toFixed(2)} per read • {tier.limit} limit
+                  ₦{Number(tier.price).toFixed(2)} per read • {tier.daily_read_limit} limit
                 </p>
               </button>
             ))}

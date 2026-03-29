@@ -6,7 +6,7 @@ import { useDialog } from '../contexts/DialogContext';
 
 export function AdminContent() {
   const { isAdmin, isLoading: authLoading } = useAuth();
-  const { showAlert } = useDialog();
+  const { showAlert, showConfirm } = useDialog();
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,7 +26,6 @@ export function AdminContent() {
           profiles:author_user_id (name, email),
           categories:category_id (name)
         `)
-        .in('status', ['pending', 'draft'])
         .order('created_at', { ascending: false });
 
       if (data) setPosts(data);
@@ -56,6 +55,24 @@ export function AdminContent() {
     }
   };
 
+  const handleDeleteArticle = async (id: string, title: string) => {
+    const confirmed = await showConfirm(
+      `Are you sure you want to permanently delete the article "${title}"?`,
+      'Delete Article'
+    );
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', id);
+      if (error) throw error;
+      setPosts(prev => prev.filter(p => p.id !== id));
+      showAlert('Article deleted successfully.', 'Success');
+    } catch (err: any) {
+      console.error(err);
+      showAlert(`Error deleting article: ${err.message}`, 'Error');
+    }
+  };
+
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -75,7 +92,7 @@ export function AdminContent() {
       <div className="bg-transparent overflow-hidden">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-black font-headline text-[#191c1d]">
-            Pending Articles
+            All Articles
           </h2>
           <button onClick={fetchPendingPosts} className="text-xs text-[#006b3f] bg-[#dcfce7] hover:bg-[#bbf7d0] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
             <span className="material-symbols-outlined text-[14px]">refresh</span>
@@ -88,7 +105,7 @@ export function AdminContent() {
         ) : posts.length === 0 ? (
           <div className="text-center py-16 text-outline bg-white rounded-2xl border border-surface-container-low shadow-sm">
             <span className="material-symbols-outlined text-4xl mb-2 opacity-50">article</span>
-            <p className="font-bold">No unpublished/pending articles found.</p>
+            <p className="font-bold">No articles found.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -97,6 +114,7 @@ export function AdminContent() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] font-black text-[#191c1d] bg-surface-container-low px-2 py-1 rounded-md uppercase tracking-[0.1em]">{post.categories?.name || 'Uncategorized'}</span>
+                    <span className="text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded-md uppercase tracking-[0.1em]">{post.status}</span>
                     <span className="text-xs text-outline font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
                   <h3 className="font-black text-xl text-[#0f172a] mb-2 font-headline">{post.title}</h3>
@@ -108,19 +126,30 @@ export function AdminContent() {
                 </div>
                 
                 <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-40 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-low md:pl-6 md:border-l">
+                  {post.status !== 'approved' && (
+                    <button 
+                      onClick={() => handleUpdateStatus(post.id, 'approved')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-[#008751] hover:bg-[#006b3f] text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      Approve
+                    </button>
+                  )}
+                  {post.status !== 'rejected' && (
+                    <button 
+                      onClick={() => handleUpdateStatus(post.id, 'rejected')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">cancel</span>
+                      Reject
+                    </button>
+                  )}
                   <button 
-                    onClick={() => handleUpdateStatus(post.id, 'approved')}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-[#008751] hover:bg-[#006b3f] text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
+                    onClick={() => handleDeleteArticle(post.id, post.title)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full mt-2"
                   >
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatus(post.id, 'rejected')}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">cancel</span>
-                    Reject
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    Delete
                   </button>
                 </div>
               </div>

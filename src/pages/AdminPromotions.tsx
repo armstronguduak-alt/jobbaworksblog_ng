@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { supabase } from '../lib/supabase';
 
 export function AdminPromotions() {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -14,11 +15,51 @@ export function AdminPromotions() {
     ctaUrl: '',
     description: ''
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showAlert('Promotion added successfully!', 'Success');
-    setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
+    if (!profile) return;
+    setIsSubmitting(true);
+
+    try {
+      let finalImageUrl = formData.imageUrl;
+
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error: uploadError, data } = await supabase.storage
+          .from('promotions')
+          .upload(fileName, imageFile);
+          
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage.from('promotions').getPublicUrl(fileName);
+        finalImageUrl = urlData.publicUrl;
+      }
+
+      if (!finalImageUrl) throw new Error('Please provide an image URL or upload a file');
+
+      const { error } = await supabase.from('promotions').insert({
+        title: formData.title,
+        description: formData.description,
+        image_url: finalImageUrl,
+        cta_text: formData.ctaText,
+        cta_url: formData.ctaUrl,
+        created_by_user_id: profile.id
+      });
+
+      if (error) throw error;
+
+      showAlert('Promotion added successfully!', 'Success');
+      setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
+      setImageFile(null);
+    } catch (error: any) {
+      showAlert(`Error: ${error.message}`, 'Error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
@@ -63,9 +104,9 @@ export function AdminPromotions() {
               <div className="flex items-center gap-3">
                 <label className="px-4 py-2 border border-emerald-600 text-[#006b3f] bg-[#dcfce7] rounded-xl font-bold cursor-pointer hover:bg-emerald-200 transition-colors text-xs shrink-0 self-center">
                   Choose File
-                  <input type="file" className="hidden" />
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
                 </label>
-                <span className="text-xs text-outline italic truncate">No file chosen</span>
+                <span className="text-xs text-outline italic truncate">{imageFile ? imageFile.name : 'No file chosen'}</span>
               </div>
               
               <div className="flex items-center gap-3">
@@ -123,10 +164,11 @@ export function AdminPromotions() {
           <div className="pt-4">
             <button 
               type="submit" 
-              className="bg-[#008751] hover:bg-[#006b3f] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform shadow-sm text-sm"
+              disabled={isSubmitting}
+              className="bg-[#008751] hover:bg-[#006b3f] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform shadow-sm text-sm disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
-              ADD PROMOTION
+              {isSubmitting ? 'UPLOADING...' : 'ADD PROMOTION'}
             </button>
           </div>
         </form>
