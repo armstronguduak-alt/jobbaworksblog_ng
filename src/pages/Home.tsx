@@ -12,6 +12,7 @@ interface Post {
   featured_image: string | null;
   reading_time_seconds: number;
   published_at: string;
+  created_at: string;
   category: { name: string } | null;
   author: { name: string; avatar_url: string | null } | null;
 }
@@ -26,10 +27,10 @@ export function Home() {
       const [catRes, postsRes] = await Promise.all([
         supabase.from('categories').select('id, name, slug').eq('is_active', true),
         supabase.from('posts').select(`
-          id, title, slug, excerpt, featured_image, reading_time_seconds, published_at,
+          id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at,
           categories:category_id (name),
           profiles:author_user_id (name, avatar_url)
-        `).eq('status', 'approved').order('published_at', { ascending: false }).limit(12)
+        `).eq('status', 'approved').order('created_at', { ascending: false }).limit(12)
       ]);
 
       const categories = catRes.data || [];
@@ -189,7 +190,7 @@ export function Home() {
                 <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2">{post.title}</h4>
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-slate-400 text-xs font-medium">{Math.ceil(post.reading_time_seconds / 60)} min read</span>
-                  <span className="text-xs text-on-surface-variant">{timeAgo(post.published_at)}</span>
+                  <span className="text-xs text-on-surface-variant">{timeAgo(post.created_at)}</span>
                 </div>
               </div>
             ))
@@ -247,7 +248,7 @@ export function Home() {
                     <span className="px-2 py-0.5 bg-surface-container-high rounded-full text-[10px] font-bold text-slate-500 uppercase">
                       {post.category?.name || 'Article'}
                     </span>
-                    <span className="text-slate-400 text-xs">• {timeAgo(post.published_at)}</span>
+                    <span className="text-slate-400 text-xs">• {timeAgo(post.created_at)}</span>
                   </div>
                   <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
                     {post.title}

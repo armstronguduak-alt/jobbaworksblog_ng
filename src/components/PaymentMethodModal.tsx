@@ -11,7 +11,7 @@ interface PaymentMethodModalProps {
 
 export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod }: PaymentMethodModalProps) {
   const { user } = useAuth();
-  const [method, setMethod] = useState<'opay' | 'usdt_trc20' | 'minipay'>(existingMethod?.method || 'opay');
+  const [method, setMethod] = useState<'opay' | 'usdt_trc20' | 'minipay'>(existingMethod?.method || 'minipay');
   const [accountName, setAccountName] = useState(existingMethod?.account_name || '');
   const [accountNumber, setAccountNumber] = useState(existingMethod?.account_number || '');
   const [walletAddress, setWalletAddress] = useState(existingMethod?.wallet_address || '');
@@ -89,9 +89,9 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod 
               onChange={(e) => setMethod(e.target.value as any)}
               className="w-full bg-surface-container py-3 px-4 rounded-xl text-on-surface font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all border border-transparent focus:border-primary/30"
             >
-              <option value="opay">OPay (NGN)</option>
-              <option value="usdt_trc20">USDT (TRC-20)</option>
               <option value="minipay">MiniPay</option>
+              <option value="opay" disabled>OPay (NGN) - Coming Soon</option>
+              <option value="usdt_trc20" disabled>USDT (TRC-20) - Coming Soon</option>
             </select>
           </div>
 
