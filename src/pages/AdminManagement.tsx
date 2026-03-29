@@ -116,8 +116,12 @@ export function AdminManagement() {
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">
       {/* Welcome Header */}
       <section className="mb-10">
-        <h1 className="text-3xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">Operations Overview</h1>
-        <p className="text-on-surface-variant font-medium">Monitoring platform health and transaction velocity.</p>
+        <div className="inline-flex items-center gap-1 px-3 py-1 bg-[#dcfce7] text-[#006b3f] rounded-full mb-3">
+          <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
+          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">System Overview</span>
+        </div>
+        <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight mb-1 font-headline">Operations Overview</h1>
+        <p className="text-outline text-sm md:text-base">Monitoring platform health and transaction velocity.</p>
       </section>
 
       {/* Bento Grid Summary Cards */}

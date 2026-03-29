@@ -68,7 +68,7 @@ export function Plans() {
     // Load Korapay checkout
     if (typeof window.Korapay === 'undefined') {
       const script = document.createElement('script');
-      script.src = 'https://korapay.com/js/korapay.min.js';
+      script.src = 'https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js';
       script.onload = () => initKorapayCheckout(plan);
       document.head.appendChild(script);
     } else {

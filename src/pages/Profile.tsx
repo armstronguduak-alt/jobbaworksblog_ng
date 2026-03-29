@@ -17,6 +17,7 @@ export function Profile() {
     avatarUrl: ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -45,6 +46,7 @@ export function Profile() {
           username: formData.username,
           phone: formData.phone,
           bio: formData.bio,
+          avatar_url: formData.avatarUrl,
         })
         .eq('id', user.id);
 
@@ -55,6 +57,36 @@ export function Profile() {
       showAlert('Failed to update profile.', 'Error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('post_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('post_images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
+      showAlert('Avatar uploaded! Click Save Changes to keep it.', 'Success');
+    } catch (err: any) {
+      console.error(err);
+      showAlert('Error uploading image: ' + err.message, 'Error');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -76,39 +108,58 @@ export function Profile() {
         </div>
 
         {/* Profile Avatar Editor Component */}
-        <section className="bg-surface-container-lowest rounded-[2rem] p-6 shadow-sm border border-surface-container-highest/20">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-3xl overflow-hidden bg-surface-container-high ring-4 ring-surface shadow-lg">
+        <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-surface-container-low/50">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="relative shrink-0">
+              <div className="w-[120px] h-[120px] rounded-3xl overflow-hidden bg-surface-container ring-1 ring-surface-container-high">
                 <img 
                   alt="Profile Avatar" 
-                  className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                  className="w-full h-full object-cover"
                   src={formData.avatarUrl} 
                 />
               </div>
-              <button className="absolute -bottom-2 -right-2 bg-primary text-on-primary p-3 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 z-10">
-                <span className="material-symbols-outlined text-sm">photo_camera</span>
-              </button>
+              <label className="absolute -bottom-2 -right-2 bg-[#046c4e] text-white p-2.5 rounded-xl shadow-md cursor-pointer hover:bg-[#03543f] transition-colors z-10">
+                <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleImageUpload} 
+                  disabled={isUploadingImage}
+                />
+              </label>
             </div>
-            <div className="text-center md:text-left space-y-2">
-              <h3 className="font-bold font-headline text-lg">Profile Picture</h3>
-              <p className="text-sm text-on-surface-variant max-w-sm">We recommend an image of at least 800x800px. JPG, GIF, or PNG.</p>
-              <button className="mt-2 text-primary font-bold text-sm bg-primary-container/20 px-4 py-2 rounded-full hover:bg-primary-container/30 transition-colors">
-                Upload New Image
-              </button>
+            
+            <div className="space-y-3">
+              <h3 className="font-bold font-headline text-xl text-[#111928]">Profile Picture</h3>
+              <p className="text-[15px] text-[#6b7280] max-w-sm leading-relaxed">
+                We recommend an image of at least 800x800px. JPG, GIF, or PNG.
+              </p>
+              <div>
+                <label className="inline-block cursor-pointer text-[#046c4e] font-bold text-sm bg-[#def7ec] px-5 py-2.5 rounded-full hover:bg-[#c3e6d5] transition-colors">
+                  {isUploadingImage ? 'Uploading...' : 'Upload New Image'}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleImageUpload} 
+                    disabled={isUploadingImage}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Personal Details Form */}
-        <form className="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 shadow-sm border border-surface-container-highest/20 space-y-6">
-          <h3 className="font-bold text-lg font-headline mb-4 pb-4 border-b border-surface-container-highest">Personal Information</h3>
+        <form className="bg-white rounded-[2rem] p-6 md:p-10 shadow-sm border border-surface-container-low/50 space-y-8">
+          <h3 className="font-extrabold text-2xl font-headline pb-6 border-b border-gray-100 text-[#111928]">Personal Information</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Full Name</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#4b5563] ml-1">FULL NAME</label>
               <input
-                className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
+                className="w-full h-14 px-5 bg-[#f3f4f6] text-[#111928] font-semibold border-none rounded-2xl focus:ring-2 focus:ring-[#046c4e]/30 outline-none transition-all"
                 name="fullName"
                 value={formData.fullName} 
                 onChange={handleChange}
@@ -116,10 +167,10 @@ export function Profile() {
               />
             </div>
             
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Username</label>
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#4b5563] ml-1">USERNAME</label>
               <input
-                className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
+                className="w-full h-14 px-5 bg-[#f3f4f6] text-[#111928] font-semibold border-none rounded-2xl focus:ring-2 focus:ring-[#046c4e]/30 outline-none transition-all"
                 name="username"
                 value={formData.username} 
                 onChange={handleChange}
@@ -127,23 +178,23 @@ export function Profile() {
               />
             </div>
             
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Email Address (Cannot Edit)</label>
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#4b5563] ml-1">EMAIL ADDRESS (CANNOT EDIT)</label>
               <div className="relative">
                 <input
-                  className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl text-outline opacity-60 cursor-not-allowed"
+                  className="w-full h-14 px-5 pr-12 bg-[#f9fafb] text-[#9ca3af] font-semibold border-none rounded-2xl outline-none cursor-not-allowed"
                   value={user?.email || ''} 
                   type="email" 
                   disabled
                 />
-                <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline/50">lock</span>
+                <span className="material-symbols-outlined absolute right-5 top-1/2 -translate-y-1/2 text-[#9ca3af] text-[20px]">lock</span>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Phone Number</label>
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#4b5563] ml-1">PHONE NUMBER</label>
               <input
-                className="w-full h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all"
+                className="w-full h-14 px-5 bg-[#f3f4f6] text-[#111928] font-semibold border-none rounded-2xl focus:ring-2 focus:ring-[#046c4e]/30 outline-none transition-all"
                 name="phone"
                 value={formData.phone} 
                 onChange={handleChange}
@@ -152,10 +203,10 @@ export function Profile() {
             </div>
           </div>
 
-          <div className="space-y-2 pt-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Bio</label>
+          <div className="space-y-2.5 pt-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[#4b5563] ml-1">BIO</label>
             <textarea
-              className="w-full p-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all resize-none min-h-[120px]"
+              className="w-full p-5 bg-[#f3f4f6] text-[#111928] font-semibold border-none rounded-2xl focus:ring-2 focus:ring-[#046c4e]/30 outline-none transition-all resize-none min-h-[140px]"
               placeholder="Tell us a little bit about yourself..."
               name="bio"
               value={formData.bio}

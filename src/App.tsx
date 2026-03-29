@@ -28,6 +28,10 @@ const AdminManagement = lazy(() => import('./pages/AdminManagement').then(module
 const AdminUsers = lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })));
 const AdminTransactions = lazy(() => import('./pages/AdminTransactions').then(module => ({ default: module.AdminTransactions })));
 const AdminContent = lazy(() => import('./pages/AdminContent').then(module => ({ default: module.AdminContent })));
+const AdminSettings = lazy(() => import('./pages/AdminSettings').then(module => ({ default: module.AdminSettings })));
+const AdminPromotions = lazy(() => import('./pages/AdminPromotions').then(module => ({ default: module.AdminPromotions })));
+const AdminTasks = lazy(() => import('./pages/AdminTasks').then(module => ({ default: module.AdminTasks })));
+const AdminCategories = lazy(() => import('./pages/AdminCategories').then(module => ({ default: module.AdminCategories })));
 
 function App() {
   return (
@@ -67,7 +71,13 @@ function App() {
             <Route index element={<AdminManagement />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="transactions" element={<AdminTransactions />} />
+            <Route path="moderation" element={<AdminContent />} />
             <Route path="content" element={<AdminContent />} />
+            <Route path="articles" element={<AdminContent />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="promotions" element={<AdminPromotions />} />
+            <Route path="tasks" element={<AdminTasks />} />
+            <Route path="categories" element={<AdminCategories />} />
           </Route>
         </Route>
 

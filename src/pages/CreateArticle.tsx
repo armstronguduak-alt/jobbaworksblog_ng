@@ -238,9 +238,9 @@ export function CreateArticle() {
               `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }
                [contentEditable] iframe { display: block; margin: 10px auto; max-width: 100%; border-radius: 8px; }
                [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }
-               [contentEditable] ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
-               [contentEditable] ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
-               [contentEditable] li { margin-bottom: 0.25rem; }`
+               [contentEditable] ul { list-style-type: disc !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
+               [contentEditable] ol { list-style-type: decimal !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
+               [contentEditable] li { margin-bottom: 0.5rem !important; display: list-item !important; }`
             }</style>
           </div>
         </div>

@@ -174,13 +174,13 @@ export function DashboardLayout() {
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
                 <span className="text-sm font-bold text-emerald-950 leading-tight">
-                  {profile?.full_name || 'User'}
+                  {profile?.name || profile?.full_name || profile?.username || 'User'}
                 </span>
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">
                   ID: #{profile?.id?.slice(0, 5) || '00000'}
                 </span>
               </div>
-              <Link to="/profile" className="w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 border-white hover:border-emerald-100 transition-colors">
+              <Link to="/profile" className="w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 border-white hover:border-emerald-100 transition-colors bg-surface-container">
                 <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="User Avatar" className="w-full h-full object-cover" />
               </Link>
             </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 
 interface Article {
   id: string;
@@ -25,6 +26,7 @@ export function Articles() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const { showConfirm, showAlert } = useDialog();
 
   const tabs = ['All Articles', 'Published', 'Drafts'];
 
@@ -76,6 +78,21 @@ export function Articles() {
       console.error('Error fetching articles:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteArticle = async (id: string) => {
+    const confirmed = await showConfirm('Are you sure you want to delete this article? This action cannot be undone.', 'Delete Article');
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', id);
+      if (error) throw error;
+      setArticles(prev => prev.filter(a => a.id !== id));
+      showAlert('Article successfully deleted.', 'Success');
+    } catch (err: any) {
+      console.error(err);
+      showAlert('Failed to delete article: ' + err.message, 'Error');
     }
   };
 
@@ -224,6 +241,7 @@ export function Articles() {
                     <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Earnings</th>
                     <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline">Status</th>
                     <th className="px-6 md:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline text-right">Date</th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-widest text-outline text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container">
@@ -265,6 +283,15 @@ export function Articles() {
                         </td>
                         <td className="px-6 md:px-8 py-4 md:py-6 text-right">
                           <span className="text-xs md:text-sm text-outline font-medium">{timeAgo(article.created_at)}</span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 md:py-6 text-right">
+                          <button 
+                            onClick={() => handleDeleteArticle(article.id)}
+                            className="text-error hover:bg-error/10 p-2 rounded-full transition-colors"
+                            title="Delete Article"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
                         </td>
                       </tr>
                     );

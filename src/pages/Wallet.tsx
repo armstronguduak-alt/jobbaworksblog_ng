@@ -119,6 +119,19 @@ export function Wallet() {
     }
   };
 
+  const handleDeleteMethod = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this payment method?")) return;
+    try {
+      await supabase.from('payout_methods').delete().eq('id', id);
+      if (selectedMethodId === id) setSelectedMethodId(null);
+      if (user) fetchWalletData(user.id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const recentWithdrawal = transactions.find(tx => tx.type === 'withdrawal');
 
   return (
@@ -190,7 +203,14 @@ export function Wallet() {
                       type="radio" 
                       value={pm.id} 
                     />
-                    <div className="p-4 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300 h-full flex flex-col justify-center">
+                    <div className="p-4 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300 h-full flex flex-col justify-center relative">
+                      <button 
+                        onClick={(e) => handleDeleteMethod(e, pm.id)}
+                        className="absolute top-2 right-2 w-6 h-6 bg-error/10 text-error rounded-full flex items-center justify-center hover:bg-error hover:text-white transition-colors z-10"
+                        title="Delete Method"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                      </button>
                       <div className="flex flex-col items-center gap-2">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center p-1 ${selectedMethodId === pm.id ? 'bg-primary/20 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
                           <span className="material-symbols-outlined text-[20px]">

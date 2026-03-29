@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { SendMessageModal } from '../components/SendMessageModal';
@@ -45,23 +45,25 @@ export function AdminUsers() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">
-      <div className="flex justify-between items-center mb-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">User Management</h1>
-          <p className="text-on-surface-variant font-medium">View, edit, and moderate all platform users.</p>
+          <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight mb-1 font-headline">User Management</h1>
+          <p className="text-outline text-sm md:text-base">Monitor community health and manage account privileges.</p>
         </div>
-        <Link to="/admin" className="text-primary font-bold hover:underline">Back to Overview</Link>
-      </div>
-
-      <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-surface-container pb-4">
+        <div className="relative w-full md:w-[320px]">
+          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-variant text-[20px]">search</span>
           <input 
             type="text" 
             placeholder="Search by name or email..." 
-            className="w-full sm:max-w-sm px-4 py-2 bg-surface-container-low rounded-xl text-sm border-none focus:ring-1 focus:ring-primary outline-none"
+            className="w-full pl-11 pr-4 py-3 bg-white rounded-2xl text-sm border border-surface-container-low shadow-sm focus:ring-2 focus:ring-primary outline-none transition-shadow"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+      </div>
+
+      <div className="bg-transparent overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => {
@@ -100,33 +102,20 @@ export function AdminUsers() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="bg-surface-container-low/50">
-                  <th className="p-4 w-12 rounded-tl-xl text-center">
-                    <span className="material-symbols-outlined text-outline-variant text-[18px]">check_box_outline_blank</span>
-                  </th>
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">User</th>
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Email</th>
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Status</th>
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest">Joined</th>
-                  <th className="p-4 text-xs font-bold text-on-surface-variant uppercase tracking-widest text-right rounded-tr-xl">Actions</th>
+                <tr className="bg-white rounded-full shadow-sm border border-surface-container-low text-[#49454f]">
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] rounded-l-full">USER</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">EMAIL</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">STATUS</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">JOINED</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] text-right rounded-r-full">ACTIONS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-container-highest/50 text-sm">
+              <tbody className="before:content-[''] before:block before:h-4 text-sm divide-y divide-surface-container/50">
                 {usersList.map(u => (
-                  <tr key={u.id} className="hover:bg-surface-container-low/30 transition-colors">
-                    <td className="p-4 cursor-pointer" onClick={() => {
-                        const newSet = new Set(selectedUserIds);
-                        if (newSet.has(u.id)) newSet.delete(u.id);
-                        else newSet.add(u.id);
-                        setSelectedUserIds(newSet);
-                      }}>
-                      <div className="flex justify-center flex-col items-center">
-                        <input type="checkbox" checked={selectedUserIds.has(u.id)} onChange={() => {}} className="cursor-pointer appearance-none w-5 h-5 border-2 border-surface-container-highest checked:bg-primary checked:border-primary rounded flex items-center justify-center relative checked:after:content-['✓'] checked:after:absolute checked:after:text-white checked:after:text-xs checked:after:font-bold" />
-                      </div>
-                    </td>
-                    <td className="p-4">
+                  <tr key={u.id} className="hover:bg-black/5 transition-colors">
+                    <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <img 
                           className="w-8 h-8 rounded-full bg-surface-container" 
@@ -136,16 +125,16 @@ export function AdminUsers() {
                         <span className="font-semibold text-on-surface">{u.name || 'Unknown'}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-on-surface-variant">{u.email || 'No email stored'}</td>
-                    <td className="p-4">
+                    <td className="py-4 px-6 text-on-surface-variant">{u.email || 'No email stored'}</td>
+                    <td className="py-4 px-6">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-variant text-on-surface-variant'}`}>
                         {u.status || 'Active'}
                       </span>
                     </td>
-                    <td className="p-4 text-on-surface-variant">
+                    <td className="py-4 px-6 text-on-surface-variant">
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="py-4 px-6 text-right">
                       <button className="text-primary font-bold hover:underline text-xs">View/Edit</button>
                     </td>
                   </tr>

@@ -122,7 +122,7 @@ export function Earn() {
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
       <main className="max-w-xl mx-auto px-4 md:px-6 py-8 space-y-8">
         {/* Daily Progress Card */}
-        <section className="relative bg-gradient-to-br from-[#006b3f] to-[#008751] rounded-[2rem] p-8 overflow-hidden shadow-xl">
+        <Link to="/analytics" className="block relative bg-gradient-to-br from-[#006b3f] to-[#008751] rounded-[2rem] p-8 overflow-hidden shadow-xl transition-transform hover:scale-[1.02] active:scale-[0.98]">
           <div className="absolute top-[-20%] right-[-10%] opacity-10 pointer-events-none">
             <span className="material-symbols-outlined text-[180px]">spa</span>
           </div>
@@ -130,12 +130,15 @@ export function Earn() {
             <div>
               <div className="flex items-center justify-between">
                 <p className="text-white/70 text-sm font-medium uppercase tracking-widest mb-1">Your Journey</p>
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-white/60 uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
-                  Live
-                </span>
+                <div className="flex gap-2 items-center">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-white/60 uppercase tracking-widest">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                    Live
+                  </span>
+                  <span className="material-symbols-outlined text-white/70 text-sm">open_in_new</span>
+                </div>
               </div>
-              <h2 className="text-white text-3xl font-extrabold tracking-tight font-headline">Daily Progress</h2>
+              <h2 className="text-white text-3xl font-extrabold tracking-tight font-headline hover:underline">Daily Progress</h2>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
@@ -152,7 +155,7 @@ export function Earn() {
               <span>Complete reads to maximize daily earnings</span>
             </div>
           </div>
-        </section>
+        </Link>
 
         {/* Message Banner */}
         {message && (

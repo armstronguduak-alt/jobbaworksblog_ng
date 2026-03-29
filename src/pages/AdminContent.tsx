@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -60,56 +60,66 @@ export function AdminContent() {
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">
-      <div className="flex justify-between items-center mb-10">
+    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-10 pb-32">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">Content Moderation</h1>
-          <p className="text-on-surface-variant font-medium">Review, approve, and delete articles drafted by users.</p>
+          <div className="inline-flex items-center gap-1 px-3 py-1 bg-[#dcfce7] text-[#006b3f] rounded-full mb-3">
+            <span className="material-symbols-outlined text-sm">fact_check</span>
+            <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Moderation</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight mb-1 font-headline">Content Moderation</h1>
+          <p className="text-outline text-sm md:text-base">Review, approve, and manage user-submitted articles.</p>
         </div>
-        <Link to="/admin" className="text-primary font-bold hover:underline">Back to Overview</Link>
       </div>
 
-      <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
-        <h2 className="text-lg font-bold font-headline mb-4 border-b border-surface-container pb-4 flex justify-between items-center">
-          Pending Articles
-          <button onClick={fetchPendingPosts} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline px-2 py-1">Refresh</button>
-        </h2>
+      <div className="bg-transparent overflow-hidden">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-black font-headline text-[#191c1d]">
+            Pending Articles
+          </h2>
+          <button onClick={fetchPendingPosts} className="text-xs text-[#006b3f] bg-[#dcfce7] hover:bg-[#bbf7d0] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+            <span className="material-symbols-outlined text-[14px]">refresh</span>
+            Refresh
+          </button>
+        </div>
 
         {isLoading ? (
           <div className="text-center py-10 text-on-surface-variant">Loading articles...</div>
         ) : posts.length === 0 ? (
-          <div className="text-center py-10 text-on-surface-variant bg-surface-container-low rounded-xl border-dashed border-2 border-surface-container">
+          <div className="text-center py-16 text-outline bg-white rounded-2xl border border-surface-container-low shadow-sm">
             <span className="material-symbols-outlined text-4xl mb-2 opacity-50">article</span>
-            <p>No unpublished/pending articles found.</p>
+            <p className="font-bold">No unpublished/pending articles found.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {posts.map(post => (
-              <div key={post.id} className="bg-surface-container-low p-5 rounded-[1.2rem] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-surface-container hover:border-primary-fixed-dim/40 transition-all">
+              <div key={post.id} className="bg-white p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-surface-container-low shadow-[0px_4px_16px_-4px_rgba(0,0,0,0.02)] hover:shadow-md transition-all">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full uppercase tracking-wider">{post.categories?.name || 'Uncategorized'}</span>
-                    <span className="text-[10px] text-on-surface-variant">• {new Date(post.created_at).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] font-black text-[#191c1d] bg-surface-container-low px-2 py-1 rounded-md uppercase tracking-[0.1em]">{post.categories?.name || 'Uncategorized'}</span>
+                    <span className="text-xs text-outline font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
-                  <h3 className="font-bold text-lg text-on-surface mb-1">{post.title}</h3>
-                  <p className="text-sm text-on-surface-variant line-clamp-2 mb-2">{post.excerpt || 'No excerpt provided.'}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-on-surface-variant">person</span>
-                    <span className="text-xs font-semibold text-on-surface">{post.profiles?.name || 'Unknown Author'} ({post.profiles?.email})</span>
+                  <h3 className="font-black text-xl text-[#0f172a] mb-2 font-headline">{post.title}</h3>
+                  <p className="text-sm text-outline line-clamp-2 mb-4 leading-relaxed">{post.excerpt || 'No excerpt provided.'}</p>
+                  <div className="flex items-center gap-2 bg-[#f8f9fa] inline-flex px-3 py-1.5 rounded-lg">
+                    <span className="material-symbols-outlined text-[16px] text-outline">account_circle</span>
+                    <span className="text-xs font-bold text-[#191c1d]">{post.profiles?.name || 'Unknown Author'} <span className="text-outline font-medium">({post.profiles?.email})</span></span>
                   </div>
                 </div>
                 
-                <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-highest">
+                <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-40 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-low md:pl-6 md:border-l">
                   <button 
                     onClick={() => handleUpdateStatus(post.id, 'approved')}
-                    className="flex-1 md:flex-none justify-center bg-emerald-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:bg-emerald-700 shadow-sm transition-transform active:scale-95"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-[#008751] hover:bg-[#006b3f] text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
                   >
+                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
                     Approve
                   </button>
                   <button 
                     onClick={() => handleUpdateStatus(post.id, 'rejected')}
-                    className="flex-1 md:flex-none justify-center bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-2 rounded-xl font-bold hover:bg-rose-100 shadow-sm transition-transform active:scale-95"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
                   >
+                    <span className="material-symbols-outlined text-[18px]">cancel</span>
                     Reject
                   </button>
                 </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Menu, X, ShieldAlert } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 
 export function AdminLayout() {
@@ -35,16 +35,17 @@ export function AdminLayout() {
   ];
 
   return (
-    <div className="flex h-screen bg-surface-container-lowest text-on-surface font-body overflow-hidden">
+    <div className="flex h-screen bg-surface font-body overflow-hidden">
       
       {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 w-full h-[70px] bg-error-container border-b border-error/20 flex items-center justify-between px-4 z-50">
+      <div className="md:hidden fixed top-0 w-full h-[70px] bg-white border-b border-surface-container-low flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-3">
-          <button onClick={toggleSidebar} className="p-2 text-on-error-container bg-error-container/80 rounded-xl shadow-sm border border-error/20">
+          <button onClick={toggleSidebar} className="p-2 text-on-surface bg-surface-container/50 rounded-xl shadow-sm border border-surface-container-low">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <Link to="/admin" className="w-10 h-10 bg-error text-white flex items-center justify-center rounded-xl shadow-md">
-            <span className="font-extrabold text-xl font-headline">A</span>
+          <Link to="/admin" className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary bg-primary/10 p-1.5 rounded-lg">shield_person</span>
+            <span className="font-extrabold text-xl font-headline text-[#191c1d]">JW <span className="text-primary">Admin</span></span>
           </Link>
         </div>
         <div className="flex items-center gap-3">
@@ -66,17 +67,18 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50
-        w-[260px] bg-error-container/10 border-r border-error/10 h-full
+        w-[260px] bg-white border-r border-surface-container-low h-full
         flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0 border-b border-error/10 bg-error-container/20">
-          <ShieldAlert className="w-8 h-8 text-error" />
-          <div>
-            <span className="text-xl font-black text-on-error-container font-headline tracking-tighter block">Admin Area</span>
-            <span className="text-[10px] font-bold text-error uppercase tracking-widest">Restricted</span>
+        <div className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0 border-b border-transparent bg-white">
+          <div className="bg-primary/10 p-2 rounded-lg text-primary flex items-center justify-center">
+            <span className="material-symbols-outlined">verified_user</span>
           </div>
+          <span className="text-2xl font-black text-[#191c1d] font-headline tracking-tight block">
+            JW <span className="text-primary">Admin</span>
+          </span>
         </div>
 
         {/* Scrollable Nav Area */}
@@ -84,7 +86,7 @@ export function AdminLayout() {
           
           {/* Main Menu */}
           <div>
-            <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">COMMAND CENTER</p>
+            <p className="px-3 text-[10px] font-bold text-outline uppercase tracking-widest mb-3">COMMAND CENTER</p>
             <nav className="flex flex-col gap-1">
               {menuItems.map((item) => {
                 const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
@@ -93,10 +95,10 @@ export function AdminLayout() {
                     key={item.name}
                     to={item.path}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-semibold transition-all duration-200
+                    className={`flex items-center gap-4 px-4 py-3 rounded-[12px] font-bold transition-all duration-200
                       ${isActive 
-                        ? 'bg-error-container text-on-error-container shadow-[inset_0px_0px_0px_1px_rgba(186,26,26,0.2)]' 
-                        : 'text-on-surface-variant hover:bg-error-container/50 hover:text-on-surface'
+                        ? 'bg-[#dcfce7] text-[#006b3f]' 
+                        : 'text-[#191c1d] hover:bg-surface-container-low'
                       }
                     `}
                   >
@@ -111,31 +113,27 @@ export function AdminLayout() {
           </div>
 
           <div className="mt-8">
-            <p className="px-3 text-[10px] font-bold text-primary uppercase tracking-widest mb-3">User Area</p>
+            <p className="px-3 text-[10px] font-bold text-outline uppercase tracking-widest mb-3">QUICK LINKS</p>
             <nav className="flex flex-col gap-1">
               <Link 
                 to="/dashboard" 
                 onClick={() => setIsSidebarOpen(false)}
-                className="flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all duration-200 text-primary hover:bg-primary/10"
+                className="flex items-center gap-4 px-4 py-3 rounded-[12px] font-bold transition-all duration-200 text-[#191c1d] hover:bg-surface-container-low"
               >
                 <span className="material-symbols-outlined text-[20px]">
                   arrow_back
                 </span>
                 <span className="text-[14px]">Exit Admin Mode</span>
               </Link>
+              <button 
+                onClick={signOut}
+                className="flex items-center gap-4 text-rose-500 hover:text-rose-600 hover:bg-rose-50 px-4 py-3 rounded-[12px] font-bold transition-colors w-full text-left"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+                <span className="text-[14px]">Secure Logout</span>
+              </button>
             </nav>
           </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-error/10 flex items-center justify-between flex-shrink-0 bg-error-container/20">
-          <button 
-            onClick={signOut}
-            className="flex items-center gap-2 text-rose-600 hover:text-rose-700 font-bold px-3 py-2 rounded-xl transition-colors text-sm"
-          >
-            <span className="material-symbols-outlined text-[18px]">logout</span>
-            Logout
-          </button>
         </div>
       </aside>
 
@@ -157,7 +155,7 @@ export function AdminLayout() {
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
                 <span className="text-sm font-bold text-on-surface leading-tight">
-                  {profile?.full_name || 'Admin'}
+                  {profile?.name || profile?.full_name || profile?.username || 'Admin'}
                 </span>
                 <span className="text-[10px] font-bold text-error tracking-wider uppercase">
                   Super Administrator

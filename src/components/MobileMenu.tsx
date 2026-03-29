@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { X, Home, Coins, LayoutDashboard, Wallet, Settings } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
+  const { profile } = useAuth();
   return (
     <>
       {/* Backdrop */}
@@ -70,15 +72,23 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         `}} />
         
         <div className="p-4 border-t dark:border-slate-800">
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl flex items-center gap-3">
-             <div className="bg-primary text-white p-2 rounded-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-sm">account_circle</span>
+          <Link to="/profile" onClick={onClose} className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl flex items-center gap-3 hover:bg-emerald-100 transition-colors cursor-pointer">
+             <div className="w-[42px] h-[42px] rounded-full overflow-hidden bg-primary text-white flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+               {profile?.avatar_url ? (
+                 <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+               ) : (
+                 <span className="material-symbols-outlined text-xl">account_circle</span>
+               )}
              </div>
-             <div>
-               <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Babatunde A.</p>
-               <p className="text-xs text-slate-500">Premium Member</p>
+             <div className="overflow-hidden">
+               <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 truncate">
+                 {profile?.name || profile?.full_name || 'User Profile'}
+               </p>
+               <p className="text-xs text-slate-500 truncate">
+                 {profile?.username ? `@${profile.username}` : (profile?.phone || 'Manage Account')}
+               </p>
              </div>
-          </div>
+          </Link>
         </div>
       </div>
     </>
