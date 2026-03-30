@@ -32,7 +32,7 @@ export function AdminPromotions() {
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('promotions')
           .upload(fileName, imageFile);
           
