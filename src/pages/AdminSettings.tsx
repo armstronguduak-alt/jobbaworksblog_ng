@@ -10,7 +10,7 @@ export function AdminSettings() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
-  const { pageToggles, refetchToggles } = useAppSettings();
+  const { pageToggles, monetizationRate: fetchedMonetizationRate, refetchToggles, refetchMonetizationRate } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
   
@@ -24,12 +24,16 @@ export function AdminSettings() {
   });
 
   const [toggles, setToggles] = useState(pageToggles);
-  const [monetizationRate, setMonetizationRate] = useState('100');
+  const [monetizationRate, setMonetizationRate] = useState(fetchedMonetizationRate.toString());
 
   // Sync internal state when pageToggles load
   useEffect(() => {
     setToggles(pageToggles);
   }, [pageToggles]);
+
+  useEffect(() => {
+    setMonetizationRate(fetchedMonetizationRate.toString());
+  }, [fetchedMonetizationRate]);
 
   const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
     queryKey: ['admin_subscription_plans'],
@@ -83,8 +87,7 @@ export function AdminSettings() {
   const updateTogglesMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('system_settings')
-        .update({ value: toggles })
-        .eq('key', 'page_toggles');
+        .upsert({ key: 'page_toggles', value: toggles });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -96,6 +99,23 @@ export function AdminSettings() {
 
   const handleTogglesSave = () => {
     updateTogglesMutation.mutate();
+  };
+
+  const updateMonetizationMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('system_settings')
+        .upsert({ key: 'monetization_rate', value: { rate: Number(monetizationRate) } });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchMonetizationRate();
+      showAlert(`Monetization rate saved successfully.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
+
+  const handleMonetizationSave = () => {
+    updateMonetizationMutation.mutate();
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
@@ -296,16 +316,18 @@ export function AdminSettings() {
                   <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[#9ca3af] material-symbols-outlined text-[18px]">link</span>
                   <input 
                     type="number" 
-                    defaultValue="100"
+                    value={monetizationRate}
+                    onChange={(e) => setMonetizationRate(e.target.value)}
                     className="w-full pl-12 pr-5 py-4 rounded-xl bg-white focus:ring-2 focus:ring-[#046c4e]/20 outline-none transition-all text-[#111928] font-bold shadow-sm"
                   />
                 </div>
                 <button 
-                  onClick={() => showAlert('Reward rate saved successfully.')}
+                  onClick={handleMonetizationSave}
                   className="bg-[#046c4e] hover:bg-[#03543f] text-white px-8 py-4 rounded-xl font-bold shadow-md active:scale-95 transition-all whitespace-nowrap"
                 >
                   Save Rate
                 </button>
+
               </div>
               <p className="text-[13px] text-[#6b7280] leading-relaxed">
                 This is the base rate paid to authors automatically as their articles generate distinct views across the ecosystem.

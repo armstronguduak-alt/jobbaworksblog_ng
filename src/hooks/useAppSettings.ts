@@ -35,9 +35,26 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
+  const { data: monetizationRate, refetch: refetchMonetizationRate } = useQuery({
+    queryKey: ['systemSettings', 'monetization_rate'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'monetization_rate')
+        .single();
+      
+      if (error || !data) return 100;
+      return Number((data.value as Record<string, any>)?.rate || 100);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
+    monetizationRate: monetizationRate ?? 100,
     isLoadingToggles,
-    refetchToggles
+    refetchToggles,
+    refetchMonetizationRate
   };
 }

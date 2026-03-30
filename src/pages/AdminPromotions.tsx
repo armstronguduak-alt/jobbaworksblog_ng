@@ -5,7 +5,7 @@ import { useDialog } from '../contexts/DialogContext';
 import { supabase } from '../lib/supabase';
 
 export function AdminPromotions() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, profile } = useAuth();
   const { showAlert } = useDialog();
   
   const [formData, setFormData] = useState({
@@ -20,7 +20,10 @@ export function AdminPromotions() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    if (!profile) {
+      showAlert('You must be logged in to add promotions.', 'Error');
+      return;
+    }
     setIsSubmitting(true);
 
     try {

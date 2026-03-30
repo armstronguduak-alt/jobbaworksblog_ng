@@ -19,7 +19,7 @@ export function AdminContent() {
   async function fetchPendingPosts() {
     setIsLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('posts')
         .select(`
           id, title, excerpt, status, created_at,
@@ -27,6 +27,10 @@ export function AdminContent() {
           categories:category_id (name)
         `)
         .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching posts from Supabase:', error);
+      }
 
       if (data) setPosts(data);
     } catch (err) {

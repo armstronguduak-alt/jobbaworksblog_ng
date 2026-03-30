@@ -58,9 +58,22 @@ export function AdminCategories() {
     }
   };
 
-  const handleEdit = (id: string, currentName: string) => {
-    console.log(id); // Use id to fix lint
-    showAlert(`Edit dialog for "${currentName}" will open.`);
+  const handleEdit = async (id: string, currentName: string) => {
+    const newName = window.prompt(`Rename category "${currentName}" to:`, currentName);
+    if (!newName || newName.trim() === currentName) return;
+
+    setIsLoading(true);
+    try {
+      const slug = newName.trim().toLowerCase().replace(/ /g, '-');
+      const { error } = await supabase.from('categories').update({ name: newName.trim(), slug }).eq('id', id);
+      if (error) throw error;
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName.trim(), slug } : c));
+      showAlert(`Category renamed to "${newName.trim()}" successfully.`);
+    } catch (err: any) {
+      showAlert(`Error: ${err.message}`, 'Error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDelete = async (id: string, currentName: string) => {

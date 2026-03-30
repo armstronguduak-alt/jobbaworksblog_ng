@@ -40,6 +40,7 @@ export function DashboardLayout() {
     { name: 'Tasks', path: '/earn', icon: 'task_alt', show: pageToggles.earningsEnabled },
     { name: 'Plans', path: '/plans', icon: 'rocket_launch', show: true },
     { name: 'Referrals', path: '/referral', icon: 'group_add', show: pageToggles.referralsEnabled },
+    { name: 'Promotions', path: '/promotional', icon: 'campaign', show: pageToggles.promotionsEnabled },
   ].filter(item => item.show);
 
   return (

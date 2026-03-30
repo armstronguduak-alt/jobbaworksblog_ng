@@ -104,18 +104,23 @@ export function Wallet() {
     setMessage('');
 
     try {
-      // Typically you'd call an RPC function here to safely record the withdrawal
-      // For now, we simulate a successful request submission:
-      setTimeout(() => {
-        setMessage('Withdrawal request submitted successfully! It is pending approval.');
-        setWithdrawAmount('');
-        setIsSubmitting(false);
-        // Refresh to show any changes
-        if (user) fetchWalletData(user.id);
-      }, 1500);
-    } catch (error) {
-       setIsSubmitting(false);
-       setMessage('An error occurred during withdrawal.');
+      const { error } = await supabase.from('wallet_transactions').insert({
+        user_id: user!.id,
+        type: 'withdrawal',
+        amount: Number(withdrawAmount),
+        status: 'pending',
+        description: `Withdrawal request via ${payoutMethods.find((m: any) => m.id === selectedMethodId)?.method || 'payout method'}`,
+      });
+
+      if (error) throw error;
+
+      setMessage('Withdrawal request submitted! It is pending admin approval.');
+      setWithdrawAmount('');
+      if (user) fetchWalletData(user.id);
+    } catch (error: any) {
+      setMessage(`Error: ${error.message || 'An error occurred during withdrawal.'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
