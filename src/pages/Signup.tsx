@@ -85,8 +85,24 @@ export function Signup() {
 
       if (error) throw error;
       
-      // If auto-login happens or email confirmation required
+      // If auto-login happens and session exists, initialize account
       if (data.session) {
+        // Initialize user profile and wallet via the predefined RPC
+        const { error: initError } = await supabase.rpc('initialize_my_account', {
+          _name: formData.fullName,
+          _email: formData.email,
+          _phone: formData.phone,
+          _username: formData.username,
+          _gender: formData.gender,
+          _avatar_url: '',
+          _referred_by_code: formData.referral || null
+        });
+
+        if (initError) {
+          console.error("Account Initialization Error:", initError);
+          // Still proceed to dashboard, maybe it partly succeeded or was a duplicate
+        }
+        
         navigate('/dashboard');
       } else {
         setErrorMsg('Success! Please check your email to verify your account.');
