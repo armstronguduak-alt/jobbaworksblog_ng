@@ -16,15 +16,19 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-      
-      // Navigate on success
-      navigate('/dashboard');
+
+      // Verify session was established before navigating
+      if (data.session) {
+        navigate('/dashboard');
+      } else {
+        setErrorMsg('Login successful but session not established. Please try again.');
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid login credentials.');
     } finally {

@@ -1,0 +1,151 @@
+-- =========================================================
+-- JOBBAWORKS SUPABASE FIX SCRIPT
+-- Run this in your Supabase SQL Editor:
+-- Go to: https://supabase.com → Your Project → SQL Editor
+-- Paste this entire script and click RUN
+-- =========================================================
+
+-- 1. Add missing columns to profiles table (safe if already exist)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS gender TEXT;
+
+-- 2. Ensure wallet_balances exists for all current users who don't have one
+INSERT INTO public.wallet_balances (user_id, balance, total_earnings, referral_earnings)
+SELECT p.user_id, 0, 0, 0
+FROM public.profiles p
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.wallet_balances wb WHERE wb.user_id = p.user_id
+);
+
+-- 3. Ensure user_roles exists for all current users
+INSERT INTO public.user_roles (user_id, role)
+SELECT p.user_id, 'user'::public.app_role
+FROM public.profiles p
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role = 'user'
+);
+
+-- 4. Ensure user_subscriptions exists for all current users  
+INSERT INTO public.user_subscriptions (user_id, plan_id)
+SELECT p.user_id, 'free'::public.plan_id
+FROM public.profiles p
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.user_subscriptions us WHERE us.user_id = p.user_id
+);
+
+-- 5. Make sure the initialize_my_account RPC is up to date
+DROP FUNCTION IF EXISTS public.initialize_my_account(text, text, text, text, text, text, text);
+
+CREATE OR REPLACE FUNCTION public.initialize_my_account(
+  _name text,
+  _email text,
+  _phone text DEFAULT '',
+  _username text DEFAULT '',
+  _gender text DEFAULT '',
+  _avatar_url text DEFAULT '',
+  _referred_by_code text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _uid uuid := auth.uid();
+  _safe_name text := COALESCE(NULLIF(TRIM(_name), ''), 'New User');
+  _safe_email text := NULLIF(TRIM(_email), '');
+  _safe_phone text := NULLIF(TRIM(_phone), '');
+  _safe_username text := NULLIF(TRIM(_username), '');
+  _safe_gender text := NULLIF(TRIM(_gender), '');
+  _safe_avatar text := NULLIF(TRIM(_avatar_url), '');
+  _normalized_ref text := NULLIF(UPPER(TRIM(COALESCE(_referred_by_code, ''))), '');
+  _referral_code text;
+  _referrer_user_id uuid;
+BEGIN
+  IF _uid IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  -- Generate unique referral code
+  LOOP
+    _referral_code := UPPER(REGEXP_REPLACE(SUBSTR(_safe_name, 1, 4), '\s+', '', 'g'))
+                      || UPPER(SUBSTR(MD5(RANDOM()::text || CLOCK_TIMESTAMP()::text), 1, 4));
+    EXIT WHEN NOT EXISTS (
+      SELECT 1 FROM public.profiles p WHERE p.referral_code = _referral_code
+    );
+  END LOOP;
+
+  -- Upsert profile
+  INSERT INTO public.profiles (
+    user_id, email, name, username, gender, phone, avatar_url,
+    bio, referral_code, referred_by_code
+  )
+  VALUES (
+    _uid, _safe_email, _safe_name, _safe_username, _safe_gender, _safe_phone,
+    COALESCE(_safe_avatar, 'https://api.dicebear.com/7.x/avataaars/svg?seed=' || ENCODE(_safe_name::bytea, 'escape')),
+    'JobbaWorks Member', _referral_code, _normalized_ref
+  )
+  ON CONFLICT (user_id) DO UPDATE
+    SET email        = COALESCE(EXCLUDED.email, profiles.email),
+        name         = COALESCE(NULLIF(EXCLUDED.name, ''), profiles.name),
+        username     = COALESCE(NULLIF(EXCLUDED.username, ''), profiles.username),
+        gender       = COALESCE(NULLIF(EXCLUDED.gender, ''), profiles.gender),
+        phone        = COALESCE(EXCLUDED.phone, profiles.phone),
+        avatar_url   = COALESCE(EXCLUDED.avatar_url, profiles.avatar_url),
+        referred_by_code = COALESCE(profiles.referred_by_code, EXCLUDED.referred_by_code),
+        updated_at   = NOW();
+
+  -- Ensure user role
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (_uid, 'user'::public.app_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  -- Ensure subscription
+  INSERT INTO public.user_subscriptions (user_id, plan_id)
+  VALUES (_uid, 'free'::public.plan_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  -- Ensure wallet
+  INSERT INTO public.wallet_balances (user_id, balance, total_earnings, referral_earnings)
+  VALUES (_uid, 0, 0, 0)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  -- Handle referral linkage
+  IF _normalized_ref IS NOT NULL THEN
+    SELECT p.user_id INTO _referrer_user_id
+    FROM public.profiles p
+    WHERE p.referral_code = _normalized_ref AND p.user_id <> _uid
+    LIMIT 1;
+
+    IF _referrer_user_id IS NOT NULL THEN
+      INSERT INTO public.referrals (referrer_user_id, referred_user_id, referral_code_used)
+      VALUES (_referrer_user_id, _uid, _normalized_ref)
+      ON CONFLICT (referred_user_id) DO NOTHING;
+    END IF;
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.initialize_my_account(text, text, text, text, text, text, text) TO authenticated;
+
+-- 6. Fix RLS on wallet_balances so users can see their own wallet
+DROP POLICY IF EXISTS "wallet_balances_select_own" ON public.wallet_balances;
+CREATE POLICY "wallet_balances_select_own"
+ON public.wallet_balances FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "wallet_balances_insert_own" ON public.wallet_balances;
+CREATE POLICY "wallet_balances_insert_own"
+ON public.wallet_balances FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "wallet_balances_update_own" ON public.wallet_balances;
+CREATE POLICY "wallet_balances_update_own"
+ON public.wallet_balances FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- Done!
+SELECT 'JobbaWorks fix script completed successfully!' as status;
