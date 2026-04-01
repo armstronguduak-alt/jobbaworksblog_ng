@@ -18,7 +18,8 @@ export function Dashboard() {
       try {
         const [walletRes, tasksRes] = await Promise.all([
           supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
-          supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user.id)
+          supabase.from('user_tasks').select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id).eq('completed', true)
         ]);
           
         if (walletRes.data) {

@@ -147,5 +147,56 @@ ON public.wallet_balances FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
+-- 7. Fix RLS on user_tasks table
+ALTER TABLE public.user_tasks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "user_tasks_select_own" ON public.user_tasks;
+CREATE POLICY "user_tasks_select_own"
+ON public.user_tasks FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_tasks_insert_own" ON public.user_tasks;
+CREATE POLICY "user_tasks_insert_own"
+ON public.user_tasks FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_tasks_update_own" ON public.user_tasks;
+CREATE POLICY "user_tasks_update_own"
+ON public.user_tasks FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- 8. Fix tasks table RLS (public read since tasks are for everyone)
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tasks_public_read" ON public.tasks;
+CREATE POLICY "tasks_public_read"
+ON public.tasks FOR SELECT
+TO authenticated
+USING (status = 'active');
+
+-- 9. system_settings: allow authenticated users to read (fixes 406 error)
+DROP POLICY IF EXISTS "system_settings_authenticated_read" ON public.system_settings;
+CREATE POLICY "system_settings_authenticated_read"
+ON public.system_settings FOR SELECT
+TO authenticated
+USING (true);
+
+-- 10. profiles: allow authenticated users to read ALL profiles (needed for posts author display)
+DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
+CREATE POLICY "profiles_public_read"
+ON public.profiles FOR SELECT
+TO authenticated
+USING (true);
+
+-- 11. Add FK from posts.author_user_id to profiles.user_id (enables Supabase join syntax)
+ALTER TABLE public.posts 
+  DROP CONSTRAINT IF EXISTS posts_author_user_id_fkey;
+ALTER TABLE public.posts 
+  ADD CONSTRAINT posts_author_user_id_fkey 
+  FOREIGN KEY (author_user_id) REFERENCES public.profiles(user_id) ON DELETE SET NULL;
+
 -- Done!
 SELECT 'JobbaWorks fix script completed successfully!' as status;

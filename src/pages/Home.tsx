@@ -26,18 +26,40 @@ export function Home() {
     queryFn: async () => {
       const [catRes, postsRes] = await Promise.all([
         supabase.from('categories').select('id, name, slug').eq('is_active', true),
-        supabase.from('posts').select(`
-          id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at,
-          categories:category_id (name),
-          profiles:author_user_id (name, avatar_url)
-        `).eq('status', 'approved').order('created_at', { ascending: false }).limit(12)
+        supabase.from('posts').select(
+          'id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at, category_id, author_user_id'
+        ).eq('status', 'approved').order('created_at', { ascending: false }).limit(12)
       ]);
 
       const categories = catRes.data || [];
-      const normalized = (postsRes.data || []).map((p: any) => ({
+      const posts = postsRes.data || [];
+
+      // Fetch profiles for all unique author IDs
+      const authorIds = [...new Set(posts.map((p: any) => p.author_user_id).filter(Boolean))];
+      let profilesMap: Record<string, any> = {};
+      if (authorIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, name, avatar_url')
+          .in('user_id', authorIds);
+        (profilesData || []).forEach((p: any) => { profilesMap[p.user_id] = p; });
+      }
+
+      // Fetch category names for all unique category IDs
+      const catIds = [...new Set(posts.map((p: any) => p.category_id).filter(Boolean))];
+      let catsMap: Record<string, any> = {};
+      if (catIds.length > 0) {
+        const { data: catsData } = await supabase
+          .from('categories')
+          .select('id, name')
+          .in('id', catIds);
+        (catsData || []).forEach((c: any) => { catsMap[c.id] = c; });
+      }
+
+      const normalized = posts.map((p: any) => ({
         ...p,
-        category: p.categories || null,
-        author: p.profiles || null,
+        category: catsMap[p.category_id] || null,
+        author: profilesMap[p.author_user_id] || null,
       }));
 
       return {
@@ -47,6 +69,7 @@ export function Home() {
       };
     }
   });
+
 
   const featuredPosts = data?.featuredPosts || [];
   const latestPosts = data?.latestPosts || [];
