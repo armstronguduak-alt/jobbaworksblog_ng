@@ -218,8 +218,8 @@ export function AdminTasks() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Affiliate URL (Optional)</label>
-                  <input type="url" value={formData.affiliate_url} onChange={e => setFormData({...formData, affiliate_url: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium" placeholder="https://..."/>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Affiliate URL <span className="normal-case font-normal text-slate-400">(Optional)</span></label>
+                  <input type="url" value={formData.affiliate_url} onChange={e => setFormData({...formData, affiliate_url: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium" placeholder="https://... (optional)"/>
                 </div>
 
               </div>

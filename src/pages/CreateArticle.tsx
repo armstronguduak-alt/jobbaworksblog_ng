@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -15,11 +15,13 @@ export function CreateArticle() {
   const [featuredImage, setFeaturedImage] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImportingDoc, setIsImportingDoc] = useState(false);
+  const [docFileName, setDocFileName] = useState('');
   
   const editorRef = useRef<HTMLDivElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Load categories
     const fetchCats = async () => {
       const { data } = await supabase.from('categories').select('*').eq('is_active', true);
       if (data) {
@@ -52,12 +54,92 @@ export function CreateArticle() {
 
       setFeaturedImage(publicUrl);
     } catch (err: any) {
-      console.error(err);
       showAlert('Error uploading image: ' + err.message);
     } finally {
       setIsUploadingImage(false);
     }
   };
+
+  // ── DOC FILE IMPORT ────────────────────────────────────────────────────────
+  const handleDocImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['doc', 'docx', 'txt', 'html', 'htm'].includes(ext || '')) {
+      showAlert('Please upload a .doc, .docx, .txt, or .html file.');
+      return;
+    }
+
+    setIsImportingDoc(true);
+    setDocFileName(file.name);
+
+    try {
+      if (ext === 'txt') {
+        // Plain text — wrap in paragraphs preserving line breaks
+        const text = await file.text();
+        const html = text
+          .split(/\n\n+/)
+          .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+          .join('');
+        if (editorRef.current) editorRef.current.innerHTML = html;
+
+      } else if (ext === 'html' || ext === 'htm') {
+        // Raw HTML — inject directly
+        const html = await file.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        if (editorRef.current) editorRef.current.innerHTML = doc.body.innerHTML;
+
+      } else {
+        // .doc / .docx — use mammoth.js via CDN (loaded lazily)
+        // We read as ArrayBuffer and pass to mammoth
+        const arrayBuffer = await file.arrayBuffer();
+
+        // Dynamically load mammoth from CDN if not already loaded
+        if (!(window as any).mammoth) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load mammoth.js'));
+            document.head.appendChild(script);
+          });
+        }
+
+        const mammoth = (window as any).mammoth;
+        const result = await mammoth.convertToHtml(
+          { arrayBuffer },
+          {
+            styleMap: [
+              "p[style-name='Heading 1'] => h1:fresh",
+              "p[style-name='Heading 2'] => h2:fresh",
+              "p[style-name='Heading 3'] => h3:fresh",
+              "b => strong",
+              "i => em",
+              "u => u",
+            ]
+          }
+        );
+
+        if (editorRef.current) {
+          editorRef.current.innerHTML = result.value;
+        }
+
+        if (result.messages?.length > 0) {
+          console.warn('Mammoth conversion warnings:', result.messages);
+        }
+      }
+
+      showAlert(`"${file.name}" imported successfully! Review and edit as needed.`, 'Imported');
+    } catch (err: any) {
+      showAlert('Error importing file: ' + err.message, 'Import Error');
+    } finally {
+      setIsImportingDoc(false);
+      // Reset input so same file can be re-imported
+      if (docInputRef.current) docInputRef.current.value = '';
+    }
+  }, [showAlert]);
 
   const executeCommand = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -77,7 +159,6 @@ export function CreateArticle() {
   const handleInsertYoutube = () => {
     const url = prompt('Enter YouTube Video URL:');
     if (url) {
-      // Extract video ID
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
       const match = url.match(regExp);
       const videoId = (match && match[2].length === 11) ? match[2] : null;
@@ -122,10 +203,10 @@ export function CreateArticle() {
         content,
         excerpt,
         featured_image: featuredImage || null,
-        status, // pending requires admin approval
+        status,
         author_user_id: user?.id,
         category_id: categoryId,
-        reading_time_seconds: Math.max(60, Math.floor(content.length / 15)), // Rough estimation
+        reading_time_seconds: Math.max(60, Math.floor(content.length / 15)),
       });
 
       if (error) throw error;
@@ -133,7 +214,6 @@ export function CreateArticle() {
       await showAlert(status === 'pending' ? 'Article submitted for review!' : 'Draft saved!');
       navigate('/articles');
     } catch (err: any) {
-      console.error(err);
       showAlert('Error submitting article: ' + err.message);
     } finally {
       setIsSubmitting(false);
@@ -142,7 +222,6 @@ export function CreateArticle() {
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed min-h-screen">
-      {/* Top Navigation specific to Task Screen */}
       <header className="sticky top-0 w-full z-50 bg-slate-50/80 backdrop-blur-md flex items-center justify-between px-6 py-4 shadow-[0px_20px_40px_rgba(0,33,16,0.06)]">
         <div className="flex items-center gap-4">
           <button 
@@ -168,15 +247,35 @@ export function CreateArticle() {
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-10 pb-32">
         {/* Left Column: Form Controls */}
         <div className="flex-1 space-y-6 md:space-y-8">
-          {/* Header Section */}
           <section className="space-y-2">
             <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">Create Article</h2>
             <p className="text-on-surface-variant text-base md:text-lg">Craft your insightful piece. It will be reviewed by admins before publishing.</p>
           </section>
 
+          {/* Doc Import Banner */}
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <span className="material-symbols-outlined text-blue-600 text-2xl shrink-0">upload_file</span>
+            <div className="flex-1">
+              <p className="font-bold text-blue-900 text-sm">Import from Document</p>
+              <p className="text-blue-700 text-xs mt-0.5">Upload a .docx, .doc, .txt, or .html file — formatting (bold, italic, headings, lists) will be preserved.</p>
+              {docFileName && <p className="text-blue-500 text-xs font-medium mt-1 truncate">📄 {docFileName}</p>}
+            </div>
+            <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm cursor-pointer transition-all shrink-0 ${isImportingDoc ? 'bg-blue-200 text-blue-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'}`}>
+              <span className="material-symbols-outlined text-[18px]">{isImportingDoc ? 'hourglass_empty' : 'file_open'}</span>
+              {isImportingDoc ? 'Importing...' : 'Choose File'}
+              <input
+                ref={docInputRef}
+                type="file"
+                accept=".doc,.docx,.txt,.html,.htm"
+                className="hidden"
+                onChange={handleDocImport}
+                disabled={isImportingDoc}
+              />
+            </label>
+          </div>
+
           {/* Title & Editor Canvas */}
           <div className="bg-surface-container-lowest rounded-3xl p-6 md:p-8 space-y-6 shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
-            {/* Title Input */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-on-surface-variant px-1">Article Title</label>
               <input
@@ -198,6 +297,12 @@ export function CreateArticle() {
               </button>
               <button title="Underline" onMouseDown={e => { e.preventDefault(); executeCommand('underline'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_underlined</span>
+              </button>
+              <button title="Heading 2" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'h2'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="text-xs font-black text-on-surface-variant group-hover:text-primary">H2</span>
+              </button>
+              <button title="Heading 3" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'h3'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="text-xs font-black text-on-surface-variant group-hover:text-primary">H3</span>
               </button>
               <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
               <button title="Bullet List" onMouseDown={e => { e.preventDefault(); executeCommand('insertUnorderedList'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
@@ -230,12 +335,19 @@ export function CreateArticle() {
               className="w-full min-h-[300px] md:min-h-[450px] bg-surface-container-low rounded-2xl p-4 md:p-6 border-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/10 transition-all outline-none text-on-surface overflow-y-auto"
               contentEditable
               suppressContentEditableWarning
-              data-placeholder="Start writing your story here..."
+              data-placeholder="Start writing your story here, or import a document above..."
               style={{ emptyCells: 'show' }}
             >
             </div>
             <style>{
               `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }
+               [contentEditable] h1 { font-size: 2em; font-weight: 900; margin: 1rem 0 0.5rem; line-height: 1.2; }
+               [contentEditable] h2 { font-size: 1.5em; font-weight: 800; margin: 1rem 0 0.5rem; line-height: 1.3; }
+               [contentEditable] h3 { font-size: 1.2em; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+               [contentEditable] p { margin-bottom: 0.75rem; line-height: 1.7; }
+               [contentEditable] strong, [contentEditable] b { font-weight: 700; }
+               [contentEditable] em, [contentEditable] i { font-style: italic; }
+               [contentEditable] u { text-decoration: underline; }
                [contentEditable] iframe { display: block; margin: 10px auto; max-width: 100%; border-radius: 8px; }
                [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }
                [contentEditable] ul { list-style-type: disc !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
@@ -293,7 +405,6 @@ export function CreateArticle() {
 
           {/* Configuration Card */}
           <div className="bg-surface-container-lowest rounded-3xl p-6 md:p-8 space-y-6 shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
-            {/* Category Dropdown */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</label>
               <div className="relative">

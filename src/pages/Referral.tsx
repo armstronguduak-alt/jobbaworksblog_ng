@@ -155,7 +155,8 @@ export function Referral() {
     };
   }, [user]);
 
-  const referralCode = profile?.referral_code || 'Loading...';
+  // Prefer username as the referral code, fall back to referral_code field
+  const referralCode = profile?.username || profile?.referral_code || 'Loading...';
   const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
 
   const copyToClipboard = () => {

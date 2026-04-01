@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -10,6 +10,8 @@ export function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -31,12 +33,36 @@ export function Signup() {
     }));
   };
 
+  // ── Username availability check (debounced 600ms) ─────────────────────────
+  useEffect(() => {
+    const username = formData.username.trim();
+    if (!username || username.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+    setUsernameStatus('checking');
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    usernameDebounceRef.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', username)
+        .maybeSingle();
+      setUsernameStatus(data ? 'taken' : 'available');
+    }, 600);
+    return () => { if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current); };
+  }, [formData.username]);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     
     if (!formData.agreeTerms) {
       setErrorMsg('You must agree to the Terms of Service.');
+      return;
+    }
+    if (usernameStatus === 'taken') {
+      setErrorMsg('That username is already taken. Please choose another.');
       return;
     }
 
@@ -153,11 +179,27 @@ export function Signup() {
                         value={formData.username}
                         onChange={handleChange}
                         required
-                        className="w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                        className={`w-full h-12 md:h-14 px-4 bg-surface-container-low border-2 rounded-xl focus:ring-2 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50 ${
+                          usernameStatus === 'available' ? 'border-emerald-500 focus:ring-emerald-500/20' :
+                          usernameStatus === 'taken' ? 'border-red-400 focus:ring-red-400/20' :
+                          'border-transparent focus:ring-primary-fixed-dim'
+                        }`}
                         placeholder="bayo_m" 
                         type="text" 
                       />
                     </div>
+                    {usernameStatus === 'checking' && (
+                      <p className="text-[10px] text-on-surface-variant ml-1 mt-1 flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 border-2 border-outline border-t-transparent rounded-full animate-spin inline-block"></span>
+                        Checking availability...
+                      </p>
+                    )}
+                    {usernameStatus === 'available' && (
+                      <p className="text-[10px] text-emerald-600 font-bold ml-1 mt-1">✓ Username is available</p>
+                    )}
+                    {usernameStatus === 'taken' && (
+                      <p className="text-[10px] text-red-500 font-bold ml-1 mt-1">✗ Username is already taken</p>
+                    )}
                   </div>
                 </div>
 
