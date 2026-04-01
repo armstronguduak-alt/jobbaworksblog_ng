@@ -5,10 +5,11 @@ import type { Session, User } from '@supabase/supabase-js';
 type AuthContextType = {
   session: Session | null;
   user: User | null;
-  profile: any | null; // Database profile
+  profile: any | null;
   isAdmin: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,74 +21,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) fetchProfile(session.user.id, session.user);
-        setIsLoading(false); // <--- Instantly unlocks app routing regardless of Profile fetch time
-      });
-  
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id, session.user);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-        }
-        setIsLoading(false); // <--- Instantly unlocks during Auth transitions
-      });
-  
-      return () => subscription.unsubscribe();
-    }, []);
-  
-    const fetchProfile = async (userId: string, currentUser?: User | null) => {
-      try {
-        let [profileResult, roleResult] = await Promise.all([
-          supabase.from('profiles').select('*').eq('user_id', userId).single(),
-          supabase.from('user_roles').select('*').eq('user_id', userId).eq('role', 'admin').maybeSingle()
-        ]);
-        
-        // If profile was not found automatically by trigger, attempt to run initialization
-        if (profileResult.error && currentUser) {
-          console.log("Profile not found. Attempting initialization...");
-          const metadata = currentUser.user_metadata || {};
-          const { error: initError } = await supabase.rpc('initialize_my_account', {
-            _name: metadata.full_name || 'New User',
-            _email: currentUser.email || '',
-            _phone: metadata.phone_number || '',
-            _username: metadata.username || '',
-            _gender: metadata.gender || '',
-            _avatar_url: '',
-            _referred_by_code: metadata.referral_code_used || null
-          });
-  
-          if (!initError) {
-             profileResult = await supabase.from('profiles').select('*').eq('user_id', userId).single();
-          } else {
-             console.error("Account initialization failed:", initError);
-          }
-        }
-  
-        if (!profileResult.error && profileResult.data) {
-          setProfile(profileResult.data);
-        }
-        setIsAdmin(!!roleResult.data);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user);
+      } else {
+        setIsLoading(false);
       }
-    };
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user);
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string, currentUser?: User | null) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+      }
+
+      // If no profile exists, try to initialize one
+      if (!profileData && currentUser) {
+        console.log('No profile found — initializing account...');
+        const meta = currentUser.user_metadata || {};
+        const { error: initError } = await supabase.rpc('initialize_my_account', {
+          _name: meta.full_name || meta.name || 'New User',
+          _email: currentUser.email || '',
+          _phone: meta.phone_number || '',
+          _username: meta.username || '',
+          _gender: meta.gender || '',
+          _avatar_url: '',
+          _referred_by_code: meta.referral_code_used || null,
+        });
+
+        if (!initError) {
+          // Re-fetch profile after initialization
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (newProfile) setProfile(newProfile);
+        } else {
+          console.error('Account initialization failed:', initError);
+        }
+      } else if (profileData) {
+        setProfile(profileData);
+      }
+
+      // Check admin role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      setIsAdmin(!!roleData);
+    } catch (error) {
+      console.error('Error in fetchProfile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshProfile = () => {
+    if (user?.id) fetchProfile(user.id, user);
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isLoading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
