@@ -27,7 +27,7 @@ export function Analytics() {
       // Only selecting necessary columns guarantees lean payloads
       const [postsRes, walletRes, counterRes, readsRes] = await Promise.all([
         supabase.from('posts').select('id, title, views, reads, earnings, reading_time_seconds').eq('author_user_id', user!.id).order('earnings', { ascending: false }).limit(10),
-        supabase.from('wallet_balances').select('balance, total_earnings, referral_earnings, post_earnings').eq('user_id', user!.id).single(),
+        supabase.from('wallet_balances').select('balance, total_earnings, referral_earnings, post_earnings').eq('user_id', user!.id).maybeSingle(),
         supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', user!.id).eq('counter_date', today).maybeSingle(),
         supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id)
       ]);

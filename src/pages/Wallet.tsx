@@ -58,7 +58,7 @@ export function Wallet() {
       if (transactions.length === 0) setIsLoading(true);
 
       const [balanceRes, txRes, methodsRes] = await Promise.all([
-        supabase.from('wallet_balances').select('balance').eq('user_id', userId).single(),
+        supabase.from('wallet_balances').select('balance').eq('user_id', userId).maybeSingle(),
         supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
         supabase.from('payout_methods').select('*').eq('user_id', userId)
       ]);

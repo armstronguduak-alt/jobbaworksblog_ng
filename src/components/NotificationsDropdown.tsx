@@ -16,16 +16,17 @@ export function NotificationsDropdown() {
     fetchNotifications();
 
     // Create channel THEN add listeners THEN subscribe (order matters for Supabase Realtime)
-    const channel = supabase.channel(`notifications-${user.id}`);
-
-    channel.on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-      (payload) => {
-        setNotifications(prev => [payload.new, ...prev]);
-        setUnreadCount(prev => prev + 1);
-      }
-    ).subscribe();
+    const channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setNotifications(prev => [payload.new, ...prev]);
+          setUnreadCount(prev => prev + 1);
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

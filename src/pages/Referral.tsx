@@ -24,7 +24,7 @@ export function Referral() {
           .from('wallet_balances')
           .select('referral_earnings, balance')
           .eq('user_id', user!.id)
-          .single();
+          .maybeSingle();
 
         if (wallet) {
           setEarnings(wallet.referral_earnings || 0);

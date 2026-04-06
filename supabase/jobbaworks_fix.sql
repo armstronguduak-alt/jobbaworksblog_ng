@@ -198,5 +198,15 @@ ALTER TABLE public.posts
   ADD CONSTRAINT posts_author_user_id_fkey 
   FOREIGN KEY (author_user_id) REFERENCES public.profiles(user_id) ON DELETE SET NULL;
 
+-- 12. Ensure monetization_rate exists to prevent 406 error on .single()
+INSERT INTO public.system_settings (key, value, is_public)
+VALUES ('monetization_rate', '{"rate": 100}'::jsonb, false)
+ON CONFLICT (key) DO NOTHING;
+
+-- 13. Ensure page_toggles exists to prevent 406 error on .single()
+INSERT INTO public.system_settings (key, value, is_public)
+VALUES ('page_toggles', '{"swapEnabled": true, "walletEnabled": true, "earningsEnabled": true, "promotionsEnabled": true, "referralsEnabled": true, "leaderboardEnabled": true}'::jsonb, false)
+ON CONFLICT (key) DO NOTHING;
+
 -- Done!
 SELECT 'JobbaWorks fix script completed successfully!' as status;

@@ -27,7 +27,7 @@ export function useAppSettings() {
         .from('system_settings')
         .select('value')
         .eq('key', 'page_toggles')
-        .single();
+        .maybeSingle();
       
       if (error || !data) return defaultToggles;
       return { ...defaultToggles, ...(data.value as Partial<PageToggles>) } as PageToggles;
@@ -42,7 +42,7 @@ export function useAppSettings() {
         .from('system_settings')
         .select('value')
         .eq('key', 'monetization_rate')
-        .single();
+        .maybeSingle();
       
       if (error || !data) return 100;
       return Number((data.value as Record<string, any>)?.rate || 100);

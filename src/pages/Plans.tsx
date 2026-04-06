@@ -45,7 +45,7 @@ export function Plans() {
       .from('user_subscriptions')
       .select('plan_id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setCurrentPlan(data.plan_id);

@@ -50,7 +50,7 @@ export function Swap() {
         .from('wallet_balances')
         .select('balance, usdt_balance')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setBalance(data.balance);
