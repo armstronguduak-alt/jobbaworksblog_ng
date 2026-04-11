@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,54 +18,54 @@ interface Post {
 }
 
 export function Home() {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All Feed');
 
   const { user } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ['publicPosts'],
     queryFn: async () => {
-      const [catRes, postsRes] = await Promise.all([
-        supabase.from('categories').select('id, name, slug').eq('is_active', true),
-        supabase.from('posts').select(
-          'id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at, category_id, author_user_id'
-        ).eq('status', 'approved').order('created_at', { ascending: false }).limit(12)
-      ]);
+      // STATIC MOCK DATA: Disconnected from Supabase
+      const categories = [
+        { id: '1', name: 'Business', slug: 'business' },
+        { id: '2', name: 'Technology', slug: 'technology' },
+        { id: '3', name: 'Entertainment', slug: 'entertainment' },
+        { id: '4', name: 'Health', slug: 'health' },
+        { id: '5', name: 'Fitness', slug: 'fitness' }
+      ];
 
-      const categories = catRes.data || [];
-      const posts = postsRes.data || [];
-
-      // Fetch profiles for all unique author IDs
-      const authorIds = [...new Set(posts.map((p: any) => p.author_user_id).filter(Boolean))];
-      let profilesMap: Record<string, any> = {};
-      if (authorIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, name, avatar_url')
-          .in('user_id', authorIds);
-        (profilesData || []).forEach((p: any) => { profilesMap[p.user_id] = p; });
-      }
-
-      // Fetch category names for all unique category IDs
-      const catIds = [...new Set(posts.map((p: any) => p.category_id).filter(Boolean))];
-      let catsMap: Record<string, any> = {};
-      if (catIds.length > 0) {
-        const { data: catsData } = await supabase
-          .from('categories')
-          .select('id, name')
-          .in('id', catIds);
-        (catsData || []).forEach((c: any) => { catsMap[c.id] = c; });
-      }
-
-      const normalized = posts.map((p: any) => ({
-        ...p,
-        category: catsMap[p.category_id] || null,
-        author: profilesMap[p.author_user_id] || null,
-      }));
+      const allPosts: Post[] = [
+        {
+          id: 'p1', title: '10 Ways to Scale Your Online Business', slug: 'scale-online-business',
+          excerpt: 'Learn the strategies top entrepreneurs use to grow their digital presence.',
+          featured_image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=800&q=80',
+          reading_time_seconds: 300, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
+          category: { name: 'Business' },
+          author: { name: 'Williams Damsey', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Felix' }
+        },
+        {
+          id: 'p2', title: 'The Future of AI in Daily Life', slug: 'future-of-ai',
+          excerpt: 'Artificial intelligence is no longer just a buzzword. It is here working for us.',
+          featured_image: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
+          reading_time_seconds: 240, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
+          category: { name: 'Technology' },
+          author: { name: 'Sarah Konye', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Sarah' }
+        },
+        {
+          id: 'p3', title: 'Fitness Routines for Busy Professionals', slug: 'fitness-for-professionals',
+          excerpt: 'Cant find time for the gym? Try these quick routines at home.',
+          featured_image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80',
+          reading_time_seconds: 180, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
+          category: { name: 'Fitness' },
+          author: { name: 'Mike Johnson', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Mike' }
+        }
+      ];
 
       return {
         categories,
-        featuredPosts: normalized.slice(0, 3) as Post[],
-        latestPosts: normalized.slice(3) as Post[],
+        featuredPosts: allPosts.slice(0, 1),
+        latestPosts: allPosts
       };
     }
   });
@@ -74,6 +74,19 @@ export function Home() {
   const featuredPosts = data?.featuredPosts || [];
   const latestPosts = data?.latestPosts || [];
   const categories = data?.categories || [];
+
+  useEffect(() => {
+    if (slug && categories.length > 0) {
+      const category = categories.find((c: any) => c.slug === slug);
+      if (category) {
+        setActiveCategory(category.name);
+      } else {
+        setActiveCategory('All Feed');
+      }
+    } else if (!slug) {
+      setActiveCategory('All Feed');
+    }
+  }, [slug, categories]);
 
   const filteredLatest = activeCategory === 'All Feed'
     ? latestPosts
@@ -131,7 +144,7 @@ export function Home() {
       {/* Category Filter */}
       <nav className="flex flex-nowrap items-center gap-3 mb-12 overflow-x-auto pb-4 scrollbar-hide">
         <button
-          onClick={() => setActiveCategory('All Feed')}
+          onClick={() => navigate('/')}
           className={`flex-shrink-0 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
             activeCategory === 'All Feed' ? 'bg-primary text-white shadow-md' : 'bg-surface-container-highest text-on-surface-variant hover:bg-primary-fixed-dim'
           }`}
@@ -141,7 +154,7 @@ export function Home() {
         {categories.map((cat: any) => (
           <button
             key={cat.id}
-            onClick={() => setActiveCategory(cat.name)}
+            onClick={() => navigate(`/category/${cat.slug}`)}
             className={`flex-shrink-0 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
               activeCategory === cat.name ? 'bg-primary text-white shadow-md' : 'bg-surface-container-highest text-on-surface-variant hover:bg-primary-fixed-dim'
             }`}
@@ -176,7 +189,9 @@ export function Home() {
                 <span className="inline-block self-start px-3 py-1 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs mb-4">
                   {featuredPosts[0].category?.name || 'Featured'}
                 </span>
-                <h3 className="text-2xl md:text-4xl font-bold text-white mb-4 leading-tight">{featuredPosts[0].title}</h3>
+                <Link to={`/article/${featuredPosts[0].slug}`}>
+                  <h3 className="text-2xl md:text-4xl font-bold text-white mb-4 leading-tight hover:underline cursor-pointer">{featuredPosts[0].title}</h3>
+                </Link>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <img
@@ -210,7 +225,9 @@ export function Home() {
              featuredPosts.slice(1, 3).map((post) => (
               <div key={post.id} className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:-translate-y-1 transition-all">
                 <span className="text-primary font-bold text-xs uppercase tracking-tighter mb-2 block">{post.category?.name || 'Article'}</span>
-                <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2">{post.title}</h4>
+                <Link to={`/article/${post.slug}`}>
+                  <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2 hover:text-primary cursor-pointer">{post.title}</h4>
+                </Link>
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-slate-400 text-xs font-medium">{Math.ceil(post.reading_time_seconds / 60)} min read</span>
                   <span className="text-xs text-on-surface-variant">{timeAgo(post.created_at)}</span>
@@ -275,9 +292,11 @@ export function Home() {
                     </span>
                     <span className="text-slate-400 text-xs">• {timeAgo(post.created_at)}</span>
                   </div>
-                  <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
-                    {post.title}
-                  </h3>
+                  <Link to={`/article/${post.slug}`}>
+                    <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
+                      {post.title}
+                    </h3>
+                  </Link>
                   {post.excerpt && (
                     <p className="text-slate-500 text-sm mt-1 line-clamp-2 md:line-clamp-1">{post.excerpt}</p>
                   )}
@@ -287,7 +306,7 @@ export function Home() {
                     <p className="text-xs text-slate-400 font-medium md:text-right text-left">Read Time</p>
                     <p className="text-lg font-black text-emerald-700">{Math.ceil(post.reading_time_seconds / 60)}m</p>
                   </div>
-                  <Link to="/signup" className="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold text-sm shadow-md active:scale-95 transition-all w-full md:w-auto text-center">
+                  <Link to={`/article/${post.slug}`} className="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold text-sm shadow-md active:scale-95 transition-all w-full md:w-auto text-center">
                     Read Now
                   </Link>
                 </div>

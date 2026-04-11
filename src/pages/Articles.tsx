@@ -41,7 +41,7 @@ export function Articles() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('articles-realtime')
+      .channel(`articles-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {

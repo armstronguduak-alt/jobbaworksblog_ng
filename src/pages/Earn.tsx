@@ -69,7 +69,7 @@ export function Earn() {
     if (!user?.id) return;
 
     const walletChannel = supabase
-      .channel('earn-wallet-realtime')
+      .channel(`earn-wallet-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
@@ -78,7 +78,7 @@ export function Earn() {
       .subscribe();
 
     const tasksChannel = supabase
-      .channel('earn-tasks-realtime')
+      .channel(`earn-tasks-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'post_reads', filter: `user_id=eq.${user.id}` },

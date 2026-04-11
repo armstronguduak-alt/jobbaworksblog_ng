@@ -25,7 +25,7 @@ export function Swap() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('swap-wallet-realtime')
+      .channel(`swap-wallet-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },

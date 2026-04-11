@@ -42,7 +42,7 @@ export function Dashboard() {
     // Real-time subscription for wallet balance changes
     if (!user?.id) return;
     const walletChannel = supabase
-      .channel('dashboard-wallet-realtime')
+      .channel(`dashboard-wallet-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {

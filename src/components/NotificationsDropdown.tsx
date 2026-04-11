@@ -17,7 +17,7 @@ export function NotificationsDropdown() {
 
     // Create channel THEN add listeners THEN subscribe (order matters for Supabase Realtime)
     const channel = supabase
-      .channel(`notifications-${user.id}`)
+      .channel(`notifications-${user.id}-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },

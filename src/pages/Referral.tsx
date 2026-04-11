@@ -73,7 +73,7 @@ export function Referral() {
     // ─── REAL-TIME SUBSCRIPTIONS ─────────────────────────────────
     // 1. Listen for new referrals
     const referralsChannel = supabase
-      .channel('referrals-realtime')
+      .channel(`referrals-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {
@@ -102,7 +102,7 @@ export function Referral() {
 
     // 2. Listen for wallet balance changes (earnings updates)
     const walletChannel = supabase
-      .channel('wallet-referral-realtime')
+      .channel(`wallet-referral-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {
@@ -121,7 +121,7 @@ export function Referral() {
 
     // 3. Listen for referral bonus transaction updates
     const txChannel = supabase
-      .channel('referral-tx-realtime')
+      .channel(`referral-tx-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {

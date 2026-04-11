@@ -45,11 +45,11 @@ export function BlogLayout() {
           <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             <Link to="/" className="text-emerald-700 font-bold font-headline">Home</Link>
             <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Plans</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Business</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Technology</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Entertainment</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Health</Link>
-            <Link to="/articles" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Fitness</Link>
+            <Link to="/category/business" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Business</Link>
+            <Link to="/category/technology" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Technology</Link>
+            <Link to="/category/entertainment" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Entertainment</Link>
+            <Link to="/category/health" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Health</Link>
+            <Link to="/category/fitness" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Fitness</Link>
           </nav>
           
           <div className="flex items-center gap-3">
@@ -118,11 +118,11 @@ export function BlogLayout() {
           <nav className="lg:hidden bg-white border-t border-surface-container px-4 py-4 flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
             <Link to="/" onClick={() => setIsMenuOpen(false)} className="font-bold text-emerald-700 px-4 py-3 bg-emerald-50 rounded-xl">Home</Link>
             <Link to="/plans" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Plans</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Business</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Technology</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Entertainment</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Health</Link>
-            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Fitness</Link>
+            <Link to="/category/business" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Business</Link>
+            <Link to="/category/technology" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Technology</Link>
+            <Link to="/category/entertainment" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Entertainment</Link>
+            <Link to="/category/health" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Health</Link>
+            <Link to="/category/fitness" onClick={() => setIsMenuOpen(false)} className="font-semibold text-emerald-950 px-4 py-3 hover:bg-surface-container rounded-xl">Fitness</Link>
           </nav>
         )}
       </header>

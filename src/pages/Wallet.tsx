@@ -24,7 +24,7 @@ export function Wallet() {
     if (!user?.id) return;
 
     const balanceChannel = supabase
-      .channel('wallet-balance-realtime')
+      .channel(`wallet-balance-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
@@ -37,7 +37,7 @@ export function Wallet() {
       .subscribe();
 
     const txChannel = supabase
-      .channel('wallet-tx-realtime')
+      .channel(`wallet-tx-realtime-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: `user_id=eq.${user.id}` },

@@ -24,21 +24,21 @@ export function AdminManagement() {
     if (!isAdmin) return;
 
     const txChannel = supabase
-      .channel('admin-tx-channel')
+      .channel(`admin-tx-channel-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
         fetchAdminStats();
       })
       .subscribe();
 
     const usersChannel = supabase
-      .channel('admin-users-channel')
+      .channel(`admin-users-channel-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
         fetchAdminStats();
       })
       .subscribe();
 
     const postsChannel = supabase
-      .channel('admin-posts-channel')
+      .channel(`admin-posts-channel-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
         fetchAdminStats();
       })

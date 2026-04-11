@@ -58,13 +58,13 @@ export function Analytics() {
     if (!user?.id) return;
 
     const walletChannel = supabase
-      .channel('analytics-wallet')
+      .channel(`analytics-wallet-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` }, 
         () => queryClient.invalidateQueries({ queryKey: ['analytics', user.id] })
       ).subscribe();
 
     const postsChannel = supabase
-      .channel('analytics-posts')
+      .channel(`analytics-posts-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `author_user_id=eq.${user.id}` },
         () => queryClient.invalidateQueries({ queryKey: ['analytics', user.id] })
       ).subscribe();
