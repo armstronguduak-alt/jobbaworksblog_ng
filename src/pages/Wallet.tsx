@@ -14,7 +14,7 @@ export function Wallet() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   
-  const PAYOUT_THRESHOLD = 100.00;
+  const PAYOUT_THRESHOLD = 10.00;
 
   useEffect(() => {
     if (user?.id) {
@@ -94,8 +94,8 @@ export function Wallet() {
   };
 
   const handleWithdraw = async () => {
-    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
-      setMessage('Please enter a valid amount.');
+    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 10) {
+      setMessage('Please enter a valid amount (Minimum $10).');
       return;
     }
     if (Number(withdrawAmount) > usdtBalance) {
@@ -165,7 +165,7 @@ export function Wallet() {
             <div className="text-center mb-8">
               <h3 className="text-[22px] font-body text-[#3c4043] mb-2 font-medium">Your earnings</h3>
               <p className="text-[15px] font-body text-[#5f6368]">
-                Paid monthly if the total is at least $100.00 (your payout threshold)
+                Paid weekly if the total is at least $10.00 (your payout threshold)
               </p>
               <div className="text-[56px] font-body mt-4 text-[#202124] tracking-tight">
                 ${usdtBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
@@ -175,13 +175,13 @@ export function Wallet() {
             <div className="space-y-3 mt-10">
               <div className="h-6 bg-[#f1f3f4] w-full relative">
                 <div 
-                  className="h-full bg-[#1a73e8] transition-all duration-1000" 
+                  className="h-full bg-gradient-to-r from-[#006b3f] to-[#008751] transition-all duration-1000" 
                   style={{ width: `${Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100)}%` }}
                 ></div>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between text-[13px] text-[#5f6368] gap-1">
                 <span>You've reached {Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100).toFixed(0)}% of your payment threshold</span>
-                <span>Payment threshold: $100.00</span>
+                <span>Payment threshold: $10.00</span>
               </div>
             </div>
           </div>
@@ -247,7 +247,16 @@ export function Wallet() {
                         <span className="material-symbols-outlined text-[16px]">close</span>
                       </button>
                       <div className="flex flex-col items-center gap-2">
-                        <span className="font-medium text-[15px] uppercase text-center block w-full truncate px-1 text-[#202124]" title={pm.account_name || pm.wallet_address || pm.minipay_uid}>
+                        <div className="w-12 h-12 flex items-center justify-center">
+                          {pm.method === 'opay' ? (
+                            <img src="/opay_logo.png" alt="OPay" className="w-10 h-10 object-contain drop-shadow-sm" />
+                          ) : pm.method === 'minipay' ? (
+                            <img src="/minipay_logo.webp" alt="Minipay" className="w-10 h-10 object-contain drop-shadow-sm" />
+                          ) : (
+                            <img src="/usdt_logo.png" alt="USDT" className="w-10 h-10 object-contain drop-shadow-sm" />
+                          )}
+                        </div>
+                        <span className="font-bold text-[15px] uppercase text-center block w-full truncate px-1 text-[#202124]" title={pm.account_name || pm.wallet_address || pm.minipay_uid}>
                           {pm.method === 'opay' ? 'OPay' : pm.method === 'minipay' ? 'MiniPay' : 'USDT'}
                         </span>
                         <span className="text-[13px] text-[#5f6368] truncate w-full flex justify-center">{pm.account_number || 'Wallet Address'}</span>
@@ -264,8 +273,8 @@ export function Wallet() {
             <button 
               onClick={handleWithdraw}
               disabled={isSubmitting}
-              className={`w-full md:w-auto px-8 py-3 rounded-lg font-body font-medium text-[14px] shadow-sm active:scale-95 transition-all 
-                ${isSubmitting ? 'bg-[#f1f3f4] text-[#bdc1c6]' : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'}
+              className={`w-full md:w-auto px-10 py-4 rounded-xl font-headline font-extrabold text-[15px] shadow-sm shadow-primary/20 hover:shadow-lg active:scale-95 transition-all 
+                ${isSubmitting ? 'bg-surface-variant text-on-surface-variant' : 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white hover:opacity-90'}
               `}
             >
               {isSubmitting ? 'Processing...' : 'Submit Request'}
