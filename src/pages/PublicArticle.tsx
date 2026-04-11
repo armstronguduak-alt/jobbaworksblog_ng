@@ -80,6 +80,11 @@ export function PublicArticle() {
         
         setIsFollowing(!!fData);
       }
+
+      // Increment View Count (Non-blocking)
+      supabase.rpc('increment_view_count', { post_slug: slug }).then(({error}) => {
+         if (error) console.error("View tracking error:", error);
+      });
     }
     setIsLoading(false);
   };
