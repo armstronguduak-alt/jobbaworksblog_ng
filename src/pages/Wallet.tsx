@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 export function Wallet() {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number>(0);
+  const [usdtBalance, setUsdtBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [payoutMethods, setPayoutMethods] = useState<any[]>([]);
@@ -12,6 +13,8 @@ export function Wallet() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  
+  const PAYOUT_THRESHOLD = 100.00;
 
   useEffect(() => {
     if (user?.id) {
@@ -31,6 +34,7 @@ export function Wallet() {
         (payload) => {
           if (payload.new) {
             setBalance((payload.new as any).balance || 0);
+            setUsdtBalance((payload.new as any).usdt_balance || 0);
           }
         }
       )
@@ -58,12 +62,15 @@ export function Wallet() {
       if (transactions.length === 0) setIsLoading(true);
 
       const [balanceRes, txRes, methodsRes] = await Promise.all([
-        supabase.from('wallet_balances').select('balance').eq('user_id', userId).maybeSingle(),
-        supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
+        supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', userId).maybeSingle(),
+        supabase.from('wallet_transactions').select('*').eq('user_id', userId).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
         supabase.from('payout_methods').select('*').eq('user_id', userId)
       ]);
         
-      if (balanceRes.data) setBalance(balanceRes.data.balance);
+      if (balanceRes.data) {
+        setBalance(balanceRes.data.balance || 0);
+        setUsdtBalance(balanceRes.data.usdt_balance || 0);
+      }
       if (txRes.data) setTransactions(txRes.data);
       if (methodsRes.data) {
         setPayoutMethods(methodsRes.data);
@@ -87,12 +94,12 @@ export function Wallet() {
   };
 
   const handleWithdraw = async () => {
-    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 1000) {
-      setMessage('Please enter a valid amount (Min: ₦1,000).');
+    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
+      setMessage('Please enter a valid amount.');
       return;
     }
-    if (Number(withdrawAmount) > balance) {
-      setMessage('Insufficient balance.');
+    if (Number(withdrawAmount) > usdtBalance) {
+      setMessage('Insufficient USD balance.');
       return;
     }
     if (!selectedMethodId) {
@@ -154,13 +161,38 @@ export function Wallet() {
           </div>
         </div>
 
-        <section className="space-y-8">
+        <section className="space-y-6">
+          {/* AdSense Style Earnings Card */}
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm">
+            <div className="text-center mb-8">
+              <h3 className="text-[22px] font-body text-[#3c4043] mb-2 font-medium">Your earnings</h3>
+              <p className="text-[15px] font-body text-[#5f6368]">
+                Paid monthly if the total is at least $100.00 (your payout threshold)
+              </p>
+              <div className="text-[56px] font-body mt-4 text-[#202124] tracking-tight">
+                ${usdtBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </div>
+            </div>
+            
+            <div className="space-y-3 mt-10">
+              <div className="h-6 bg-[#f1f3f4] w-full relative">
+                <div 
+                  className="h-full bg-[#1a73e8] transition-all duration-1000" 
+                  style={{ width: `${Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100)}%` }}
+                ></div>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:justify-between text-[13px] text-[#5f6368] gap-1">
+                <span>You've reached {Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100).toFixed(0)}% of your payment threshold</span>
+                <span>Payment threshold: $100.00</span>
+              </div>
+            </div>
+          </div>
+
           {/* Amount Input */}
-          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-highest/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
-            <label className="block text-sm font-bold text-on-surface-variant mb-6 uppercase tracking-widest">Enter Amount</label>
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm relative overflow-hidden">
+            <label className="block text-sm font-bold text-on-surface-variant mb-6 uppercase tracking-widest">Withdrawal Amount</label>
             <div className="relative">
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-on-surface-variant/30">₦</span>
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-on-surface-variant/30">$</span>
               <input
                 className="w-full bg-transparent border-none focus:ring-0 text-5xl font-black text-on-surface p-0 pl-10 placeholder:text-surface-container-highest outline-none"
                 placeholder="0.00"
@@ -170,36 +202,36 @@ export function Wallet() {
               />
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <button className="px-4 py-2 rounded-full bg-surface-container text-xs font-bold text-on-surface-variant hover:bg-surface-variant transition-colors"
-                onClick={() => setWithdrawAmount('1000')}
+              <button className="px-4 py-2 rounded-full bg-surface-container-high/50 text-xs font-bold text-[#5f6368] hover:bg-surface-container-high transition-colors"
+                onClick={() => setWithdrawAmount('10')}
               >
-                MIN ₦1,000
+                MIN $10
               </button>
-              <button className="px-4 py-2 rounded-full bg-surface-container text-xs font-bold text-on-surface-variant hover:bg-surface-variant transition-colors"
+              <button className="px-4 py-2 rounded-full bg-surface-container-high/50 text-xs font-bold text-[#5f6368] hover:bg-surface-container-high transition-colors"
                 onClick={handleMaxClick}
               >
-                MAX ₦{isLoading ? '...' : balance.toLocaleString()}
+                MAX ${isLoading ? '...' : usdtBalance.toLocaleString()}
               </button>
             </div>
             {message && (
-               <p className={`mt-4 text-sm font-bold ${message.includes('success') ? 'text-primary' : 'text-error'}`}>
+               <p className={`mt-4 text-sm font-bold ${message.includes('pending') || message.includes('success') ? 'text-primary' : 'text-error'}`}>
                  {message}
                </p>
             )}
           </div>
 
           {/* Payment Methods */}
-          <div>
-            <h2 className="text-lg font-bold font-headline text-on-surface mb-4 px-2">Payment Method</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm">
+            <h2 className="text-xl font-medium font-body text-[#3c4043] mb-6">Payment Method</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {payoutMethods.length === 0 ? (
-                <div className="col-span-3 text-center p-6 bg-surface-container-low rounded-2xl border border-dashed border-outline/30">
-                  <p className="text-sm text-on-surface-variant mb-3">No payment methods found.</p>
-                  <a href="/settings" className="text-primary font-bold text-xs uppercase tracking-wider bg-primary/10 px-4 py-2 rounded-xl">Add Payment Details</a>
+                <div className="col-span-full text-center p-6 bg-[#f8f9fa] rounded-xl border border-dashed border-[#dadce0]">
+                  <p className="text-[14px] text-[#5f6368] mb-3">No payment methods found.</p>
+                  <a href="/settings" className="text-[#1a73e8] font-medium text-[14px] hover:underline">Add Payment Details</a>
                 </div>
               ) : (
                 payoutMethods.map((pm: any) => (
-                  <label key={pm.id} className="relative cursor-pointer group flex-1 min-w-[120px]">
+                  <label key={pm.id} className="relative cursor-pointer group flex-1">
                     <input 
                       checked={selectedMethodId === pm.id}
                       onChange={() => setSelectedMethodId(pm.id)}
@@ -208,24 +240,19 @@ export function Wallet() {
                       type="radio" 
                       value={pm.id} 
                     />
-                    <div className="p-4 rounded-2xl bg-surface-container-lowest border-2 border-surface-container peer-checked:border-primary peer-checked:bg-primary/5 transition-all duration-300 h-full flex flex-col justify-center relative">
+                    <div className="p-4 rounded-xl bg-white border-2 border-[#dadce0] peer-checked:border-[#1a73e8] peer-checked:bg-[#e8f0fe] transition-all duration-300 h-full flex flex-col justify-center relative">
                       <button 
                         onClick={(e) => handleDeleteMethod(e, pm.id)}
-                        className="absolute top-2 right-2 w-6 h-6 bg-error/10 text-error rounded-full flex items-center justify-center hover:bg-error hover:text-white transition-colors z-10"
+                        className="absolute top-2 right-2 w-6 h-6 text-[#5f6368] rounded-full flex items-center justify-center hover:bg-black/5 transition-colors z-10"
                         title="Delete Method"
                       >
-                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                        <span className="material-symbols-outlined text-[16px]">close</span>
                       </button>
                       <div className="flex flex-col items-center gap-2">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center p-1 ${selectedMethodId === pm.id ? 'bg-primary/20 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
-                          <span className="material-symbols-outlined text-[20px]">
-                            {pm.method === 'minipay' ? 'account_balance_wallet' : 'account_balance'}
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs uppercase text-center block w-full truncate px-1" title={pm.account_name || pm.wallet_address || pm.minipay_uid}>
+                        <span className="font-medium text-[15px] uppercase text-center block w-full truncate px-1 text-[#202124]" title={pm.account_name || pm.wallet_address || pm.minipay_uid}>
                           {pm.method === 'opay' ? 'OPay' : pm.method === 'minipay' ? 'MiniPay' : 'USDT'}
                         </span>
-                        <span className="text-[10px] text-on-surface-variant truncate w-full flex justify-center">{pm.account_number || 'Wallet Address'}</span>
+                        <span className="text-[13px] text-[#5f6368] truncate w-full flex justify-center">{pm.account_number || 'Wallet Address'}</span>
                       </div>
                     </div>
                   </label>
@@ -234,97 +261,40 @@ export function Wallet() {
             </div>
           </div>
 
-          {/* Info Boxes */}
-          <div className="space-y-4">
-            <div className="flex gap-4 p-5 rounded-2xl bg-surface-container-low border border-outline-variant/10">
-              <span className="material-symbols-outlined text-primary-container shrink-0">info</span>
-              <div>
-                <p className="text-sm font-bold text-on-surface">Withdrawal Limits</p>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Daily limit of ₦250,000 applies to standard accounts. Increase your limit by completing Level 2 KYC.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4 p-5 rounded-2xl bg-surface-container-low border border-outline-variant/10">
-              <span className="material-symbols-outlined text-on-tertiary-fixed-variant shrink-0">payments</span>
-              <div>
-                <p className="text-sm font-bold text-on-surface">Service Fees</p>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  OPay/MiniPay transfers attract a ₦50 flat fee. USDT withdrawals have a 1% network fee.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Submit Button & Recent Status */}
-          <div className="pt-4 flex flex-col gap-6">
+          {/* Submit Button */}
+          <div className="pt-2">
             <button 
               onClick={handleWithdraw}
               disabled={isSubmitting}
-              className={`w-full py-5 rounded-2xl font-headline font-extrabold text-lg shadow-xl active:scale-95 transition-all 
-                ${isSubmitting ? 'bg-surface-variant text-on-surface-variant' : 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-primary/20'}
+              className={`w-full md:w-auto px-8 py-3 rounded-lg font-body font-medium text-[14px] shadow-sm active:scale-95 transition-all 
+                ${isSubmitting ? 'bg-[#f1f3f4] text-[#bdc1c6]' : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'}
               `}
             >
-              {isSubmitting ? 'Processing...' : 'Submit Withdrawal Request'}
+              {isSubmitting ? 'Processing...' : 'Submit Request'}
             </button>
+          </div>
 
-            {/* Status Indicator Section */}
-            {recentWithdrawal && (
-              <div className="bg-surface-container-highest/30 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 
-                    ${recentWithdrawal.status === 'completed' ? 'bg-primary/20 text-primary' : 
-                      recentWithdrawal.status === 'failed' ? 'bg-error/20 text-error' : 'bg-amber-500/10 text-amber-600'}`}>
-                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {recentWithdrawal.status === 'completed' ? 'check_circle' : 
-                       recentWithdrawal.status === 'failed' ? 'error' : 'pending_actions'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Last Request</p>
-                    <p className="font-bold text-on-surface text-sm md:text-base">
-                      ₦{Number(recentWithdrawal.amount).toLocaleString()} {recentWithdrawal.status === 'pending' ? 'Pending Approval' : recentWithdrawal.status}
-                    </p>
-                  </div>
-                </div>
-                <span className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap 
-                  ${recentWithdrawal.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 
-                    recentWithdrawal.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {recentWithdrawal.status}
-                </span>
-              </div>
-            )}
-            
-            {/* Recent Earnings List */}
-            {transactions.length > 0 && (
-              <div className="mt-8 border-t border-surface-container pt-8">
-                <h3 className="font-bold font-headline mb-4">Recent Transactions</h3>
-                <div className="space-y-3">
+          {/* AdSense Style Transactions Card */}
+          {transactions.length > 0 && (
+            <div className="bg-white rounded-xl border border-surface-container-highest/40 shadow-sm overflow-hidden mt-8">
+              <div className="p-6 md:p-8">
+                <h3 className="text-[22px] font-body text-[#202124] mb-6">Transactions</h3>
+                <div className="space-y-5">
                   {transactions.map(tx => (
-                    <div key={tx.id} className="bg-surface-container-lowest p-4 rounded-xl flex items-center justify-between border border-surface-container-highest/20 cursor-pointer hover:border-emerald-200 transition-all">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 
-                          ${tx.type === 'withdrawal' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          <span className="material-symbols-outlined text-sm">
-                            {tx.type === 'withdrawal' ? 'arrow_upward' : 'arrow_downward'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-on-surface capitalize">{tx.type.replace(/_/g, ' ')}</p>
-                          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{new Date(tx.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-black text-sm ${tx.type === 'withdrawal' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {tx.type === 'withdrawal' ? '-' : '+'}₦{Number(tx.amount).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
+                     <div key={tx.id} className="flex justify-between items-center text-[15px] group">
+                       <a href="#" className="font-body text-[#1a73e8] hover:underline cursor-pointer">
+                         {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} – {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
+                       </a>
+                       <span className="text-[#3c4043] font-body">${Number(tx.amount).toFixed(2)}</span>
+                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+              <div className="border-t border-[#dadce0] p-4 bg-[#f8f9fa]/50">
+                <button className="text-[#1a73e8] font-medium text-[14px] w-full text-center hover:underline cursor-pointer">View transactions</button>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </div>
