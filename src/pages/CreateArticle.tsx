@@ -20,6 +20,9 @@ export function CreateArticle() {
   
   const editorRef = useRef<HTMLDivElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
+
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
     const fetchCats = async () => {
@@ -151,9 +154,45 @@ export function CreateArticle() {
     if (url) executeCommand('createLink', url);
   };
 
-  const handleInsertImage = () => {
-    const url = prompt('Enter the image URL:');
-    if (url) executeCommand('insertImage', url);
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    // Save current selection to restore after upload
+    const selection = window.getSelection();
+    let range: Range | null = null;
+    if (selection && selection.rangeCount > 0) {
+      range = selection.getRangeAt(0);
+    }
+    
+    showAlert('Uploading image, please wait...', 'Uploading');
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `inline_${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `post_images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('post_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('post_images')
+        .getPublicUrl(filePath);
+
+      // Restore selection and insert image
+      if (range && selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      editorRef.current?.focus();
+      executeCommand('insertImage', publicUrl);
+    } catch (err: any) {
+      showAlert('Error uploading inline image: ' + err.message);
+    } finally {
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = '';
+    }
   };
 
   const handleInsertYoutube = () => {
@@ -247,9 +286,18 @@ export function CreateArticle() {
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-10 pb-32">
         {/* Left Column: Form Controls */}
         <div className="flex-1 space-y-6 md:space-y-8">
-          <section className="space-y-2">
-            <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">Create Article</h2>
-            <p className="text-on-surface-variant text-base md:text-lg">Craft your insightful piece. It will be reviewed by admins before publishing.</p>
+          <section className="space-y-2 flex justify-between items-center">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">Create Article</h2>
+              <p className="text-on-surface-variant text-base md:text-lg">Craft your insightful piece. It will be reviewed by admins before publishing.</p>
+            </div>
+            <button 
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              className="px-4 py-2 bg-surface-container-high rounded-xl font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-colors"
+            >
+              <span className="material-symbols-outlined">{isPreviewMode ? 'edit' : 'visibility'}</span>
+              {isPreviewMode ? 'Edit' : 'Preview'}
+            </button>
           </section>
 
           {/* Doc Import Banner */}
@@ -315,9 +363,17 @@ export function CreateArticle() {
               <button title="Insert Link" onMouseDown={e => { e.preventDefault(); handleInsertLink(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">link</span>
               </button>
-              <button title="Insert Image" onMouseDown={e => { e.preventDefault(); handleInsertImage(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+              <button title="Undo" onMouseDown={e => { e.preventDefault(); executeCommand('undo'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">undo</span>
+              </button>
+              <button title="Redo" onMouseDown={e => { e.preventDefault(); executeCommand('redo'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">redo</span>
+              </button>
+              <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
+              <button title="Insert Image" onMouseDown={e => { e.preventDefault(); inlineImageInputRef.current?.click(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">image</span>
               </button>
+              <input type="file" accept="image/*" ref={inlineImageInputRef} onChange={handleInlineImageUpload} className="hidden" />
               <button title="Insert YouTube Video" onMouseDown={e => { e.preventDefault(); handleInsertYoutube(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
                 <span className="material-symbols-outlined text-sm md:text-base text-rose-500 group-hover:text-rose-600">smart_display</span>
               </button>
@@ -329,16 +385,27 @@ export function CreateArticle() {
               </div>
             </div>
 
-            {/* Main Content Area */}
-            <div 
-              ref={editorRef}
-              className="w-full min-h-[300px] md:min-h-[450px] bg-surface-container-low rounded-2xl p-4 md:p-6 border-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/10 transition-all outline-none text-on-surface overflow-y-auto"
-              contentEditable
-              suppressContentEditableWarning
-              data-placeholder="Start writing your story here, or import a document above..."
-              style={{ emptyCells: 'show' }}
-            >
-            </div>
+            {isPreviewMode ? (
+              <div className="w-full min-h-[300px] md:min-h-[450px] bg-surface rounded-2xl p-4 md:p-6 text-on-surface overflow-y-auto mt-4">
+                {featuredImage && (
+                  <div className="w-full h-48 md:h-[300px] object-cover mb-6 rounded-2xl overflow-hidden shadow-sm">
+                    <img src={featuredImage} alt="Featured" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <h1 className="text-4xl font-headline font-black mb-6">{title || 'Untitled Article'}</h1>
+                <div className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline" dangerouslySetInnerHTML={{ __html: editorRef.current?.innerHTML || '' }} />
+              </div>
+            ) : (
+              <div 
+                ref={editorRef}
+                className="w-full min-h-[300px] md:min-h-[450px] bg-surface-container-low rounded-2xl p-4 md:p-6 border-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/10 transition-all outline-none text-on-surface overflow-y-auto mt-4"
+                contentEditable
+                suppressContentEditableWarning
+                data-placeholder="Start writing your story here, or import a document above..."
+                style={{ emptyCells: 'show' }}
+              >
+              </div>
+            )}
             <style>{
               `[contentEditable]:empty:before { content: attr(data-placeholder); color: #6e7a70; opacity: 0.5; cursor: text; display: block; }
                [contentEditable] h1 { font-size: 2em; font-weight: 900; margin: 1rem 0 0.5rem; line-height: 1.2; }
