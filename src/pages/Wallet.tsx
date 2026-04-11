@@ -144,8 +144,6 @@ export function Wallet() {
     }
   };
 
-  const recentWithdrawal = transactions.find(tx => tx.type === 'withdrawal');
-
   return (
     <div className="bg-surface text-on-surface min-h-[calc(100vh-80px)] font-body">
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-8 md:py-12 pb-32">
