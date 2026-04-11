@@ -11,6 +11,10 @@ export function PublicArticle() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [relatedPosts, setRelatedPosts] = useState<any[]>([]);
 
   useEffect(() => {
     if (slug) fetchArticle();
@@ -23,7 +27,7 @@ export function PublicArticle() {
       .from('posts')
       .select(`
         *,
-        category:categories(name, slug),
+        category:categories(id, name, slug),
         author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
       `)
       .eq('slug', slug)
@@ -31,8 +35,40 @@ export function PublicArticle() {
       .single();
 
     if (pData) {
+      let isVerified = pData.author?.is_verified || false;
+      const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle();
+      if (subData && subData.plan_id !== 'free') {
+        isVerified = true;
+      }
+      pData.author.is_verified = isVerified;
+      
       setPost(pData);
       
+      // Fetch Comments
+      const { data: cData } = await supabase
+        .from('post_comments')
+        .select(`
+          id, content, created_at,
+          profiles!post_comments_user_id_fkey(name, username, avatar_url)
+        `)
+        .eq('post_id', pData.id)
+        .order('created_at', { ascending: false });
+        
+      if (cData) setComments(cData);
+
+      // Fetch Related Posts
+      if (pData.category_id) {
+        const { data: rData } = await supabase
+          .from('posts')
+          .select('id, title, slug, featured_image, created_at, reading_time_seconds')
+          .eq('status', 'approved')
+          .eq('category_id', pData.category_id)
+          .neq('id', pData.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (rData) setRelatedPosts(rData);
+      }
+
       // Check follow status if logged in
       if (user?.id && pData.author?.user_id) {
         const { data: fData } = await supabase
@@ -60,6 +96,30 @@ export function PublicArticle() {
     
     setIsFollowing(!isFollowing);
     setIsFollowLoading(false);
+  };
+
+  const handlePostComment = async () => {
+    if (!user?.id) {
+      alert("Please log in to comment.");
+      return;
+    }
+    if (!newComment.trim()) return;
+    
+    setIsSubmittingComment(true);
+    const { error } = await supabase.from('post_comments').insert({
+      post_id: post.id,
+      user_id: user.id,
+      content: newComment.trim()
+    });
+
+    if (!error) {
+      setNewComment('');
+      // Optimistic or explicit refetch
+      fetchArticle();
+    } else {
+      alert("Failed to post comment");
+    }
+    setIsSubmittingComment(false);
   };
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -123,9 +183,94 @@ export function PublicArticle() {
       )}
 
       <div 
-        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline"
+        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-16"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
+      
+      <hr className="border-t-2 border-surface-container-high mb-12" />
+
+      {/* Engagement & Comments Section */}
+      <section className="mb-16">
+        <h3 className="text-2xl font-black font-headline text-on-surface mb-8">Comments ({comments.length})</h3>
+        
+        {user ? (
+          <div className="flex gap-4 mb-10">
+            <div className="w-10 h-10 rounded-full bg-primary/10 shrink-0 flex items-center justify-center text-primary font-bold">
+              {user.email?.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 space-y-3">
+              <textarea 
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Share your thoughts..."
+                className="w-full bg-surface-container-lowest border-2 border-surface-container-low rounded-xl p-4 focus:ring-0 focus:border-primary outline-none transition-colors min-h-[100px] resize-none"
+              />
+              <button 
+                onClick={handlePostComment}
+                disabled={isSubmittingComment || !newComment.trim()}
+                className="bg-primary text-white font-bold py-2.5 px-6 rounded-full hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-md"
+              >
+                {isSubmittingComment ? 'Posting...' : 'Post Comment'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-surface-container p-6 rounded-2xl mb-10 text-center">
+            <p className="text-on-surface-variant font-medium mb-3">Join the conversation</p>
+            <Link to="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:bg-emerald-800 transition-colors">
+              Log in to Comment
+            </Link>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {comments.map((comment: any) => (
+            <div key={comment.id} className="flex gap-4">
+              <img 
+                src={comment.profiles?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${comment.profiles?.name}`} 
+                alt={comment.profiles?.username}
+                className="w-10 h-10 rounded-full object-cover shrink-0 bg-surface-container"
+              />
+              <div className="flex-1">
+                <div className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-container-low shadow-[0px_4px_16px_-8px_rgba(0,0,0,0.05)]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-bold text-on-surface text-sm">{comment.profiles?.name}</span>
+                    <span className="text-xs text-outline">@{comment.profiles?.username}</span>
+                    <span className="text-xs text-outline ml-auto">{new Date(comment.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <p className="text-on-surface-variant text-sm whitespace-pre-wrap">{comment.content}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Related Posts Section */}
+      {relatedPosts.length > 0 && (
+        <section>
+          <h3 className="text-2xl font-black font-headline text-on-surface mb-8">Related Articles</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {relatedPosts.map(rp => (
+              <Link key={rp.id} to={`/article/${rp.slug}`} className="group block">
+                <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-surface-container-low mb-4">
+                  {rp.featured_image ? (
+                    <img src={rp.featured_image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center material-symbols-outlined text-4xl text-outline opacity-20">article</div>
+                  )}
+                </div>
+                <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2">{rp.title}</h4>
+                <div className="text-xs text-outline font-medium mt-2 flex items-center gap-2">
+                  <span>{new Date(rp.created_at).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{Math.ceil(rp.reading_time_seconds / 60)} min read</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </article>
   );
 }

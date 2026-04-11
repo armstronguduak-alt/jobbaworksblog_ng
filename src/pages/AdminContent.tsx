@@ -9,6 +9,7 @@ export function AdminContent() {
   const { showAlert, showConfirm } = useDialog();
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -22,7 +23,7 @@ export function AdminContent() {
       const { data, error } = await supabase
         .from('posts')
         .select(`
-          id, title, excerpt, status, created_at, author_user_id,
+          id, title, excerpt, content, status, created_at, author_user_id,
           profiles:author_user_id (name, email),
           categories:category_id (name)
         `)
@@ -41,6 +42,13 @@ export function AdminContent() {
   }
 
   const handleUpdateStatus = async (post: any, newStatus: string) => {
+    let rejectionReason = '';
+    if (newStatus === 'rejected') {
+      const reason = window.prompt('Please provide a reason for rejecting this article (the author will be notified):');
+      if (reason === null) return; // Admin cancelled the prompt
+      rejectionReason = reason || 'Does not meet our content guidelines.';
+    }
+
     try {
       const { error } = await supabase
         .from('posts')
@@ -55,10 +63,17 @@ export function AdminContent() {
             p_author_id: post.author_user_id,
             p_title: post.title
           });
+        } else if (newStatus === 'rejected') {
+          await supabase.rpc('send_notification', {
+            _user_id: post.author_user_id,
+            _message: `Your article "${post.title}" was rejected. Reason: ${rejectionReason}`,
+            _type: 'warning'
+          });
         }
         
         setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: newStatus } : p).filter(p => newStatus !== 'approved' && newStatus !== 'rejected' || p.id !== post.id));
         showAlert(`Article ${newStatus} successfully.`);
+        if (selectedPost && selectedPost.id === post.id) setSelectedPost(null);
       } else {
         showAlert('Failed to update article status.', 'Error');
       }
@@ -139,6 +154,14 @@ export function AdminContent() {
                 </div>
                 
                 <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-40 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-low md:pl-6 md:border-l">
+                  <button 
+                    onClick={() => setSelectedPost(post)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full mb-1"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">visibility</span>
+                    Review
+                  </button>
+
                   {post.status !== 'approved' && (
                     <button 
                       onClick={() => handleUpdateStatus(post, 'approved')}
@@ -170,6 +193,43 @@ export function AdminContent() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-surface-container-low bg-surface-container-lowest">
+              <h2 className="text-xl font-black font-headline text-on-surface">Reviewing: {selectedPost.title}</h2>
+              <button 
+                onClick={() => setSelectedPost(null)}
+                className="w-10 h-10 rounded-full hover:bg-surface-container flex items-center justify-center transition-colors shrink-0"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-white">
+              <div 
+                className="prose prose-emerald max-w-none text-on-surface-variant space-y-4 marker:text-primary prose-img:rounded-2xl prose-headings:font-headline break-words"
+                dangerouslySetInnerHTML={{ __html: selectedPost.content || '<p>No content available.</p>' }}
+              />
+            </div>
+            <div className="p-6 border-t border-surface-container-low bg-surface-container-lowest flex justify-end gap-4 shadow-[0px_-10px_20px_rgba(0,0,0,0.02)]">
+              <button 
+                onClick={() => handleUpdateStatus(selectedPost, 'rejected')}
+                className="px-6 py-3 rounded-xl font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+              >
+                Reject Article
+              </button>
+              <button 
+                onClick={() => handleUpdateStatus(selectedPost, 'approved')}
+                className="px-8 py-3 rounded-xl font-bold bg-primary text-white hover:bg-emerald-700 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+              >
+                Approve & Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

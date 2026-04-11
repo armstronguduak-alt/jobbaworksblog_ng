@@ -27,7 +27,13 @@ export function PublicProfile() {
       .maybeSingle();
 
     if (pData) {
-      setProfile(pData);
+      let isVerified = pData.is_verified || false;
+      const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.user_id).maybeSingle();
+      if (subData && subData.plan_id !== 'free') {
+        isVerified = true;
+      }
+      
+      setProfile({ ...pData, is_verified: isVerified });
       
       // Fetch articles
       const { data: aData } = await supabase
