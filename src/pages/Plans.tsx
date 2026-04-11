@@ -79,7 +79,7 @@ export function Plans() {
   };
 
   const initKorapayCheckout = (plan: any) => {
-    const email = user?.email || profile?.email || '';
+    const email = user?.email || profile?.email || 'user@jobbaworks.com';
     const name = profile?.name || 'User';
     const KORAPAY_PUBLIC_KEY = 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4';
 
@@ -119,7 +119,7 @@ export function Plans() {
 
     window.Korapay.initialize({
       key: KORAPAY_PUBLIC_KEY,
-      reference: `jobbaworks_${plan.id}_${user?.id}_${Date.now()}`,
+      reference: `jw_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       amount: Number(plan.price),
       currency: 'NGN',
       customer: {
