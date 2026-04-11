@@ -10,19 +10,54 @@ BEGIN;
   CREATE PUBLICATION supabase_realtime;
 COMMIT;
 
--- 2. Explicitly attach all vital tables to the live Real-Time pipeline
-ALTER PUBLICATION supabase_realtime ADD TABLE public.wallet_balances;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.wallet_transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.posts;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.post_comments;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.referrals;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_subscriptions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.swap_transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.withdrawal_requests;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_tasks;
+-- 2. Dynamically attach ALL natively existing public tables to Real-Time 
+-- (This actively prevents missing table errors like 'swap_transactions doesn't exist')
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        BEGIN
+            EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.' || quote_ident(r.tablename);
+        EXCEPTION
+            WHEN undefined_table THEN
+                -- ignore gracefully
+            WHEN duplicate_object THEN
+                -- ignore gracefully if already attached
+        END;
+    END LOOP;
+END
+$$;
+
+-- =========================================================
+-- 2.5 FIX: LEADERBOARD MISSING DATA
+-- If users don't have an explicit 'active' status yet, they vanished.
+-- =========================================================
+CREATE OR REPLACE FUNCTION public.get_leaderboard(_limit integer DEFAULT 50)
+RETURNS TABLE (
+  rank              bigint,
+  user_id           uuid,
+  name              text,
+  username          text,
+  avatar_url        text,
+  total_earnings    numeric,
+  referral_earnings numeric,
+  plan_id           text
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $func$
+  SELECT
+    ROW_NUMBER() OVER (ORDER BY wb.total_earnings DESC),
+    p.user_id, p.name, p.username, p.avatar_url,
+    wb.total_earnings, wb.referral_earnings,
+    COALESCE(us.plan_id::text, 'free')
+  FROM public.wallet_balances wb
+  JOIN  public.profiles          p  ON p.user_id  = wb.user_id
+  LEFT JOIN public.user_subscriptions us ON us.user_id = wb.user_id
+  WHERE (p.status = 'active' OR p.status IS NULL)
+  ORDER BY wb.total_earnings DESC
+  LIMIT _limit;
+$func$;
+GRANT EXECUTE ON FUNCTION public.get_leaderboard(integer) TO anon, authenticated;
 
 -- =========================================================
 -- 3. ENSURE ALL BUTTONS / ACTIONS FUNCTION PROPERLY (RLS PATCHES)
