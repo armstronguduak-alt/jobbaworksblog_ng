@@ -20,6 +20,18 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod 
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [paymentLinks, setPaymentLinks] = useState<any>({});
+
+  // Fetch admin payment registration links
+  useState(() => {
+    async function fetchLinks() {
+      const { data } = await supabase.from('system_settings').select('value').eq('key', 'payment_links').maybeSingle();
+      if (data && data.value) {
+        setPaymentLinks(data.value);
+      }
+    }
+    fetchLinks();
+  });
 
   if (!isOpen) return null;
 
@@ -119,6 +131,14 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod 
                   className="w-full bg-surface-container py-3 px-4 rounded-xl text-on-surface font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 />
               </div>
+              <a 
+                href={paymentLinks?.opay || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-primary text-xs font-bold mt-2 inline-block hover:underline"
+              >
+                Don't have an OPay account? Register here
+              </a>
             </>
           )}
 
@@ -133,6 +153,14 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod 
                 placeholder="T..."
                 className="w-full bg-surface-container py-3 px-4 rounded-xl text-on-surface font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               />
+              <a 
+                href={paymentLinks?.usdt || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-primary text-xs font-bold mt-2 inline-block hover:underline"
+              >
+                Don't have a USDT Wallet? Register here
+              </a>
             </div>
           )}
 
@@ -147,6 +175,14 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess, existingMethod 
                 placeholder="MiniPay ID"
                 className="w-full bg-surface-container py-3 px-4 rounded-xl text-on-surface font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               />
+              <a 
+                href={paymentLinks?.minipay || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-primary text-xs font-bold mt-2 inline-block hover:underline"
+              >
+                Don't have a MiniPay account? Register here
+              </a>
             </div>
           )}
 

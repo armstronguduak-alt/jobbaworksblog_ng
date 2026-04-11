@@ -6,6 +6,7 @@ import { useDialog } from '../contexts/DialogContext';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { TwoFactorModal } from '../components/TwoFactorModal';
 import { PaymentMethodModal } from '../components/PaymentMethodModal';
+import { SetPinModal } from '../components/SetPinModal';
 
 export function Settings() {
   const { user, profile, signOut } = useAuth();
@@ -13,6 +14,7 @@ export function Settings() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isMfaEnabled, setIsMfaEnabled] = useState(false);
   const [payoutMethods, setPayoutMethods] = useState<any[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<any>(null);
@@ -140,6 +142,23 @@ export function Settings() {
               <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
+          
+          {/* Withdrawal PIN */}
+          <button 
+            onClick={() => setIsPinModalOpen(true)}
+            className="w-full flex items-center justify-between group pt-2 border-t border-surface-container/50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors duration-300">
+                <span className="material-symbols-outlined">pin</span>
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-on-surface text-sm md:text-base">Withdrawal PIN</p>
+                <p className="text-xs text-on-surface-variant">Set a 4-digit PIN for withdrawals</p>
+              </div>
+            </div>
+            <span className="material-symbols-outlined text-outline-variant text-base">chevron_right</span>
+          </button>
         </div>
       </div>
 
@@ -273,6 +292,11 @@ export function Settings() {
         onClose={() => setIsPaymentModalOpen(false)}
         onSuccess={fetchPayoutMethods}
         existingMethod={selectedMethod}
+      />
+      <SetPinModal 
+        isOpen={isPinModalOpen} 
+        onClose={() => setIsPinModalOpen(false)} 
+        onSuccess={() => {}} 
       />
     </main>
   );

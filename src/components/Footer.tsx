@@ -28,8 +28,8 @@ export function Footer() {
             {/* Column 3: Network */}
             <div className="flex flex-col gap-3 lg:justify-self-center">
               <h3 className="font-bold font-headline text-white mb-2 tracking-wide uppercase text-xs">Network</h3>
-              <Link to="#" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Privacy Policy</Link>
-              <Link to="#" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Terms of Service</Link>
+              <Link to="/privacy-policy" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Privacy Policy</Link>
+              <Link to="/terms-of-service" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Terms of Service</Link>
             </div>
 
             {/* Column 4: Invisible Spacer or extra padding for large screens if needed */}
