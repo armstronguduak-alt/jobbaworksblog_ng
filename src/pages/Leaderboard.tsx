@@ -134,11 +134,11 @@ export function Leaderboard() {
               <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-on-surface-variant font-medium">Fetching Leaderboard Data...</p>
             </div>
-          ) : topEarners.length > 3 ? (
+          ) : topEarners.length > 0 ? (
             <div className="divide-y divide-surface-container-highest/20">
-              {topEarners.slice(3).map((earner, index) => (
+              {topEarners.slice(topEarners.length >= 3 ? 3 : 0).map((earner, index) => (
                 <div key={earner.user_id} className="flex items-center gap-4 p-4 sm:p-5 hover:bg-surface-container/30 transition-colors">
-                  <span className="font-black text-lg text-outline w-6 text-center">{index + 4}</span>
+                  <span className="font-black text-lg text-outline w-6 text-center">{topEarners.length >= 3 ? index + 4 : index + 1}</span>
                   <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-surface-container">
                     <img 
                       className="w-full h-full object-cover" 
