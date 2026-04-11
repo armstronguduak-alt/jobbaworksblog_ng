@@ -284,10 +284,17 @@ export function Articles() {
                         <td className="px-6 md:px-8 py-4 md:py-6 text-right">
                           <span className="text-xs md:text-sm text-outline font-medium">{timeAgo(article.created_at)}</span>
                         </td>
-                        <td className="px-4 md:px-6 py-4 md:py-6 text-right">
+                        <td className="px-4 md:px-6 py-4 md:py-6 text-right flex justify-end gap-2">
+                          <Link 
+                            to={`/edit-article/${article.id}`}
+                            className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors flex items-center justify-center"
+                            title="Edit Article"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </Link>
                           <button 
                             onClick={() => handleDeleteArticle(article.id)}
-                            className="text-error hover:bg-error/10 p-2 rounded-full transition-colors"
+                            className="text-error hover:bg-error/10 p-2 rounded-full transition-colors flex items-center justify-center"
                             title="Delete Article"
                           >
                             <span className="material-symbols-outlined text-[18px]">delete</span>

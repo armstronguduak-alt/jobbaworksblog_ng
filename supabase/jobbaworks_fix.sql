@@ -185,12 +185,18 @@ ON public.system_settings FOR SELECT
 TO authenticated
 USING (true);
 
--- 10. profiles: allow authenticated users to read ALL profiles (needed for posts author display)
+-- 10. profiles: allow authenticated users to read ALL profiles
 DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
 CREATE POLICY "profiles_public_read"
 ON public.profiles FOR SELECT
 TO authenticated
 USING (true);
+
+-- 10b. FIX: Allow authors to see their own drafts, and everyone to see approved posts
+DROP POLICY IF EXISTS "posts_public_read" ON public.posts;
+CREATE POLICY "posts_public_read" ON public.posts FOR SELECT TO authenticated
+USING (status = 'approved' OR auth.uid() = author_user_id);
+
 
 -- 11. Add FK from posts.author_user_id to profiles.user_id (enables Supabase join syntax)
 ALTER TABLE public.posts 
@@ -236,5 +242,22 @@ BEGIN;
   END $$;
 COMMIT;
 
+-- 16. Ensure "post_images" Bucket Exists for Inline/Featured Images
+INSERT INTO storage.buckets (id, name, public, "file_size_limit", "allowed_mime_types")
+VALUES ('post_images', 'post_images', true, 5242880, '{"image/*"}'::text[])
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "post_images_read" ON storage.objects;
+CREATE POLICY "post_images_read" ON storage.objects FOR SELECT USING (bucket_id = 'post_images');
+
+DROP POLICY IF EXISTS "post_images_insert" ON storage.objects;
+CREATE POLICY "post_images_insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'post_images');
+
+DROP POLICY IF EXISTS "post_images_update" ON storage.objects;
+CREATE POLICY "post_images_update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'post_images' AND auth.uid() = owner);
+
+DROP POLICY IF EXISTS "post_images_delete" ON storage.objects;
+CREATE POLICY "post_images_delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'post_images' AND auth.uid() = owner);
+
 -- Done!
-SELECT 'JobbaWorks Referral & Realtime Script Completed Successfully!' as status;
+SELECT 'JobbaWorks Referral, Realtime & Image Fix Script Completed Successfully!' as status;

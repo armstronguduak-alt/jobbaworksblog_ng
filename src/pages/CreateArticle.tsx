@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
 
 export function CreateArticle() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { showAlert } = useDialog();
@@ -25,15 +26,34 @@ export function CreateArticle() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
-    const fetchCats = async () => {
-      const { data } = await supabase.from('categories').select('*').eq('is_active', true);
-      if (data) {
-        setCategories(data);
-        if (data.length > 0) setCategoryId(data[0].id);
+    const initializeEditor = async () => {
+      // 1. Fetch categories
+      const { data: catsData } = await supabase.from('categories').select('*').eq('is_active', true);
+      if (catsData) {
+        setCategories(catsData);
+        if (catsData.length > 0) setCategoryId(catsData[0].id);
+      }
+
+      // 2. Fetch existing article if editing
+      if (id) {
+        const { data: articleData, error } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (articleData && !error) {
+          setTitle(articleData.title || '');
+          setCategoryId(articleData.category_id || (catsData?.[0]?.id || ''));
+          setFeaturedImage(articleData.featured_image || '');
+          if (editorRef.current) {
+            editorRef.current.innerHTML = articleData.content || '';
+          }
+        }
       }
     };
-    fetchCats();
-  }, []);
+    initializeEditor();
+  }, [id]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -234,11 +254,11 @@ export function CreateArticle() {
     
     try {
       const excerpt = extractExcerpt(content);
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
+      // Only generate new slug if it's new
+      const slug = id ? undefined : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
 
-      const { error } = await supabase.from('posts').insert({
+      const postPayload: any = {
         title,
-        slug,
         content,
         excerpt,
         featured_image: featuredImage || null,
@@ -246,7 +266,25 @@ export function CreateArticle() {
         author_user_id: user?.id,
         category_id: categoryId,
         reading_time_seconds: Math.max(60, Math.floor(content.length / 15)),
-      });
+      };
+      
+      if (slug) postPayload.slug = slug;
+
+      let error;
+      if (id) {
+        // Update existing article
+        const { error: updateError } = await supabase
+          .from('posts')
+          .update(postPayload)
+          .eq('id', id);
+        error = updateError;
+      } else {
+        // Create new article
+        const { error: insertError } = await supabase
+          .from('posts')
+          .insert(postPayload);
+        error = insertError;
+      }
 
       if (error) throw error;
 
@@ -269,7 +307,7 @@ export function CreateArticle() {
           >
             <span className="material-symbols-outlined text-emerald-900">arrow_back</span>
           </button>
-          <h1 className="text-emerald-800 font-bold text-lg font-headline">Studio Editor</h1>
+          <h1 className="text-emerald-800 font-bold text-lg font-headline">{id ? 'Edit Article' : 'Studio Editor'}</h1>
         </div>
         <div className="flex items-center gap-4">
           <span className="font-headline text-sm font-bold tracking-tight text-slate-500 hidden sm:inline">User Submission</span>
@@ -288,7 +326,7 @@ export function CreateArticle() {
         <div className="flex-1 space-y-6 md:space-y-8">
           <section className="space-y-2 flex justify-between items-center">
             <div>
-              <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">Create Article</h2>
+              <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-primary-fixed-variant tracking-tight">{id ? 'Edit Article' : 'Create Article'}</h2>
               <p className="text-on-surface-variant text-base md:text-lg">Craft your insightful piece. It will be reviewed by admins before publishing.</p>
             </div>
             <button 

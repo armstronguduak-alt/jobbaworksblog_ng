@@ -69,6 +69,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="profile" element={<Profile />} />
             <Route path="/create-article" element={<CreateArticle />} />
+            <Route path="/edit-article/:id" element={<CreateArticle />} />
           </Route>
 
           {/* SECURE ADMIN LAYOUT */}
