@@ -114,7 +114,8 @@ BEGIN
   IF _normalized_ref IS NOT NULL THEN
     SELECT p.user_id INTO _referrer_user_id
     FROM public.profiles p
-    WHERE p.referral_code = _normalized_ref AND p.user_id <> _uid
+    WHERE (p.referral_code = _normalized_ref OR UPPER(p.username) = _normalized_ref)
+      AND p.user_id <> _uid
     LIMIT 1;
 
     IF _referrer_user_id IS NOT NULL THEN
@@ -208,5 +209,32 @@ INSERT INTO public.system_settings (key, value, is_public)
 VALUES ('page_toggles', '{"swapEnabled": true, "walletEnabled": true, "earningsEnabled": true, "promotionsEnabled": true, "referralsEnabled": true, "leaderboardEnabled": true}'::jsonb, false)
 ON CONFLICT (key) DO NOTHING;
 
+-- 14. Establish Missing Foreign Keys for PostgREST Relational Joins
+ALTER TABLE public.wallet_balances DROP CONSTRAINT IF EXISTS wallet_balances_user_id_fkey;
+ALTER TABLE public.wallet_balances ADD CONSTRAINT wallet_balances_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
+
+ALTER TABLE public.referrals DROP CONSTRAINT IF EXISTS referrals_referred_user_id_fkey;
+ALTER TABLE public.referrals ADD CONSTRAINT referrals_referred_user_id_fkey FOREIGN KEY (referred_user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
+
+ALTER TABLE public.referrals DROP CONSTRAINT IF EXISTS referrals_referrer_user_id_fkey;
+ALTER TABLE public.referrals ADD CONSTRAINT referrals_referrer_user_id_fkey FOREIGN KEY (referrer_user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
+
+-- 15. Enable Supabase Realtime for Dynamic Functionality
+BEGIN;
+  DO $$ 
+  BEGIN 
+    -- Only try adding if not already in publication
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'wallet_balances') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.wallet_balances;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'referrals') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.referrals;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'wallet_transactions') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.wallet_transactions;
+    END IF;
+  END $$;
+COMMIT;
+
 -- Done!
-SELECT 'JobbaWorks fix script completed successfully!' as status;
+SELECT 'JobbaWorks Referral & Realtime Script Completed Successfully!' as status;
