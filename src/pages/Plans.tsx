@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+// @ts-ignore
+import confetti from 'canvas-confetti';
 
 declare global {
   interface Window {
@@ -79,7 +81,7 @@ export function Plans() {
   const initKorapayCheckout = (plan: any) => {
     const email = user?.email || profile?.email || '';
     const name = profile?.name || 'User';
-    const TEST_KEY = 'pk_test_replace_with_your_korapay_public_key';
+    const KORAPAY_PUBLIC_KEY = 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4';
 
     const processBackendUpgrade = async (reference: string) => {
       try {
@@ -97,6 +99,14 @@ export function Plans() {
           meta: { plan_id: plan.id, reference },
         });
 
+        // Trigger beautiful success flowers / confetti
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#008751', '#FFD700', '#ffffff', '#00e479']
+        });
+
         setCurrentPlan(plan.id);
         showAlert(`Successfully upgraded to ${plan.name}!`, 'Success');
       } catch (err) {
@@ -107,17 +117,8 @@ export function Plans() {
       }
     };
 
-    // If API key is not set, simulate payment to allow testing
-    if (TEST_KEY.includes('replace_with_your')) {
-      setTimeout(() => {
-        const simulatedRef = `sim_${Date.now()}`;
-        processBackendUpgrade(simulatedRef);
-      }, 2000);
-      return;
-    }
-
     window.Korapay.initialize({
-      key: TEST_KEY,
+      key: KORAPAY_PUBLIC_KEY,
       reference: `jobbaworks_${plan.id}_${user?.id}_${Date.now()}`,
       amount: Number(plan.price),
       currency: 'NGN',
