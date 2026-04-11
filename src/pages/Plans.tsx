@@ -172,6 +172,15 @@ export function Plans() {
             const isPopular = plan.id === 'pro' || plan.id === 'elite' || plan.id === 'executive';
             const canUpgrade = !isFree && !isCurrent && !isLowerPlan;
             const isProcessing = processingPlan === plan.id;
+            
+            // New Plan Logic
+            const isVerified = plan.id !== 'free';
+            let contentBoost = '';
+            if (plan.id === 'starter') contentBoost = '10% Content Boost';
+            else if (plan.id === 'pro') contentBoost = '25% Content Boost';
+            else if (plan.id === 'elite') contentBoost = '50% Content Boost';
+            else if (plan.id === 'vip') contentBoost = '75% Content Boost';
+            else if (plan.id === 'executive' || plan.id === 'platinum') contentBoost = '100% Boost + Priority Rank';
 
             return (
               <div 
@@ -229,6 +238,18 @@ export function Plans() {
                     <li className="flex items-center gap-3 text-sm font-bold">
                       <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
                       <span>25% Referral Commission</span>
+                    </li>
+                  )}
+                  {isVerified && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-blue-300' : 'text-blue-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                      <span>Verified Profile Badge</span>
+                    </li>
+                  )}
+                  {contentBoost && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-300' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
+                      <span>{contentBoost}</span>
                     </li>
                   )}
                 </ul>

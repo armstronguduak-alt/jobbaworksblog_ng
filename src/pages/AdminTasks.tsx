@@ -31,6 +31,22 @@ export function AdminTasks() {
     }
   });
 
+  const { data: communityTasks, isLoading: communityTasksLoading } = useQuery({
+    queryKey: ['admin_community_tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('community_tasks')
+        .select(`
+          id, task_name, status, created_at,
+          user:profiles (user_id, name, username, email)
+        `)
+        .eq('status', 'pending_review')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('tasks').insert([{
@@ -69,6 +85,17 @@ export function AdminTasks() {
       const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['admin_tasks'] });
+    } catch (error: any) {
+      showAlert(`Error: ${error.message}`, 'Error');
+    }
+  };
+
+  const updateCommunityTask = async (taskId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase.from('community_tasks').update({ status: newStatus }).eq('id', taskId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['admin_community_tasks'] });
+      showAlert(`Task marked as ${newStatus}`, 'Success');
     } catch (error: any) {
       showAlert(`Error: ${error.message}`, 'Error');
     }
@@ -161,6 +188,69 @@ export function AdminTasks() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Community Tasks Verification Section */}
+      <div className="mt-16">
+        <h2 className="text-xl md:text-2xl font-black text-[#0f172a] tracking-tight mb-6 font-headline">
+          Community Verification Requests
+        </h2>
+        <div className="bg-transparent overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-white rounded-full shadow-sm border border-surface-container-low text-[#49454f]">
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] rounded-l-full">USER</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">TASK NAME</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">SUBMITTED</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] text-right rounded-r-full">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody className="before:content-[''] before:block before:h-4">
+                {communityTasksLoading ? (
+                  <tr><td colSpan={4} className="py-10 text-center text-outline">Loading requests...</td></tr>
+                ) : communityTasks?.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-10 text-center text-outline bg-white rounded-3xl mt-4 block p-8 shadow-sm">
+                      No pending community verifications.
+                    </td>
+                  </tr>
+                ) : (
+                  communityTasks?.map((req: any) => (
+                    <tr key={req.id} className="border-b border-surface-container-low bg-white">
+                      <td className="py-4 px-6 first:rounded-l-2xl">
+                        <p className="font-bold text-slate-900">{req.user?.name || 'Unknown'}</p>
+                        <p className="text-xs text-slate-500">@{req.user?.username || 'user'}</p>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs uppercase rounded-lg">
+                          {req.task_name}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-slate-500">
+                        {new Date(req.created_at).toLocaleString()}
+                      </td>
+                      <td className="py-4 px-6 text-right last:rounded-r-2xl gap-2 flex justify-end">
+                        <button 
+                          onClick={() => updateCommunityTask(req.id, 'rejected')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100"
+                        >
+                          Reject
+                        </button>
+                        <button 
+                          onClick={() => updateCommunityTask(req.id, 'approved')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                        >
+                          Approve
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

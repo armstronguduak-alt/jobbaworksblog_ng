@@ -22,7 +22,7 @@ export function AdminContent() {
       const { data, error } = await supabase
         .from('posts')
         .select(`
-          id, title, excerpt, status, created_at,
+          id, title, excerpt, status, created_at, author_user_id,
           profiles:author_user_id (name, email),
           categories:category_id (name)
         `)
@@ -40,15 +40,24 @@ export function AdminContent() {
     }
   }
 
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
+  const handleUpdateStatus = async (post: any, newStatus: string) => {
     try {
       const { error } = await supabase
         .from('posts')
         .update({ status: newStatus })
-        .eq('id', id);
+        .eq('id', post.id);
 
       if (!error) {
-        setPosts(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p).filter(p => newStatus !== 'approved' && newStatus !== 'rejected' || p.id !== id));
+        if (newStatus === 'approved') {
+          // Trigger Follower Notifications
+          await supabase.rpc('create_article_notifications', {
+            p_article_id: post.id,
+            p_author_id: post.author_user_id,
+            p_title: post.title
+          });
+        }
+        
+        setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: newStatus } : p).filter(p => newStatus !== 'approved' && newStatus !== 'rejected' || p.id !== post.id));
         showAlert(`Article ${newStatus} successfully.`);
       } else {
         showAlert('Failed to update article status.', 'Error');
@@ -132,7 +141,7 @@ export function AdminContent() {
                 <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-40 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-low md:pl-6 md:border-l">
                   {post.status !== 'approved' && (
                     <button 
-                      onClick={() => handleUpdateStatus(post.id, 'approved')}
+                      onClick={() => handleUpdateStatus(post, 'approved')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-[#008751] hover:bg-[#006b3f] text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
                     >
                       <span className="material-symbols-outlined text-[18px]">check_circle</span>
@@ -141,7 +150,7 @@ export function AdminContent() {
                   )}
                   {post.status !== 'rejected' && (
                     <button 
-                      onClick={() => handleUpdateStatus(post.id, 'rejected')}
+                      onClick={() => handleUpdateStatus(post, 'rejected')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
                     >
                       <span className="material-symbols-outlined text-[18px]">cancel</span>

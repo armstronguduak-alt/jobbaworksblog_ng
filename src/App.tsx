@@ -16,6 +16,9 @@ const Leaderboard = lazy(() => import('./pages/Leaderboard').then(module => ({ d
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
 const Promotional = lazy(() => import('./pages/Promotional').then(module => ({ default: module.Promotional })));
 const Profile = lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then(module => ({ default: module.PublicProfile })));
+const PublicArticle = lazy(() => import('./pages/PublicArticle').then(module => ({ default: module.PublicArticle })));
+const CreateArticle = lazy(() => import('./pages/CreateArticle').then(module => ({ default: module.CreateArticle })));
 const CreateArticle = lazy(() => import('./pages/CreateArticle').then(module => ({ default: module.CreateArticle })));
 const Earn = lazy(() => import('./pages/Earn').then(module => ({ default: module.Earn })));
 const Wallet = lazy(() => import('./pages/Wallet').then(module => ({ default: module.Wallet })));
@@ -44,6 +47,9 @@ function App() {
         {/* PUBLIC BLOG LAYOUT */}
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
+          <Route path="category/:slug" element={<Home />} />
+          <Route path="article/:slug" element={<PublicArticle />} />
+          <Route path="author/:username" element={<PublicProfile />} />
           <Route path="promotional" element={<Promotional />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-of-service" element={<TermsOfService />} />

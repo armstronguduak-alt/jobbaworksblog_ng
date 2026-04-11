@@ -5,9 +5,11 @@ import { Menu, X } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { SupportChatbot } from '../components/SupportChatbot';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { CommunityModal } from '../components/CommunityModal';
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
   const location = useLocation();
   const { profile, isAdmin, signOut } = useAuth();
 
@@ -123,6 +125,21 @@ export function DashboardLayout() {
             </nav>
           </div>
 
+          {/* Connect & Community */}
+          <div className="mt-4">
+            <p className="px-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Community</p>
+            <button 
+              onClick={() => {
+                setIsSidebarOpen(false);
+                setIsCommunityModalOpen(true);
+              }}
+              className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl font-bold bg-primary text-white hover:bg-emerald-800 transition-colors shadow-lg shadow-primary/20"
+            >
+              <span className="material-symbols-outlined text-[20px]">group_add</span>
+              <span className="text-[14px]">Join Our Community</span>
+            </button>
+          </div>
+
           {/* Admin Mode Switch */}
           {isAdmin && (
             <div className="mt-8">
@@ -196,6 +213,7 @@ export function DashboardLayout() {
           <Outlet />
         </div>
         <SupportChatbot />
+        <CommunityModal isOpen={isCommunityModalOpen} onClose={() => setIsCommunityModalOpen(false)} />
       </div>
     </div>
   );

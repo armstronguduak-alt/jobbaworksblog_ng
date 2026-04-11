@@ -14,7 +14,7 @@ interface Post {
   published_at: string;
   created_at: string;
   category: { name: string } | null;
-  author: { name: string; avatar_url: string | null } | null;
+  author: { name: string; username: string; avatar_url: string | null; is_verified: boolean } | null;
 }
 
 export function Home() {
@@ -26,45 +26,23 @@ export function Home() {
   const { data, isLoading } = useQuery({
     queryKey: ['publicPosts'],
     queryFn: async () => {
-      // STATIC MOCK DATA: Disconnected from Supabase
-      const categories = [
-        { id: '1', name: 'Business', slug: 'business' },
-        { id: '2', name: 'Technology', slug: 'technology' },
-        { id: '3', name: 'Entertainment', slug: 'entertainment' },
-        { id: '4', name: 'Health', slug: 'health' },
-        { id: '5', name: 'Fitness', slug: 'fitness' }
-      ];
-
-      const allPosts: Post[] = [
-        {
-          id: 'p1', title: '10 Ways to Scale Your Online Business', slug: 'scale-online-business',
-          excerpt: 'Learn the strategies top entrepreneurs use to grow their digital presence.',
-          featured_image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=800&q=80',
-          reading_time_seconds: 300, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
-          category: { name: 'Business' },
-          author: { name: 'Williams Damsey', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Felix' }
-        },
-        {
-          id: 'p2', title: 'The Future of AI in Daily Life', slug: 'future-of-ai',
-          excerpt: 'Artificial intelligence is no longer just a buzzword. It is here working for us.',
-          featured_image: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
-          reading_time_seconds: 240, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
-          category: { name: 'Technology' },
-          author: { name: 'Sarah Konye', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Sarah' }
-        },
-        {
-          id: 'p3', title: 'Fitness Routines for Busy Professionals', slug: 'fitness-for-professionals',
-          excerpt: 'Cant find time for the gym? Try these quick routines at home.',
-          featured_image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80',
-          reading_time_seconds: 180, published_at: new Date().toISOString(), created_at: new Date().toISOString(),
-          category: { name: 'Fitness' },
-          author: { name: 'Mike Johnson', avatar_url: 'https://api.dicebear.com/7.x/notionists/svg?seed=Mike' }
-        }
-      ];
+      const { data: categories } = await supabase.from('categories').select('*');
+      
+      const { data: posts } = await supabase
+        .from('posts')
+        .select(`
+          id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at,
+          category:categories(name),
+          author:profiles!posts_author_user_id_fkey(name, username, avatar_url, is_verified)
+        `)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+        
+      const allPosts = posts || [];
 
       return {
-        categories,
-        featuredPosts: allPosts.slice(0, 1),
+        categories: categories || [],
+        featuredPosts: allPosts.slice(0, 3),
         latestPosts: allPosts
       };
     }
@@ -199,9 +177,11 @@ export function Home() {
                       alt="author"
                       src={featuredPosts[0].author?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${featuredPosts[0].author?.name || 'Author'}`}
                     />
-                    <span className="text-white/90 text-sm font-medium">
-                      {featuredPosts[0].author?.name || 'Author'} • {Math.ceil(featuredPosts[0].reading_time_seconds / 60)} min read
-                    </span>
+                    <Link to={`/author/${featuredPosts[0].author?.username || 'unknown'}`} className="text-white/90 text-sm font-medium hover:underline flex items-center gap-1">
+                      {featuredPosts[0].author?.name || 'Author'}
+                      {featuredPosts[0].author?.is_verified && <span className="material-symbols-outlined text-blue-400 text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>}
+                      {' '}• {Math.ceil(featuredPosts[0].reading_time_seconds / 60)} min read
+                    </Link>
                   </div>
                 </div>
               </div>
