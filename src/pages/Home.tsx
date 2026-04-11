@@ -4,18 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 
-interface Post {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string;
-  featured_image: string | null;
-  reading_time_seconds: number;
-  published_at: string;
-  created_at: string;
-  category: { name: string } | null;
-  author: { name: string; username: string; avatar_url: string | null; is_verified: boolean } | null;
-}
+
 
 export function Home() {
   const { slug } = useParams<{ slug: string }>();
@@ -38,7 +27,7 @@ export function Home() {
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
         
-      const allPosts = posts || [];
+      const allPosts: any[] = posts || [];
 
       return {
         categories: categories || [],

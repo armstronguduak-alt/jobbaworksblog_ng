@@ -19,7 +19,6 @@ const Profile = lazy(() => import('./pages/Profile').then(module => ({ default: 
 const PublicProfile = lazy(() => import('./pages/PublicProfile').then(module => ({ default: module.PublicProfile })));
 const PublicArticle = lazy(() => import('./pages/PublicArticle').then(module => ({ default: module.PublicArticle })));
 const CreateArticle = lazy(() => import('./pages/CreateArticle').then(module => ({ default: module.CreateArticle })));
-const CreateArticle = lazy(() => import('./pages/CreateArticle').then(module => ({ default: module.CreateArticle })));
 const Earn = lazy(() => import('./pages/Earn').then(module => ({ default: module.Earn })));
 const Wallet = lazy(() => import('./pages/Wallet').then(module => ({ default: module.Wallet })));
 const Swap = lazy(() => import('./pages/Swap').then(module => ({ default: module.Swap })));

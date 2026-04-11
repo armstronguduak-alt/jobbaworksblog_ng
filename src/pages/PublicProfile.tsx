@@ -20,7 +20,7 @@ export function PublicProfile() {
   const fetchProfile = async () => {
     setIsLoading(true);
     // Find user by username
-    const { data: pData, error: pError } = await supabase
+    const { data: pData } = await supabase
       .from('profiles')
       .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified')
       .eq('username', username)
