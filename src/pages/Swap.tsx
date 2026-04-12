@@ -12,6 +12,7 @@ export function Swap() {
   const [swapAmount, setSwapAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [swapHistory, setSwapHistory] = useState<any[]>([]);
 
   const { exchangeRates, pageToggles } = useAppSettings();
 
@@ -21,6 +22,7 @@ export function Swap() {
   useEffect(() => {
     if (user?.id) {
       fetchBalance(user.id);
+      fetchSwapHistory(user.id);
     }
   }, [user]);
 
@@ -67,6 +69,17 @@ export function Swap() {
     }
   };
 
+  const fetchSwapHistory = async (userId: string) => {
+    const { data } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('type', 'swap')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (data) setSwapHistory(data);
+  };
+
   const numAmount = Number(swapAmount) || 0;
   const fee = numAmount * FEE_PERCENT;
   const actualUsd = (numAmount - fee) / EXCHANGE_RATE;
@@ -104,6 +117,7 @@ export function Swap() {
       setMessage('Swap successful!');
       setSwapAmount('');
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      if (user?.id) fetchSwapHistory(user.id);
     }
 
     setIsSubmitting(false);
@@ -258,6 +272,42 @@ export function Swap() {
           >
             {isSubmitting ? 'Processing...' : 'Confirm Swap'}
           </button>
+        </div>
+
+        {/* Swap History */}
+        <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm border border-surface-container-highest/30">
+          <h3 className="text-lg font-bold font-headline text-on-surface mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">history</span>
+            Swap History
+          </h3>
+          {swapHistory.length === 0 ? (
+            <p className="text-center text-on-surface-variant text-sm py-6">No swap transactions yet.</p>
+          ) : (
+            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+              {swapHistory.map(tx => {
+                const meta = tx.meta || {};
+                return (
+                  <div key={tx.id} className="flex items-center justify-between py-3 px-4 bg-surface-container-low rounded-2xl hover:bg-surface-container transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-primary text-[18px]">swap_horiz</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">NGN → USD</p>
+                        <p className="text-[10px] text-on-surface-variant font-medium">
+                          {new Date(tx.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm text-rose-600">-₦{Math.abs(tx.amount).toLocaleString()}</p>
+                      <p className="text-[10px] font-bold text-primary">+${Number(meta.usd_amount || 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Info Card */}

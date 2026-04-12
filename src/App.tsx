@@ -32,6 +32,7 @@ const StoryDetail = lazy(() => import('./pages/StoryDetail').then(module => ({ d
 const StoryReader = lazy(() => import('./pages/StoryReader').then(module => ({ default: module.StoryReader })));
 
 const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ default: module.Analytics })));
+const Transactions = lazy(() => import('./pages/Transactions').then(module => ({ default: module.Transactions })));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
 const AdminManagement = lazy(() => import('./pages/AdminManagement').then(module => ({ default: module.AdminManagement })));
@@ -83,6 +84,7 @@ function App() {
             <Route path="swap" element={<Swap />} />
             <Route path="referral" element={<Referral />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="transactions" element={<Transactions />} />
             <Route path="settings" element={<Settings />} />
             <Route path="profile" element={<Profile />} />
             <Route path="/create-article" element={<CreateArticle />} />

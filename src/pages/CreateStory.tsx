@@ -21,8 +21,11 @@ export function CreateStory() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [coverPreview, setCoverPreview] = useState('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [ageRating, setAgeRating] = useState('general');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Chapter Form
   const editorRef = useRef<HTMLDivElement>(null);
@@ -43,6 +46,7 @@ export function CreateStory() {
         setTitle(data.title);
         setDescription(data.description || '');
         setCoverUrl(data.cover_image_url || '');
+        setCoverPreview(data.cover_image_url || '');
         setAgeRating(data.age_rating || 'general');
         setSelectedGenres(data.genres || []);
         setChapterNumber((data.story_chapters?.length || 0) + 1);
@@ -124,6 +128,52 @@ export function CreateStory() {
     setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
   };
 
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate it's an image
+    if (!file.type.startsWith('image/')) {
+      showAlert('Please upload an image file (PNG, JPG, WebP).', 'Invalid File');
+      return;
+    }
+
+    // Validate aspect ratio (2:3, with tolerance)
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = async () => {
+      const ratio = img.width / img.height;
+      const targetRatio = 2 / 3;
+      const tolerance = 0.15;
+
+      if (Math.abs(ratio - targetRatio) > tolerance) {
+        showAlert(`Cover image should be portrait format (2:3 ratio). Your image is ${img.width}x${img.height}. Try a 400x600 or 600x900 image.`, 'Wrong Aspect Ratio');
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      setCoverPreview(objectUrl);
+      setIsUploadingCover(true);
+
+      try {
+        const ext = file.name.split('.').pop();
+        const fileName = `story-covers/${user!.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
+        setCoverUrl(urlData.publicUrl);
+        showAlert('Cover image uploaded successfully!', 'Success');
+      } catch (err: any) {
+        showAlert('Upload failed: ' + err.message, 'Error');
+        setCoverPreview('');
+      } finally {
+        setIsUploadingCover(false);
+      }
+    };
+    img.src = objectUrl;
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 animation-fade-in">
       {/* Story Creation Hero */}
@@ -168,9 +218,44 @@ export function CreateStory() {
             <input type="text" placeholder="The Alpha's Return..." value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/50 focus:border-primary rounded-xl px-4 py-3 font-bold text-lg" required />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">Cover Image URL</label>
-            <input type="url" placeholder="https://..." value={coverUrl} onChange={e => setCoverUrl(e.target.value)} className="w-full bg-surface-container-lowest border border-outline-variant/50 focus:border-primary rounded-xl px-4 py-3 text-sm" />
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">Cover Image <span className="text-slate-400 normal-case">(2:3 portrait ratio — e.g. 400×600px)</span></label>
+            <div className="flex gap-4 items-start">
+              {/* Preview */}
+              <div className="w-[100px] aspect-[2/3] bg-slate-100 rounded-xl overflow-hidden border-2 border-dashed border-slate-300 flex items-center justify-center shrink-0 relative">
+                {coverPreview ? (
+                  <img src={coverPreview} className="w-full h-full object-cover" alt="Cover preview" />
+                ) : (
+                  <div className="text-center p-2">
+                    <span className="material-symbols-outlined text-slate-300 text-3xl">image</span>
+                    <p className="text-[8px] text-slate-400 font-bold mt-1">No cover</p>
+                  </div>
+                )}
+                {isUploadingCover && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
+              {/* Upload Button */}
+              <div className="flex-1 space-y-2">
+                <label className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm cursor-pointer transition-all border-2 border-dashed ${
+                  isUploadingCover ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 hover:border-emerald-400'
+                }`}>
+                  <span className="material-symbols-outlined text-[18px]">{isUploadingCover ? 'hourglass_empty' : 'upload'}</span>
+                  {isUploadingCover ? 'Uploading...' : coverPreview ? 'Change Cover' : 'Upload Cover Image'}
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleCoverUpload}
+                    disabled={isUploadingCover}
+                  />
+                </label>
+                <p className="text-[10px] text-slate-400">PNG, JPG or WebP · Portrait 2:3 ratio recommended</p>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1">

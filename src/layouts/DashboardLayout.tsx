@@ -25,6 +25,7 @@ export function DashboardLayout() {
     if (path.includes('plans')) return 'Plans';
     if (path.includes('referral')) return 'Referrals';
     if (path.includes('analytics')) return 'Analytics';
+    if (path.includes('transactions')) return 'Transactions';
     if (path.includes('settings')) return 'Settings';
     if (path.includes('profile')) return 'Profile';
     return 'Overview'; // dashboard home
@@ -35,6 +36,7 @@ export function DashboardLayout() {
   const menuItems = [
     { name: 'Overview', path: '/dashboard', icon: 'dashboard', show: true },
     { name: 'Earnings', path: '/analytics', icon: 'monitoring', show: true },
+    { name: 'Transactions', path: '/transactions', icon: 'receipt_long', show: true },
     { name: 'Wallet', path: '/wallet', icon: 'account_balance_wallet', show: pageToggles.walletEnabled },
     { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled },
     { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events', show: pageToggles.leaderboardEnabled },
