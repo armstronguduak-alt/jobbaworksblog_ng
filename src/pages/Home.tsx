@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchArticleData } from './PublicArticle';
 
 
 
@@ -10,6 +11,8 @@ export function Home() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All Feed');
+
+  const queryClient = useQueryClient();
 
   const { user } = useAuth();
   const { data, isLoading } = useQuery({
@@ -31,7 +34,7 @@ export function Home() {
 
       return {
         categories: categories || [],
-        featuredPosts: allPosts.slice(0, 3),
+        featuredPosts: allPosts.slice(0, 4),
         latestPosts: allPosts
       };
     }
@@ -73,12 +76,12 @@ export function Home() {
       {/* Hero Section */}
       {!user && (
         <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
-          <div className="flex flex-col md:flex-row items-center gap-12 py-12 px-6 md:px-16 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
-            <div className="w-full md:w-1/2 space-y-6">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs uppercase tracking-widest">
+          <div className="flex flex-col md:flex-row items-center gap-6 py-8 px-6 md:px-10 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
+            <div className="w-full md:w-1/2 space-y-4">
+              <span className="inline-block px-3 py-1 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-[10px] uppercase tracking-widest">
                 Premium Tool for the Ambitious
               </span>
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter leading-tight font-headline text-white">
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tighter leading-tight font-headline text-white">
                 Turn your focus into <span className="text-tertiary-fixed-dim">wealth.</span>
               </h1>
               <p className="text-lg opacity-90 max-w-lg font-body leading-relaxed">
@@ -96,7 +99,7 @@ export function Home() {
             <div className="w-full md:w-1/2 relative hidden md:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
                 <img
-                  className="w-full h-[400px] object-cover"
+                  className="w-full h-[250px] object-cover"
                   alt="Professional financial dashboard"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuBq1CeKILoKqcBKgFdJn0PvEentEGBVdRE-y2-bbnopQXg2uMW9UpBxSQHcRpncxlj1Zn8p9PTAYZT3mOaWvnah82sKTHi6t40s8rN2qlK80L3ELEeSjLYUIQgo_3k7Dj7wnlBkZXA4R71dehM-F7sBQEY7mJ2ZMVLZ8dAQNN4D9v8o6906hhEn13c_SsK8DTSrkrfq_Boi1uSQVHdnlAvY-A05ukAGOvhUzGToOpGY_vDb2UiPd-TGRzph2DrnZHH0SfUj8vtkoQs"
                 />
@@ -132,11 +135,11 @@ export function Home() {
       </nav>
 
       {/* Featured Bento Section */}
-      <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Insights</h2>
+      <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Articles</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
         {/* Large Featured Card */}
-        <div className="md:col-span-8 group relative rounded-3xl overflow-hidden bg-surface-container-lowest shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:shadow-xl transition-all duration-300 min-h-[400px] flex">
+        <div className="md:col-span-8 group relative rounded-3xl overflow-hidden bg-surface-container-lowest shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:shadow-xl transition-all duration-300 min-h-[300px] flex">
           {isLoading ? (
             <div className="w-full h-full bg-surface-container-low animate-pulse"></div>
           ) : featuredPosts[0] ? (
@@ -184,22 +187,36 @@ export function Home() {
         </div>
 
         {/* Side Items */}
-        <div className="md:col-span-4 flex flex-col gap-6">
+        <div className="md:col-span-4 flex flex-col gap-4">
           {isLoading ? (
             <>
-              <div className="bg-surface-container-low p-6 rounded-3xl h-32 animate-pulse"></div>
-              <div className="bg-surface-container-low p-6 rounded-3xl h-32 animate-pulse"></div>
+              <div className="bg-surface-container-low p-4 rounded-2xl h-24 animate-pulse"></div>
+              <div className="bg-surface-container-low p-4 rounded-2xl h-24 animate-pulse"></div>
             </>
           ) : featuredPosts.length > 1 ? (
-             featuredPosts.slice(1, 3).map((post) => (
-              <div key={post.id} className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:-translate-y-1 transition-all">
-                <span className="text-primary font-bold text-xs uppercase tracking-tighter mb-2 block">{post.category?.name || 'Article'}</span>
-                <Link to={`/article/${post.slug}`}>
-                  <h4 className="text-xl font-bold text-on-surface mb-3 leading-snug line-clamp-2 hover:text-primary cursor-pointer">{post.title}</h4>
-                </Link>
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-slate-400 text-xs font-medium">{Math.ceil(post.reading_time_seconds / 60)} min read</span>
-                  <span className="text-xs text-on-surface-variant">{timeAgo(post.created_at)}</span>
+             featuredPosts.slice(1, 4).map((post) => (
+              <div key={post.id} className="bg-surface-container-lowest p-3 rounded-2xl shadow-[0px_8px_16px_rgba(0,33,16,0.04)] hover:-translate-y-1 transition-all flex gap-3 h-[110px] border border-transparent hover:border-emerald-100 group">
+                {post.featured_image ? (
+                  <div className="w-24 h-full rounded-xl overflow-hidden flex-shrink-0 relative">
+                     <img src={post.featured_image} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt={post.title} />
+                     <div className="absolute top-1 max-w-[80%] left-1 bg-black/60 backdrop-blur-sm rounded text-white text-[8px] font-bold px-1.5 py-0.5 uppercase truncate">
+                        {post.category?.name || 'Topic'}
+                     </div>
+                  </div>
+                ) : (
+                  <div className="w-24 h-full rounded-xl bg-surface-container flex items-center justify-center flex-shrink-0">
+                     <span className="material-symbols-outlined text-outline">article</span>
+                  </div>
+                )}
+                <div className="flex flex-col py-1 overflow-hidden pr-2">
+                  <Link to={`/article/${post.slug}`} className="block">
+                    <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2 group-hover:text-primary transition-colors">{post.title}</h4>
+                  </Link>
+                  <div className="mt-auto flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                    <span>{timeAgo(post.created_at)}</span>
+                    <span className="w-1 h-1 rounded-full bg-outline/30"></span>
+                    <span className="text-emerald-700 font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
+                  </div>
                 </div>
               </div>
             ))
@@ -207,17 +224,19 @@ export function Home() {
 
           {/* Upgrade CTA */}
           {!user && (
-            <div className="bg-[#0f172a] text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between h-full relative overflow-hidden">
-              <div>
-                <span className="material-symbols-outlined text-4xl mb-4 text-[#dcfce7]">verified_user</span>
-                <h4 className="text-lg font-bold mb-2">Join the LIT Club</h4>
-                <p className="text-sm opacity-80">Get access to premium high-paying tasks and executive insights.</p>
+            <div className="bg-[#0f172a] text-white p-4 rounded-2xl shadow-xl flex items-center justify-between group overflow-hidden relative mt-auto border border-[#1e293b]">
+              <div className="relative z-10 flex-1">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                   <span className="material-symbols-outlined text-lg text-[#dcfce7]">verified_user</span>
+                   <h4 className="text-sm font-bold">Join the LIT Club</h4>
+                </div>
+                <p className="text-[10px] opacity-80 max-w-[160px] leading-tight">Premium tasks & insights.</p>
               </div>
-              <Link to="/signup" className="mt-6 w-full py-3 bg-[#006b3f] hover:bg-[#008751] text-white font-bold rounded-xl active:scale-95 transition-all relative z-10 text-center block">
-                Get Started
+              <Link to="/signup" className="py-2 px-4 bg-[#006b3f] hover:bg-[#008751] text-white text-xs font-bold rounded-lg shadow-md active:scale-95 transition-all relative z-10 shrink-0">
+                Join Now
               </Link>
-              <div className="absolute -right-10 -bottom-10 opacity-10">
-                <span className="material-symbols-outlined text-9xl">shield</span>
+              <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                <span className="material-symbols-outlined text-7xl">shield</span>
               </div>
             </div>
           )}
@@ -242,42 +261,52 @@ export function Home() {
             <p className="text-on-surface-variant font-medium">No articles found right now. Check back later!</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {filteredLatest.map((post) => (
-              <div key={post.id} className="bg-surface-container-lowest p-5 rounded-3xl flex flex-col md:flex-row items-center gap-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-transparent hover:border-emerald-100 transition-all">
-                <div className="w-full md:w-48 h-40 md:h-32 flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container-highest">
+              <div 
+                key={post.id} 
+                className="bg-surface-container-lowest p-4 rounded-3xl flex flex-col h-full gap-3 shadow-sm border border-transparent hover:border-emerald-100 hover:-translate-y-1 transition-all group"
+                onMouseEnter={() => {
+                  queryClient.prefetchQuery({
+                    queryKey: ['article', post.slug, user?.id],
+                    queryFn: () => fetchArticleData(post.slug, user?.id),
+                    staleTime: 5 * 60 * 1000
+                  });
+                }}
+              >
+                <div className="w-full aspect-[4/3] flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container-highest relative">
                   {post.featured_image ? (
-                    <img className="w-full h-full object-cover" alt={post.title} src={post.featured_image} />
+                    <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={post.title} src={post.featured_image} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="material-symbols-outlined text-4xl text-on-surface-variant/30">article</span>
                     </div>
                   )}
-                </div>
-                <div className="flex-grow w-full">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-surface-container-high rounded-full text-[10px] font-bold text-slate-500 uppercase">
-                      {post.category?.name || 'Article'}
+                  {/* Fake Tag/Label Overlay */}
+                  <div className="absolute bottom-2 left-2 flex gap-1">
+                    <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md text-white rounded-md text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                      {post.category?.name || 'Topic'}
                     </span>
-                    <span className="text-slate-400 text-xs">• {timeAgo(post.created_at)}</span>
                   </div>
-                  <Link to={`/article/${post.slug}`}>
-                    <h3 className="text-xl font-bold text-on-surface hover:text-primary transition-colors cursor-pointer line-clamp-1">
+                </div>
+                
+                <div className="flex flex-col flex-grow">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-slate-400 text-[10px] font-medium">• {timeAgo(post.created_at)}</span>
+                    <span className="text-emerald-700 text-[10px] font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
+                  </div>
+                  <Link to={`/article/${post.slug}`} className="block flex-grow">
+                    <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-snug">
                       {post.title}
                     </h3>
+                    <p className="text-slate-500 text-xs mt-1.5 line-clamp-2 md:line-clamp-2 hidden sm:block">{post.excerpt}</p>
                   </Link>
-                  {post.excerpt && (
-                    <p className="text-slate-500 text-sm mt-1 line-clamp-2 md:line-clamp-1">{post.excerpt}</p>
-                  )}
-                </div>
-                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-between gap-4 border-t md:border-t-0 md:border-l border-surface-container pt-4 md:pt-0 md:pl-8">
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400 font-medium md:text-right text-left">Read Time</p>
-                    <p className="text-lg font-black text-emerald-700">{Math.ceil(post.reading_time_seconds / 60)}m</p>
+                  
+                  <div className="mt-3 pt-3 border-t border-surface-container-high flex items-center justify-between">
+                     <span className="text-xs text-on-surface-variant font-medium group-hover:text-primary transition-colors flex items-center gap-1">
+                        Read Story <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                     </span>
                   </div>
-                  <Link to={`/article/${post.slug}`} className="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold text-sm shadow-md active:scale-95 transition-all w-full md:w-auto text-center">
-                    Read Now
-                  </Link>
                 </div>
               </div>
             ))}

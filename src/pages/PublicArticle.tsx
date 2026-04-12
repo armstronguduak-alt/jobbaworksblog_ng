@@ -4,6 +4,72 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 
+export const fetchArticleData = async (slug: string, userId?: string) => {
+  // Join posts with authored profile
+  const { data: pData } = await supabase
+    .from('posts')
+    .select(`
+      *,
+      category:categories(id, name, slug),
+      author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
+    `)
+    .eq('slug', slug)
+    .eq('status', 'approved')
+    .single();
+
+  if (!pData) return null;
+
+  let isVerified = pData.author?.is_verified || false;
+  const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle();
+  if (subData && subData.plan_id !== 'free') {
+    isVerified = true;
+  }
+  pData.author.is_verified = isVerified;
+  
+  // Fetch Comments
+  const { data: cData } = await supabase
+    .from('post_comments')
+    .select(`
+      id, content, created_at,
+      profiles!post_comments_user_id_fkey(name, username, avatar_url)
+    `)
+    .eq('post_id', pData.id)
+    .order('created_at', { ascending: false });
+
+  // Fetch Related Posts
+  let rData: any[] = [];
+  if (pData.category_id) {
+    const { data } = await supabase
+      .from('posts')
+      .select('id, title, slug, featured_image, created_at, reading_time_seconds')
+      .eq('status', 'approved')
+      .eq('category_id', pData.category_id)
+      .neq('id', pData.id)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (data) rData = data;
+  }
+
+  // Check follow status if logged in
+  let fData = false;
+  if (userId && pData.author?.user_id) {
+    const { data } = await supabase
+      .from('followers')
+      .select('id')
+      .eq('follower_id', userId)
+      .eq('following_id', pData.author.user_id)
+      .maybeSingle();
+    fData = !!data;
+  }
+
+  return {
+    post: pData,
+    comments: cData || [],
+    relatedPosts: rData,
+    isFollowing: fData
+  };
+};
+
 export function PublicArticle() {
   const { slug } = useParams<{ slug: string }>();
   const { user, isLoading: authLoading } = useAuth();
@@ -18,80 +84,20 @@ export function PublicArticle() {
   const [readCompleted, setReadCompleted] = useState(false);
   const [totalTimeValue, setTotalTime] = useState<number>(0);
 
+  // Fire view increment separately so it doesn't inflate on prefetches
+  useEffect(() => {
+    if (slug) {
+      supabase.rpc('increment_view_count', { post_slug: slug }).then(({error}) => {
+         if (error) console.error("View tracking error:", error);
+      });
+    }
+  }, [slug]);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['article', slug, user?.id],
     enabled: !!slug && !authLoading,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      // Join posts with authored profile
-      const { data: pData } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          category:categories(id, name, slug),
-          author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
-        `)
-        .eq('slug', slug)
-        .eq('status', 'approved')
-        .single();
-
-      if (!pData) return null;
-
-      let isVerified = pData.author?.is_verified || false;
-      const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle();
-      if (subData && subData.plan_id !== 'free') {
-        isVerified = true;
-      }
-      pData.author.is_verified = isVerified;
-      
-      // Fetch Comments
-      const { data: cData } = await supabase
-        .from('post_comments')
-        .select(`
-          id, content, created_at,
-          profiles!post_comments_user_id_fkey(name, username, avatar_url)
-        `)
-        .eq('post_id', pData.id)
-        .order('created_at', { ascending: false });
-
-      // Fetch Related Posts
-      let rData: any[] = [];
-      if (pData.category_id) {
-        const { data } = await supabase
-          .from('posts')
-          .select('id, title, slug, featured_image, created_at, reading_time_seconds')
-          .eq('status', 'approved')
-          .eq('category_id', pData.category_id)
-          .neq('id', pData.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (data) rData = data;
-      }
-
-      // Check follow status if logged in
-      let fData = false;
-      if (user?.id && pData.author?.user_id) {
-        const { data } = await supabase
-          .from('followers')
-          .select('id')
-          .eq('follower_id', user.id)
-          .eq('following_id', pData.author.user_id)
-          .maybeSingle();
-        fData = !!data;
-      }
-
-      // Increment View Count (Non-blocking)
-      supabase.rpc('increment_view_count', { post_slug: slug }).then(({error}) => {
-         if (error) console.error("View tracking error:", error);
-      });
-
-      return {
-        post: pData,
-        comments: cData || [],
-        relatedPosts: rData,
-        isFollowing: fData
-      };
-    }
+    queryFn: () => fetchArticleData(slug!, user?.id)
   });
 
   const post = data?.post;
@@ -162,7 +168,22 @@ export function PublicArticle() {
     setIsSubmittingComment(false);
   };
 
-  if (authLoading || isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (authLoading || isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 animate-pulse space-y-6">
+        <div className="h-6 w-24 bg-surface-container-high rounded-full mb-4"></div>
+        <div className="h-10 md:h-14 w-3/4 bg-surface-container-high rounded-2xl mb-6"></div>
+        <div className="h-14 w-full bg-surface-container-high rounded-2xl mb-8"></div>
+        <div className="w-full h-[400px] bg-surface-container-high rounded-3xl mb-12"></div>
+        <div className="space-y-4">
+          <div className="h-5 w-full bg-surface-container-high rounded"></div>
+          <div className="h-5 w-full bg-surface-container-high rounded"></div>
+          <div className="h-5 w-5/6 bg-surface-container-high rounded"></div>
+          <div className="h-5 w-full bg-surface-container-high rounded"></div>
+        </div>
+      </div>
+    );
+  }
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
   const totalTime = totalTimeValue;
@@ -219,9 +240,22 @@ export function PublicArticle() {
             {post.category.name}
           </span>
         )}
-        <h1 className="text-4xl md:text-5xl font-black font-headline text-slate-900 leading-tight mb-6">
+        <h1 className="text-4xl md:text-5xl font-black font-headline text-slate-900 leading-tight mb-4">
           {post.title}
         </h1>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <span className="px-3 py-1 bg-surface-container-highest rounded-full text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+            {post.category?.name || 'Topic'}
+          </span>
+          <span className="px-3 py-1 bg-surface-container-highest rounded-full text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+            JobbaWorks
+          </span>
+          <span className="px-3 py-1 bg-surface-container-highest rounded-full text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+            Growth
+          </span>
+        </div>
         
         {/* Author Card row */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 border-y border-slate-100">
@@ -269,11 +303,26 @@ export function PublicArticle() {
       )}
 
       <div 
-        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-16 whitespace-pre-wrap text-slate-800 leading-relaxed"
+        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
       
-      <hr className="border-t-2 border-surface-container-high mb-12" />
+      {/* Read Also Section */}
+      {relatedPosts.length > 0 && (
+        <div className="my-10 p-5 md:p-6 bg-surface-container-lowest border-l-4 border-primary rounded-r-2xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 group cursor-pointer hover:border-emerald-600 transition-colors" onClick={() => window.location.href = `/article/${relatedPosts[0].slug}`}>
+          <div>
+            <span className="text-xs font-black uppercase tracking-widest text-primary mb-1 block">Read Also</span>
+            <span className="text-lg md:text-xl font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+              {relatedPosts[0].title}
+            </span>
+          </div>
+          <div className="shrink-0 bg-primary/10 text-primary p-3 rounded-full group-hover:bg-primary group-hover:text-white transition-all self-start sm:self-center">
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </div>
+        </div>
+      )}
+      
+      <hr className="border-t-2 border-surface-container-high mb-12 mt-10" />
 
       {/* Engagement & Comments Section */}
       <section className="mb-16">
@@ -336,7 +385,7 @@ export function PublicArticle() {
       {relatedPosts.length > 0 && (
         <section>
           <h3 className="text-2xl font-black font-headline text-on-surface mb-8">Related Articles</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
             {relatedPosts.map(rp => (
               <Link key={rp.id} to={`/article/${rp.slug}`} className="group block">
                 <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-surface-container-low mb-4">
