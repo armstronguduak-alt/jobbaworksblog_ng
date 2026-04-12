@@ -11,6 +11,7 @@ export function Referral() {
   const [perUserEarnings, setPerUserEarnings] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
+  const [visibleCount, setVisibleCount] = useState(5);
 
   // Fetch initial data & set up real-time subscriptions
   useEffect(() => {
@@ -209,19 +210,22 @@ export function Referral() {
     }
   };
 
-  // Filter referrals by tab
-  const filteredReferrals = referrals.filter((ref: any) => {
-    if (activeTab === 'all') return true;
-    const profileData = ref.profiles?.[0] || ref.profiles || {};
-    const status = (profileData.status || 'active').toLowerCase();
-    return activeTab === 'active' ? status === 'active' : status !== 'active';
-  });
-
-  const activeCount = referrals.filter((ref: any) => {
+  const isRefActive = (ref: any) => {
     const p = ref.profiles?.[0] || ref.profiles || {};
     const sub = p.user_subscriptions?.[0] || p.user_subscriptions || {};
     return sub.plan_id && sub.plan_id !== 'free'; // Consider active if they have a non-free plan
-  }).length;
+  };
+
+  // Filter referrals by tab
+  const filteredReferrals = referrals.filter((ref: any) => {
+    if (activeTab === 'all') return true;
+    const active = isRefActive(ref);
+    return activeTab === 'active' ? active : !active;
+  });
+
+  const activeCount = referrals.filter(isRefActive).length;
+  
+  const displayedReferrals = filteredReferrals.slice(0, visibleCount);
 
   if (isLoading) {
     return (
@@ -407,7 +411,7 @@ export function Referral() {
             </div>
           </div>
           <div className="space-y-3">
-            {filteredReferrals.length === 0 ? (
+            {displayedReferrals.length === 0 ? (
                <div className="text-center bg-surface-container-lowest p-8 border border-dashed border-outline-variant/30 rounded-2xl">
                  <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">group_off</span>
                  <p className="text-on-surface-variant font-medium mb-1">
@@ -418,7 +422,7 @@ export function Referral() {
                  <p className="text-xs text-on-surface-variant">Share your link above to start earning!</p>
                </div>
             ) : (
-              filteredReferrals.map((ref: any, index: number) => {
+              displayedReferrals.map((ref: any, index: number) => {
                 const profileData = ref.profiles?.[0] || ref.profiles || {};
                 const subData = profileData.user_subscriptions?.[0] || profileData.user_subscriptions || {};
                 const planId = subData.plan_id && subData.plan_id !== 'free' ? subData.plan_id.toUpperCase() : 'FREE PLAN';
@@ -457,6 +461,18 @@ export function Referral() {
                   </div>
                 );
               })
+            )}
+
+            {filteredReferrals.length > visibleCount && (
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 10)}
+                  className="bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant font-bold text-sm px-6 py-2.5 rounded-full transition-colors flex items-center justify-center gap-2"
+                >
+                  View More
+                  <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                </button>
+              </div>
             )}
           </div>
         </section>

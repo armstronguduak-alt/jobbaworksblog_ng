@@ -181,8 +181,16 @@ export function Articles() {
       </section>
 
       {/* Filters and Search */}
-      <section className="flex flex-col lg:flex-row gap-4 mb-6 items-start lg:items-center justify-between">
-        <div className="w-full lg:w-96 relative">
+      <section className="flex flex-col lg:flex-row gap-4 mb-6 items-start lg:items-center justify-between bg-surface-container-lowest p-4 rounded-3xl shadow-sm border border-emerald-50">
+        <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-4 items-center">
+          <Link
+            to="/create-article"
+            className="w-full sm:w-auto flex justify-center items-center gap-2 bg-gradient-to-br from-[#006b3f] to-[#008751] text-white px-6 py-3 md:py-4 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all text-sm font-bold whitespace-nowrap"
+          >
+            <span className="material-symbols-outlined text-[20px]">add_circle</span>
+            Create New Article
+          </Link>
+          <div className="w-full sm:w-80 relative">
           <input
             className="w-full bg-surface-container-low border-none rounded-2xl py-3 md:py-4 pl-12 pr-4 focus:ring-2 focus:ring-primary-container/40 transition-all text-on-surface placeholder:text-outline text-sm md:text-base"
             placeholder="Search by title..."
@@ -317,16 +325,7 @@ export function Articles() {
         )}
       </div>
 
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-[60] pt-8">
-        <Link
-          to="/create-article"
-          className="flex items-center gap-2 md:gap-3 bg-gradient-to-br from-primary to-primary-container text-on-primary-container px-4 md:px-6 py-3 md:py-4 rounded-full shadow-[0px_20px_40px_rgba(0,33,16,0.25)] hover:scale-105 active:scale-95 transition-all duration-300"
-        >
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-          <span className="font-headline font-bold text-xs md:text-sm tracking-tight hidden sm:inline">Create New Article</span>
-        </Link>
-      </div>
+
     </main>
   );
 }

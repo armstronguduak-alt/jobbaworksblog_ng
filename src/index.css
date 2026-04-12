@@ -46,7 +46,24 @@ body {
 }
 
 .article-content iframe {
-  max-width: 100%;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
   margin: 1rem auto;
-  border-radius: 8px;
+}
+
+.article-content b, .article-content strong {
+  font-weight: bold !important;
+}
+
+.article-content i, .article-content em {
+  font-style: italic !important;
+}
+
+.article-content u {
+  text-decoration: underline !important;
+}
+
+.article-content p {
+  margin-bottom: 1rem;
 }

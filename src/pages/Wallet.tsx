@@ -14,7 +14,7 @@ export function Wallet() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  const { exchangeRates } = useAppSettings();
+  const { exchangeRates, pageToggles } = useAppSettings();
   const PAYOUT_THRESHOLD = 10.00;
   
   const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
@@ -100,6 +100,10 @@ export function Wallet() {
   };
 
   const handleWithdraw = async () => {
+    if (!pageToggles.walletEnabled) {
+      setMessage('Withdrawal feature is temporarily disabled for maintenance.');
+      return;
+    }
     if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 10) {
       setMessage('Please enter a valid amount (Minimum $10).');
       return;

@@ -52,6 +52,7 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
 
   // Check follow status if logged in
   let fData = false;
+  let hasRead = false;
   if (userId && pData.author?.user_id) {
     const { data } = await supabase
       .from('followers')
@@ -60,13 +61,23 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
       .eq('following_id', pData.author.user_id)
       .maybeSingle();
     fData = !!data;
+    
+    // Check if user has already read this post online
+    const { data: readData } = await supabase
+      .from('post_reads')
+      .select('id')
+      .eq('post_id', pData.id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    hasRead = !!readData;
   }
 
   return {
     post: pData,
     comments: cData || [],
     relatedPosts: rData,
-    isFollowing: fData
+    isFollowing: fData,
+    hasRead: hasRead
   };
 };
 
@@ -109,13 +120,17 @@ export function PublicArticle() {
       setIsFollowing(data.isFollowing);
     }
     if (data?.post && timeLeft === null && !readCompleted) {
-      const readSeconds = data.post.reading_time_seconds || 60;
-      const readFlag = localStorage.getItem(`jobbaworks_read_${data.post.id}`);
-      if (readFlag === 'true') {
+      if (data.hasRead) {
         setReadCompleted(true);
       } else {
-        setTimeLeft(readSeconds);
-        setTotalTime(readSeconds);
+        const readSeconds = data.post.reading_time_seconds || 60;
+        const readFlag = localStorage.getItem(`jobbaworks_read_${data.post.id}`);
+        if (readFlag === 'true') {
+          setReadCompleted(true);
+        } else {
+          setTimeLeft(readSeconds);
+          setTotalTime(readSeconds);
+        }
       }
     }
   }, [data]);
@@ -152,20 +167,30 @@ export function PublicArticle() {
     if (!newComment.trim()) return;
     
     setIsSubmittingComment(true);
-    const { error } = await supabase.from('post_comments').insert({
-      post_id: post.id,
-      user_id: user.id,
-      content: newComment.trim()
-    });
+    
+    try {
+      const { data, error } = await supabase.rpc('submit_comment_with_reward', {
+        _post_id: post.id,
+        _content: newComment.trim()
+      });
 
-    if (!error) {
-      setNewComment('');
-      // Optimistic or explicit refetch
-      refetch();
-    } else {
-      alert("Failed to post comment");
+      if (error) {
+        alert(`Failed to post comment: ${error.message}`);
+      } else {
+        const response = data as any;
+        if (response.success) {
+          setNewComment('');
+          alert(response.message);
+          refetch(); // Reload comments
+        } else {
+          alert(`Error: ${response.message}`);
+        }
+      }
+    } catch (err: any) {
+      alert(`An error occurred: ${err.message}`);
+    } finally {
+      setIsSubmittingComment(false);
     }
-    setIsSubmittingComment(false);
   };
 
   if (authLoading || isLoading) {
@@ -228,8 +253,8 @@ export function PublicArticle() {
         <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50 bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
           <span className="material-symbols-outlined text-3xl">check_circle</span>
           <div>
-            <p className="font-bold text-sm leading-tight">Reading Verified!</p>
-            <Link to="/earn" className="text-[10px] font-black uppercase underline hover:text-emerald-100">Claim Reward Now</Link>
+            <p className="font-bold text-sm leading-tight">{data?.hasRead ? "Reward Claimed ✓" : "Reading Verified!"}</p>
+            {!data?.hasRead && <Link to="/earn" className="text-[10px] font-black uppercase underline hover:text-emerald-100">Claim Reward Now</Link>}
           </div>
         </div>
       )}
@@ -240,7 +265,7 @@ export function PublicArticle() {
             {post.category.name}
           </span>
         )}
-        <h1 className="text-4xl md:text-5xl font-black font-headline text-slate-900 leading-tight mb-4">
+        <h1 className="text-2xl md:text-3xl font-black font-headline text-slate-900 leading-tight mb-4">
           {post.title}
         </h1>
 
@@ -303,7 +328,7 @@ export function PublicArticle() {
       )}
 
       <div 
-        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed"
+        className="prose prose-sm md:prose-base article-content max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed break-words"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
       

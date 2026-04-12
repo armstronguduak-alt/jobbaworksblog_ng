@@ -12,7 +12,7 @@ export function Swap() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  const { exchangeRates } = useAppSettings();
+  const { exchangeRates, pageToggles } = useAppSettings();
 
   const EXCHANGE_RATE = exchangeRates.dollarPrice;
   const FEE_PERCENT = exchangeRates.swapFee / 100;
@@ -74,7 +74,11 @@ export function Swap() {
     setSwapAmount(balance.toString());
   };
 
-  const handleSwap = () => {
+  const handleSwap = async () => {
+    if (!pageToggles.swapEnabled) {
+      setMessage('Swap feature is temporarily disabled for maintenance.');
+      return;
+    }
     if (numAmount < 1000) {
       setMessage('Minimum swap amount is ₦1,000.');
       return;
@@ -87,10 +91,22 @@ export function Swap() {
     setIsSubmitting(true);
     setMessage('');
 
-    setTimeout(() => {
-      setMessage('Swap feature is temporarily disabled for maintenance.');
-      setIsSubmitting(false);
-    }, 1500);
+    const { data, error } = await supabase.rpc('execute_swap', {
+      _amount: numAmount,
+      _rate: EXCHANGE_RATE,
+      _fee_pct: FEE_PERCENT
+    });
+
+    if (error) {
+      setMessage('Error: ' + error.message);
+    } else if (data?.success === false) {
+      setMessage(data.message || 'Swap failed.');
+    } else {
+      setMessage('Swap successful!');
+      setSwapAmount('');
+    }
+
+    setIsSubmitting(false);
   };
 
   return (

@@ -30,7 +30,7 @@ export function AdminContent() {
       const { data, error } = await supabase
         .from('posts')
         .select(`
-          id, title, excerpt, content, status, created_at, author_user_id,
+          id, title, excerpt, content, status, created_at, author_user_id, featured_image,
           profiles:author_user_id (name, email),
           categories:category_id (name)
         `)
@@ -289,8 +289,14 @@ export function AdminContent() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-white">
+              {selectedPost.featured_image && (
+                <div className="w-full h-48 md:h-[300px] object-cover mb-6 rounded-2xl overflow-hidden shadow-sm">
+                  <img src={selectedPost.featured_image} alt="Featured" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <h1 className="text-3xl md:text-5xl font-black mb-6 font-headline">{selectedPost.title}</h1>
               <div 
-                className="prose prose-emerald max-w-none text-on-surface-variant space-y-4 marker:text-primary prose-img:rounded-2xl prose-headings:font-headline break-words"
+                className="prose prose-emerald article-content max-w-none text-on-surface-variant space-y-4 marker:text-primary prose-img:rounded-2xl prose-headings:font-headline break-words"
                 dangerouslySetInnerHTML={{ __html: selectedPost.content || '<p>No content available.</p>' }}
               />
             </div>
