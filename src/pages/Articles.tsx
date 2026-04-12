@@ -200,6 +200,7 @@ export function Articles() {
           />
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
         </div>
+        </div>
         <div className="flex items-center gap-2 md:gap-3 overflow-x-auto pb-2 w-full lg:w-auto scrollbar-hide">
           {tabs.map((tab) => (
             <button
