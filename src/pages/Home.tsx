@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,7 +9,6 @@ import { fetchArticleData } from './PublicArticle';
 
 export function Home() {
   const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All Feed');
 
   const queryClient = useQueryClient();
@@ -111,28 +110,7 @@ export function Home() {
         </section>
       )}
 
-      {/* Category Filter */}
-      <nav className="flex flex-nowrap items-center gap-3 mb-12 overflow-x-auto pb-4 scrollbar-hide">
-        <button
-          onClick={() => navigate('/')}
-          className={`flex-shrink-0 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
-            activeCategory === 'All Feed' ? 'bg-primary text-white shadow-md' : 'bg-surface-container-highest text-on-surface-variant hover:bg-primary-fixed-dim'
-          }`}
-        >
-          All Feed
-        </button>
-        {categories.map((cat: any) => (
-          <button
-            key={cat.id}
-            onClick={() => navigate(`/category/${cat.slug}`)}
-            className={`flex-shrink-0 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
-              activeCategory === cat.name ? 'bg-primary text-white shadow-md' : 'bg-surface-container-highest text-on-surface-variant hover:bg-primary-fixed-dim'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </nav>
+
 
       {/* Featured Bento Section */}
       <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Articles</h2>

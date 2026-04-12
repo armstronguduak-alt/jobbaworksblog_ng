@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -89,6 +89,8 @@ export function PublicArticle() {
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [commentSuccess, setCommentSuccess] = useState('');
+  const navigate = useNavigate();
   
   // Reading Timer State
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -160,13 +162,11 @@ export function PublicArticle() {
   };
 
   const handlePostComment = async () => {
-    if (!user?.id) {
-      alert("Please log in to comment.");
-      return;
-    }
+    if (!user?.id) return;
     if (!newComment.trim()) return;
     
     setIsSubmittingComment(true);
+    setCommentSuccess('');
     
     try {
       const { data, error } = await supabase.rpc('submit_comment_with_reward', {
@@ -175,19 +175,23 @@ export function PublicArticle() {
       });
 
       if (error) {
-        alert(`Failed to post comment: ${error.message}`);
+        console.error('Comment error:', error.message);
       } else {
         const response = data as any;
         if (response.success) {
           setNewComment('');
-          alert(response.message);
-          refetch(); // Reload comments
-        } else {
-          alert(`Error: ${response.message}`);
+          refetch();
+          // If earned, redirect to earn page; otherwise show inline msg
+          if (response.amount > 0) {
+            navigate('/earn');
+          } else {
+            setCommentSuccess('Comment posted!');
+            setTimeout(() => setCommentSuccess(''), 3000);
+          }
         }
       }
     } catch (err: any) {
-      alert(`An error occurred: ${err.message}`);
+      console.error('Comment error:', err.message);
     } finally {
       setIsSubmittingComment(false);
     }
@@ -349,60 +353,75 @@ export function PublicArticle() {
       
       <hr className="border-t-2 border-surface-container-high mb-12 mt-10" />
 
-      {/* Engagement & Comments Section */}
-      <section className="mb-16">
-        <h3 className="text-2xl font-black font-headline text-on-surface mb-8">Comments ({comments.length})</h3>
-        
+      {/* Comment Section */}
+      <section className="mb-12">
+        <h3 className="text-lg font-black font-headline text-on-surface mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-[20px]">chat_bubble</span>
+          Comments <span className="text-sm font-semibold text-outline">({comments.length})</span>
+        </h3>
+
+        {/* Comment Input */}
         {user ? (
-          <div className="flex gap-4 mb-10">
-            <div className="w-10 h-10 rounded-full bg-primary/10 shrink-0 flex items-center justify-center text-primary font-bold">
-              {user.email?.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 space-y-3">
-              <textarea 
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Share your thoughts..."
-                className="w-full bg-surface-container-lowest border-2 border-surface-container-low rounded-xl p-4 focus:ring-0 focus:border-primary outline-none transition-colors min-h-[100px] resize-none"
-              />
+          <div className="mb-5 bg-surface-container-lowest border border-surface-container-low rounded-2xl p-4">
+            <textarea 
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Share your thoughts..."
+              rows={3}
+              className="w-full bg-transparent text-sm outline-none resize-none placeholder:text-outline text-on-surface"
+            />
+            <div className="flex items-center justify-between pt-2 border-t border-surface-container">
+              {commentSuccess && <span className="text-xs text-emerald-600 font-bold">{commentSuccess}</span>}
+              {!commentSuccess && <span className="text-xs text-outline">Earning available per comment</span>}
               <button 
                 onClick={handlePostComment}
                 disabled={isSubmittingComment || !newComment.trim()}
-                className="bg-primary text-white font-bold py-2.5 px-6 rounded-full hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-md"
+                className="bg-primary text-white font-bold py-1.5 px-5 rounded-full text-sm hover:bg-emerald-800 disabled:opacity-40 transition-all"
               >
-                {isSubmittingComment ? 'Posting...' : 'Post Comment'}
+                {isSubmittingComment ? 'Posting...' : 'Post'}
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-surface-container p-6 rounded-2xl mb-10 text-center">
-            <p className="text-on-surface-variant font-medium mb-3">Join the conversation</p>
-            <Link to="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:bg-emerald-800 transition-colors">
-              Log in to Comment
-            </Link>
+          <div className="mb-5 bg-surface-container-lowest border border-surface-container-low rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-sm text-on-surface">Join the conversation</p>
+              <p className="text-xs text-outline">Sign in to comment and earn rewards</p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Link to="/login" className="text-xs font-bold text-primary border border-primary/30 px-4 py-1.5 rounded-full hover:bg-primary/10 transition-colors">
+                Log In
+              </Link>
+              <Link to="/signup" className="text-xs font-bold text-white bg-primary px-4 py-1.5 rounded-full hover:bg-emerald-800 transition-colors">
+                Sign Up
+              </Link>
+            </div>
           </div>
         )}
 
-        <div className="space-y-6">
-          {comments.map((comment: any) => (
-            <div key={comment.id} className="flex gap-4">
-              <img 
-                src={comment.profiles?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${comment.profiles?.name}`} 
-                alt={comment.profiles?.username}
-                className="w-10 h-10 rounded-full object-cover shrink-0 bg-surface-container"
-              />
-              <div className="flex-1">
-                <div className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-container-low shadow-[0px_4px_16px_-8px_rgba(0,0,0,0.05)]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-bold text-on-surface text-sm">{comment.profiles?.name}</span>
-                    <span className="text-xs text-outline">@{comment.profiles?.username}</span>
-                    <span className="text-xs text-outline ml-auto">{new Date(comment.created_at).toLocaleDateString()}</span>
+        {/* Comments List */}
+        <div className="space-y-3">
+          {comments.length === 0 ? (
+            <p className="text-sm text-outline text-center py-6">No comments yet. Be the first!</p>
+          ) : (
+            comments.map((comment: any) => (
+              <div key={comment.id} className="flex gap-3">
+                <img 
+                  src={comment.profiles?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${comment.profiles?.name}`} 
+                  alt={comment.profiles?.name}
+                  className="w-8 h-8 rounded-full object-cover shrink-0 bg-surface-container"
+                />
+                <div className="flex-1 bg-surface-container-lowest rounded-2xl px-4 py-3 border border-surface-container-low">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="font-bold text-on-surface text-xs">{comment.profiles?.name}</span>
+                    <span className="text-[10px] text-outline">@{comment.profiles?.username}</span>
+                    <span className="text-[10px] text-outline ml-auto">{new Date(comment.created_at).toLocaleDateString()}</span>
                   </div>
-                  <p className="text-on-surface-variant text-sm whitespace-pre-wrap">{comment.content}</p>
+                  <p className="text-on-surface-variant text-sm">{comment.content}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
