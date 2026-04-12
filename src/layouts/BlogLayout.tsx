@@ -60,11 +60,11 @@ export function BlogLayout() {
             </Link>
           </div>
           
-          <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
-            <Link to="/" className="text-emerald-700 font-bold font-headline text-sm">Home</Link>
-            <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">Plans</Link>
-            {categories.slice(0, 5).map(cat => (
-              <Link key={cat.id} to={`/category/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-sm">
+          <nav className="hidden lg:flex items-center gap-3 xl:gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide flex-1 px-4 lg:max-w-[400px] xl:max-w-none">
+            <Link to="/" className="text-emerald-700 font-bold font-headline text-xs shrink-0">Home</Link>
+            <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">Plans</Link>
+            {categories.map(cat => (
+              <Link key={cat.id} to={`/category/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">
                 {cat.name}
               </Link>
             ))}

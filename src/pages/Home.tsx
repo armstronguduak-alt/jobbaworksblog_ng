@@ -77,7 +77,7 @@ export function Home() {
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
       {/* Hero Section */}
-      {!user && (
+      {!user && !slug && (
         <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
           <div className="flex flex-col md:flex-row items-center gap-6 py-8 px-6 md:px-10 bg-gradient-to-br from-primary to-primary-container text-on-primary-container relative z-10">
             <div className="w-full md:w-1/2 space-y-4">
@@ -117,9 +117,11 @@ export function Home() {
 
 
       {/* Featured Bento Section */}
-      <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Articles</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
+      {!slug && (
+        <>
+          <h2 className="text-2xl md:text-3xl font-bold font-headline mb-8 text-on-primary-fixed-variant">Featured Articles</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
         {/* Large Featured Card */}
         <div className="md:col-span-8 group relative rounded-3xl overflow-hidden bg-surface-container-lowest shadow-[0px_20px_40px_rgba(0,33,16,0.06)] hover:shadow-xl transition-all duration-300 min-h-[300px] flex">
           {isLoading ? (
@@ -223,12 +225,15 @@ export function Home() {
             </div>
           )}
         </div>
-      </div>
+        </>
+      )}
 
       {/* Latest Posts Feed */}
       <section className="mb-20">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold font-headline text-on-primary-fixed-variant">Latest for You</h2>
+          <h2 className="text-2xl md:text-3xl font-bold font-headline text-on-primary-fixed-variant">
+            {slug ? `${activeCategory} Articles` : 'Latest for You'}
+          </h2>
         </div>
         
         {isLoading ? (

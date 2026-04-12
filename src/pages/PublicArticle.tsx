@@ -46,9 +46,20 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
       .eq('category_id', pData.category_id)
       .neq('id', pData.id)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(6);
     if (data) rData = data;
   }
+
+  // Fetch Read Also Posts (Trending / Mix)
+  let readAlsoData: any[] = [];
+  const { data: trendData } = await supabase
+    .from('posts')
+    .select('id, title, slug, featured_image, created_at')
+    .eq('status', 'approved')
+    .neq('id', pData.id)
+    .order('views', { ascending: false })
+    .limit(4);
+  if (trendData) readAlsoData = trendData;
 
   // Check follow status if logged in
   let fData = false;
@@ -76,6 +87,7 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
     post: pData,
     comments: cData || [],
     relatedPosts: rData,
+    readAlsoPosts: readAlsoData,
     isFollowing: fData,
     hasRead: hasRead
   };
@@ -116,6 +128,7 @@ export function PublicArticle() {
   const post = data?.post;
   const comments = data?.comments || [];
   const relatedPosts = data?.relatedPosts || [];
+  const readAlsoPosts = data?.readAlsoPosts || [];
 
   useEffect(() => {
     if (data?.isFollowing !== undefined) {
@@ -332,29 +345,60 @@ export function PublicArticle() {
         </div>
       )}
 
-      <div 
-        className="prose prose-sm md:prose-base article-content max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed break-words"
-        dangerouslySetInnerHTML={{ __html: post.content }}
-      />
+      {/* Render Article Body With Inserted Read Also */}
+      {(() => {
+        const content = post.content || '';
+        const parts = content.split('</p>');
+        
+        if (parts.length <= 2 || readAlsoPosts.length === 0) {
+          return (
+            <div 
+              className="prose prose-sm md:prose-base article-content max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed break-words"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          );
+        }
+
+        const insertIndex = Math.min(2, parts.length - 1);
+        const beforeContent = parts.slice(0, insertIndex).join('</p>') + (parts[0].includes('</p>') || insertIndex > 0 ? '</p>' : '');
+        const afterContent = parts.slice(insertIndex).join('</p>');
+
+        return (
+          <>
+            <div 
+              className="prose prose-sm md:prose-base article-content max-w-none prose-emerald prose-headings:font-headline whitespace-pre-wrap text-slate-800 leading-relaxed break-words"
+              dangerouslySetInnerHTML={{ __html: beforeContent }} 
+            />
+            
+            <div className="read-also my-8 p-5 bg-[#f8faf9] border-l-4 border-emerald-600 rounded-r-2xl shadow-[0px_4px_16px_rgba(0,0,0,0.03)] clear-both overflow-hidden">
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#006b3f] mb-4 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">bolt</span> Read Also
+              </h4>
+              <div className="flex flex-col gap-3">
+                {readAlsoPosts.map((item: any, idx: number) => (
+                  <a key={idx} href={`/article/${item.slug}`} className="flex items-center gap-4 group cursor-pointer no-underline block hover:bg-white p-2.5 rounded-xl transition-all border border-transparent hover:border-surface-container-low shadow-sm hover:shadow-md shrink-0">
+                    {item.image || item.featured_image ? (
+                      <img src={item.image || item.featured_image} className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover shrink-0 bg-surface-container" alt={item.title} />
+                    ) : (
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-400 shrink-0"><span className="material-symbols-outlined text-3xl">article</span></div>
+                    )}
+                    <div className="flex-1">
+                      <h5 className="text-sm md:text-base font-bold text-[#0f172a] group-hover:text-primary transition-colors line-clamp-2 m-0 leading-tight">{item.title}</h5>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div 
+              className="prose prose-sm md:prose-base article-content max-w-none prose-emerald prose-headings:font-headline mb-8 whitespace-pre-wrap text-slate-800 leading-relaxed break-words"
+              dangerouslySetInnerHTML={{ __html: afterContent }} 
+            />
+          </>
+        );
+      })()}
       
-      {/* Read Also Section - Inline */}
-      {relatedPosts.length > 0 && (
-        <div className="my-10 p-5 md:p-6 bg-surface-container-lowest border-l-4 border-primary rounded-r-2xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 group cursor-pointer hover:border-emerald-600 transition-colors" onClick={() => window.location.href = `/article/${relatedPosts[0].slug}`}>
-          <div>
-            <span className="text-xs font-black uppercase tracking-widest text-primary mb-1 block flex items-center gap-2">
-              <span className="material-symbols-outlined text-[14px]">bolt</span> Read Also
-            </span>
-            <span className="text-lg md:text-xl font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
-              {relatedPosts[0].title}
-            </span>
-          </div>
-          <div className="shrink-0 bg-primary/10 text-primary p-3 rounded-full group-hover:bg-primary group-hover:text-white transition-all self-start sm:self-center">
-            <span className="material-symbols-outlined">arrow_forward</span>
-          </div>
-        </div>
-      )}
-      
-      <hr className="border-t-2 border-surface-container-high mb-12 mt-10" />
+      <hr className="border-t-2 border-surface-container-high mb-12 mt-4" />
 
       {/* Comment Section */}
       <section className="mb-12">
@@ -428,26 +472,21 @@ export function PublicArticle() {
         </div>
       </section>
 
-      {/* Related Posts Section */}
+      {/* Related Articles Section */}
       {relatedPosts.length > 0 && (
-        <section>
-          <h3 className="text-2xl font-black font-headline text-on-surface mb-8">Related Articles</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-            {relatedPosts.map(rp => (
-              <Link key={rp.id} to={`/article/${rp.slug}`} className="group block">
-                <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-surface-container-low mb-4">
-                  {rp.featured_image ? (
-                    <img src={rp.featured_image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        <section className="related-articles mt-16 pt-10 border-t border-surface-container">
+          <h3 className="text-xl md:text-2xl font-black font-headline text-[#0f172a] mb-6">Related Articles</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {relatedPosts.map((rp: any) => (
+              <Link key={rp.slug} to={`/article/${rp.slug}`} className="group flex flex-col">
+                <div className="aspect-[4/3] rounded-xl overflow-hidden bg-surface-container-low mb-3 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] relative border border-surface-container-low/50">
+                  {rp.featured_image || rp.image ? (
+                    <img src={rp.featured_image || rp.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={rp.title} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center material-symbols-outlined text-4xl text-outline opacity-20">article</div>
                   )}
                 </div>
-                <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2">{rp.title}</h4>
-                <div className="text-xs text-outline font-medium mt-2 flex items-center gap-2">
-                  <span>{new Date(rp.created_at).toLocaleDateString()}</span>
-                  <span>•</span>
-                  <span>{Math.ceil(rp.reading_time_seconds / 60)} min read</span>
-                </div>
+                <h4 className="font-bold text-sm md:text-base text-on-surface group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-grow">{rp.title}</h4>
               </Link>
             ))}
           </div>
