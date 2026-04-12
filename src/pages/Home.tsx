@@ -261,11 +261,11 @@ export function Home() {
             <p className="text-on-surface-variant font-medium">No articles found right now. Check back later!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="flex flex-col gap-3">
             {filteredLatest.map((post) => (
               <div 
                 key={post.id} 
-                className="bg-surface-container-lowest p-4 rounded-3xl flex flex-col h-full gap-3 shadow-sm border border-transparent hover:border-emerald-100 hover:-translate-y-1 transition-all group"
+                className="bg-white rounded-2xl flex gap-3 shadow-sm border border-surface-container-low hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer overflow-hidden"
                 onMouseEnter={() => {
                   queryClient.prefetchQuery({
                     queryKey: ['article', post.slug, user?.id],
@@ -274,38 +274,38 @@ export function Home() {
                   });
                 }}
               >
-                <div className="w-full aspect-[4/3] flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container-highest relative">
+                {/* Image */}
+                <div className="w-[100px] sm:w-[120px] h-[90px] sm:h-[100px] flex-shrink-0 relative overflow-hidden">
                   {post.featured_image ? (
-                    <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={post.title} src={post.featured_image} />
+                    <img 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      alt={post.title} 
+                      src={post.featured_image} 
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="material-symbols-outlined text-4xl text-on-surface-variant/30">article</span>
+                    <div className="w-full h-full bg-surface-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-3xl text-on-surface-variant/30">article</span>
                     </div>
                   )}
-                  {/* Fake Tag/Label Overlay */}
-                  <div className="absolute bottom-2 left-2 flex gap-1">
-                    <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md text-white rounded-md text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                  {/* Category Tag */}
+                  <div className="absolute top-1.5 left-1.5">
+                    <span className="px-1.5 py-0.5 bg-black/65 backdrop-blur-md text-white rounded text-[8px] font-bold uppercase tracking-wider">
                       {post.category?.name || 'Topic'}
                     </span>
                   </div>
                 </div>
-                
-                <div className="flex flex-col flex-grow">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-slate-400 text-[10px] font-medium">• {timeAgo(post.created_at)}</span>
-                    <span className="text-emerald-700 text-[10px] font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
-                  </div>
-                  <Link to={`/article/${post.slug}`} className="block flex-grow">
-                    <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-snug">
+
+                {/* Content */}
+                <div className="flex flex-col justify-center py-3 pr-3 flex-1 overflow-hidden">
+                  <Link to={`/article/${post.slug}`} className="block">
+                    <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-snug mb-1.5">
                       {post.title}
                     </h3>
-                    <p className="text-slate-500 text-xs mt-1.5 line-clamp-2 md:line-clamp-2 hidden sm:block">{post.excerpt}</p>
                   </Link>
-                  
-                  <div className="mt-3 pt-3 border-t border-surface-container-high flex items-center justify-between">
-                     <span className="text-xs text-on-surface-variant font-medium group-hover:text-primary transition-colors flex items-center gap-1">
-                        Read Story <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                     </span>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="text-slate-400 font-medium">{timeAgo(post.created_at)}</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span className="text-emerald-600 font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
                   </div>
                 </div>
               </div>

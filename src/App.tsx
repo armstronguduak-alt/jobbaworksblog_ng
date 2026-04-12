@@ -34,6 +34,7 @@ const AdminSettings = lazy(() => import('./pages/AdminSettings').then(module => 
 const AdminPromotions = lazy(() => import('./pages/AdminPromotions').then(module => ({ default: module.AdminPromotions })));
 const AdminTasks = lazy(() => import('./pages/AdminTasks').then(module => ({ default: module.AdminTasks })));
 const AdminCategories = lazy(() => import('./pages/AdminCategories').then(module => ({ default: module.AdminCategories })));
+const AdminReferrals = lazy(() => import('./pages/AdminReferrals').then(module => ({ default: module.AdminReferrals })));
 
 function App() {
   return (
@@ -84,6 +85,7 @@ function App() {
             <Route path="promotions" element={<AdminPromotions />} />
             <Route path="tasks" element={<AdminTasks />} />
             <Route path="categories" element={<AdminCategories />} />
+            <Route path="referrals" element={<AdminReferrals />} />
           </Route>
         </Route>
 

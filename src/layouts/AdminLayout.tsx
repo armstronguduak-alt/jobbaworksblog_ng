@@ -19,6 +19,7 @@ export function AdminLayout() {
     if (path.includes('tasks')) return 'Tasks & Bounties';
     if (path.includes('promotions')) return 'Promotions';
     if (path.includes('articles')) return 'Articles Management';
+    if (path.includes('referrals')) return 'Referrals Management';
     if (path.includes('settings')) return 'Global Settings';
     return 'System Overview';
   };
@@ -31,6 +32,7 @@ export function AdminLayout() {
     { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
     { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
     { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
+    { name: 'Referrals', path: '/admin/referrals', icon: 'hub' },
     { name: 'Global Settings', path: '/admin/settings', icon: 'tune' },
   ];
 

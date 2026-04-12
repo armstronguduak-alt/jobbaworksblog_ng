@@ -92,9 +92,7 @@ export function Swap() {
     setMessage('');
 
     const { data, error } = await supabase.rpc('execute_swap', {
-      _amount: numAmount,
-      _rate: EXCHANGE_RATE,
-      _fee_pct: FEE_PERCENT
+      _amount: numAmount
     });
 
     if (error) {

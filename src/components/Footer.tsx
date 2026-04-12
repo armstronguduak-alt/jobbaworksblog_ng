@@ -2,47 +2,31 @@ import { Link } from 'react-router-dom';
 
 export function Footer() {
   return (
-    <footer className="w-full py-6 border-t border-primary/20 bg-primary z-10 relative mt-auto">
+    <footer className="w-full py-4 border-t border-primary/20 bg-primary z-10 relative mt-auto">
       <div className="max-w-7xl mx-auto px-4 md:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
-          {/* Column 1: Brand & Description */}
-          <div className="col-span-1 md:col-span-6 lg:col-span-4 flex flex-col items-start gap-4">
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt="JobbaWorks Logo" className="w-8 h-8 rounded-lg object-contain bg-white" />
-              <span className="text-2xl font-black text-white font-headline tracking-tight">JobbaWorks</span>
-            </Link>
-            <p className="text-white/80 text-sm font-medium pr-4 leading-relaxed">
-              The premier platform for professional growth and daily rewards. Engage with top-tier content and get paid for your attention.
-            </p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          {/* Brand */}
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="JobbaWorks Logo" className="w-6 h-6 rounded-md object-contain bg-white" />
+            <span className="text-lg font-black text-white font-headline tracking-tight">JobbaWorks</span>
           </div>
 
-          <div className="col-span-1 md:col-span-6 lg:col-span-8 grid grid-cols-2 lg:grid-cols-3 gap-8 md:justify-items-end">
-            {/* Column 2: Explore */}
-            <div className="flex flex-col gap-3 lg:justify-self-center">
-              <h3 className="font-bold font-headline text-white mb-2 tracking-wide uppercase text-xs">Explore</h3>
-              <Link to="/articles" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Technology</Link>
-              <Link to="/plans" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Plans</Link>
-              <Link to="/promotional" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Promotional</Link>
-            </div>
-
-            {/* Column 3: Network */}
-            <div className="flex flex-col gap-3 lg:justify-self-center">
-              <h3 className="font-bold font-headline text-white mb-2 tracking-wide uppercase text-xs">Network</h3>
-              <Link to="/privacy-policy" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Privacy Policy</Link>
-              <Link to="/terms-of-service" className="text-white/70 hover:text-white transition-colors text-sm font-medium">Terms of Service</Link>
-            </div>
-
-            {/* Column 4: Invisible Spacer or extra padding for large screens if needed */}
-            <div className="hidden lg:block"></div>
+          {/* Links */}
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            <Link to="/category/technology" className="text-white/70 hover:text-white transition-colors text-xs font-medium">Technology</Link>
+            <Link to="/plans" className="text-white/70 hover:text-white transition-colors text-xs font-medium">Plans</Link>
+            <Link to="/promotional" className="text-white/70 hover:text-white transition-colors text-xs font-medium">Promotional</Link>
+            <Link to="/privacy-policy" className="text-white/70 hover:text-white transition-colors text-xs font-medium">Privacy</Link>
+            <Link to="/terms-of-service" className="text-white/70 hover:text-white transition-colors text-xs font-medium">Terms</Link>
           </div>
         </div>
 
-        {/* Bottom Banner */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-white/50 text-xs font-body pt-6 border-t border-white/10">
+        {/* Bottom */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-2 text-white/40 text-[11px] border-t border-white/10 pt-3">
           <p>© {new Date().getFullYear()} JobbaWorks. All Rights Reserved.</p>
-          <div className="flex gap-6">
-            <Link to="#" className="font-semibold hover:text-white transition-colors">Security</Link>
-            <Link to="#" className="font-semibold hover:text-white transition-colors">Cookies</Link>
+          <div className="flex gap-4">
+            <Link to="#" className="hover:text-white transition-colors">Security</Link>
+            <Link to="#" className="hover:text-white transition-colors">Cookies</Link>
           </div>
         </div>
       </div>
