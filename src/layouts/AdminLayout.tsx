@@ -14,28 +14,29 @@ export function AdminLayout() {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path.includes('users')) return 'User Management';
-    if (path.includes('moderation')) return 'Post Moderation';
     if (path.includes('categories')) return 'Categories';
     if (path.includes('tasks')) return 'Tasks & Bounties';
     if (path.includes('promotions')) return 'Promotions';
-    if (path.includes('articles')) return 'Articles Management';
+    if (path.includes('articles') || path.includes('moderation') || path.includes('content')) return 'Articles Management';
+    if (path.includes('withdrawals')) return 'Withdrawal Requests';
     if (path.includes('referrals')) return 'Referrals Management';
+    if (path.includes('stories')) return 'Story Moderation';
     if (path.includes('settings')) return 'Global Settings';
     return 'System Overview';
   };
 
   const menuItems = [
     { name: 'System Overview', path: '/admin', icon: 'admin_panel_settings' },
-    { name: 'Post Moderation', path: '/admin/moderation', icon: 'fact_check' },
+    { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
     { name: 'User Management', path: '/admin/users', icon: 'group' },
     { name: 'Categories', path: '/admin/categories', icon: 'sell' },
     { name: 'Transactions', path: '/admin/transactions', icon: 'payments' },
+    { name: 'Withdrawals', path: '/admin/withdrawals', icon: 'account_balance' },
     { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
     { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
-    { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
     { name: 'Story Moderation', path: '/admin/stories', icon: 'local_library' },
     { name: 'Referrals', path: '/admin/referrals', icon: 'hub' },
-    { name: 'Notifications', path: '/admin/notifications', icon: 'campaign' },
+    { name: 'Notifications', path: '/admin/notifications', icon: 'notifications' },
     { name: 'Global Settings', path: '/admin/settings', icon: 'tune' },
   ];
 

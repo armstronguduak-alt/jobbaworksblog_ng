@@ -22,7 +22,7 @@ export function PublicProfile() {
     // Find user by username
     const { data: pData } = await supabase
       .from('profiles')
-      .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified')
+      .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified, gender')
       .eq('username', username)
       .maybeSingle();
 
@@ -87,7 +87,11 @@ export function PublicProfile() {
         <div className="relative z-10 mt-12 flex flex-col md:flex-row items-center md:items-end md:justify-between gap-6">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-md">
-              <img src={profile.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profile.name}`} alt={profile.name} className="w-full h-full object-cover"/>
+              <img 
+                src={profile.avatar_url || `https://api.dicebear.com/7.x/peeps/svg?seed=${profile.name}&face=${profile.gender?.toLowerCase() === 'female' ? 'smile' : 'cute'}`} 
+                alt={profile.name} 
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="text-center md:text-left">
               <h1 className="text-3xl font-black font-headline text-slate-900 flex items-center justify-center md:justify-start gap-2">
@@ -95,6 +99,12 @@ export function PublicProfile() {
                 {profile.is_verified && <span className="material-symbols-outlined text-blue-500" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>}
               </h1>
               <p className="text-slate-500 font-bold">@{profile.username}</p>
+              {profile.gender && (
+                <span className="inline-flex items-center mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
+                  <span className="material-symbols-outlined text-[12px] mr-1">person</span>
+                  {profile.gender}
+                </span>
+              )}
               <p className="mt-2 text-slate-700 max-w-lg">{profile.bio || "No bio provided yet."}</p>
             </div>
           </div>

@@ -45,6 +45,7 @@ const AdminCategories = lazy(() => import('./pages/AdminCategories').then(module
 const AdminReferrals = lazy(() => import('./pages/AdminReferrals').then(module => ({ default: module.AdminReferrals })));
 const AdminNotifications = lazy(() => import('./pages/AdminNotifications').then(module => ({ default: module.AdminNotifications })));
 const AdminStories = lazy(() => import('./pages/AdminStories').then(module => ({ default: module.AdminStories })));
+const AdminWithdrawals = lazy(() => import('./pages/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
 
 function App() {
   return (
@@ -93,6 +94,7 @@ function App() {
             <Route index element={<AdminManagement />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="transactions" element={<AdminTransactions />} />
+            <Route path="withdrawals" element={<AdminWithdrawals />} />
             <Route path="moderation" element={<AdminContent />} />
             <Route path="content" element={<AdminContent />} />
             <Route path="articles" element={<AdminContent />} />

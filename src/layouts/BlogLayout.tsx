@@ -15,8 +15,9 @@ export function BlogLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide search bar on individual article pages
-  const isArticlePage = location.pathname.startsWith('/article/');
+  // Hide search bar on article/story pages — only show on homepage & category pages
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const isArticlePage = pathParts.length >= 2 || location.pathname.startsWith('/stories/') || location.pathname.startsWith('/author/');
 
   useEffect(() => {
     supabase.from('categories').select('id, name, slug').order('name').then(({ data }) => {
@@ -65,7 +66,7 @@ export function BlogLayout() {
             <Link to="/stories" className="text-primary font-bold font-headline text-xs shrink-0">Stories✨</Link>
             <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">Plans</Link>
             {categories.map(cat => (
-              <Link key={cat.id} to={`/category/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">
+              <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">
                 {cat.name}
               </Link>
             ))}
@@ -189,6 +190,18 @@ export function BlogLayout() {
           >
             <span className="material-symbols-outlined text-[18px]">home</span>
             All Feeds
+           </Link>
+
+          {/* Stories Link */}
+          <Link
+            to="/stories"
+            onClick={() => setIsMenuOpen(false)}
+            className={`font-bold px-4 py-3 rounded-xl flex items-center gap-3 transition-colors ${
+              location.pathname === '/stories' ? 'bg-amber-50 text-amber-800' : 'text-amber-700 hover:bg-amber-50'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">auto_stories</span>
+            Stories ✨
           </Link>
 
           {/* Category Divider */}
@@ -198,10 +211,10 @@ export function BlogLayout() {
           {categories.map(cat => (
             <Link
               key={cat.id}
-              to={`/category/${cat.slug}`}
+              to={`/${cat.slug}`}
               onClick={() => setIsMenuOpen(false)}
               className={`font-semibold px-4 py-2.5 rounded-xl flex items-center gap-3 transition-colors ${
-                location.pathname === `/category/${cat.slug}` ? 'bg-emerald-50 text-emerald-700' : 'text-emerald-950 hover:bg-surface-container'
+                location.pathname === `/${cat.slug}` ? 'bg-emerald-50 text-emerald-700' : 'text-emerald-950 hover:bg-surface-container'
               }`}
             >
               <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>

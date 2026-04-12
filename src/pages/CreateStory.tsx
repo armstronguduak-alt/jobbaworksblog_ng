@@ -126,6 +126,31 @@ export function CreateStory() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 animation-fade-in">
+      {/* Story Creation Hero */}
+      <div className="bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] rounded-3xl p-6 md:p-8 mb-8 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-3xl">auto_stories</span>
+            <h1 className="text-2xl md:text-3xl font-black font-headline">Write Your Story</h1>
+          </div>
+          <p className="text-white/80 max-w-lg text-sm md:text-base leading-relaxed">
+            Create serialized fiction chapters that readers will love. Set up your novel details first, then write and submit chapters for review. Each published chapter earns you reader engagement points!
+          </p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <span className="bg-white/15 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1">
+              <span className="material-symbols-outlined text-[12px]">edit_note</span> Write Chapters
+            </span>
+            <span className="bg-white/15 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1">
+              <span className="material-symbols-outlined text-[12px]">monetization_on</span> Earn Per Read
+            </span>
+            <span className="bg-white/15 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1">
+              <span className="material-symbols-outlined text-[12px]">trending_up</span> Build Audience
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Steps Header */}
       <div className="flex items-center gap-4 mb-8 border-b border-surface-container pb-4">
         <button onClick={() => setStep(1)} className={`font-bold text-sm tracking-wider uppercase px-4 py-2 flex items-center gap-2 rounded-full transition-colors ${step === 1 ? 'bg-[#0f172a] text-white' : 'text-outline hover:bg-surface-container'}`}>

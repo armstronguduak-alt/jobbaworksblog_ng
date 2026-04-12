@@ -34,7 +34,7 @@ BEGIN
   -- Deduct source NGN balance and add to usdt_balance
   UPDATE public.wallet_balances 
   SET balance = balance - _amount, 
-      usdt_balance = usdt_balance + _actual_usd,
+      usdt_balance = COALESCE(usdt_balance, 0) + _actual_usd,
       updated_at = now() 
   WHERE user_id = _uid;
 
