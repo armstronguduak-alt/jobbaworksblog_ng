@@ -2,52 +2,47 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 export function PublicArticle() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   
-  const [post, setPost] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [relatedPosts, setRelatedPosts] = useState<any[]>([]);
   
   // Reading Timer State
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [readCompleted, setReadCompleted] = useState(false);
-  const totalTimeRef = useState<number>(0);
+  const [totalTimeValue, setTotalTime] = useState<number>(0);
 
-  useEffect(() => {
-    if (slug) fetchArticle();
-  }, [slug, user]);
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['article', slug, user?.id],
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      // Join posts with authored profile
+      const { data: pData } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          category:categories(id, name, slug),
+          author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
+        `)
+        .eq('slug', slug)
+        .eq('status', 'approved')
+        .single();
 
-  const fetchArticle = async () => {
-    setIsLoading(true);
-    // Join posts with authored profile
-    const { data: pData } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        category:categories(id, name, slug),
-        author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
-      `)
-      .eq('slug', slug)
-      .eq('status', 'approved')
-      .single();
+      if (!pData) return null;
 
-    if (pData) {
       let isVerified = pData.author?.is_verified || false;
       const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle();
       if (subData && subData.plan_id !== 'free') {
         isVerified = true;
       }
       pData.author.is_verified = isVerified;
-      
-      setPost(pData);
       
       // Fetch Comments
       const { data: cData } = await supabase
@@ -58,12 +53,11 @@ export function PublicArticle() {
         `)
         .eq('post_id', pData.id)
         .order('created_at', { ascending: false });
-        
-      if (cData) setComments(cData);
 
       // Fetch Related Posts
+      let rData: any[] = [];
       if (pData.category_id) {
-        const { data: rData } = await supabase
+        const { data } = await supabase
           .from('posts')
           .select('id, title, slug, featured_image, created_at, reading_time_seconds')
           .eq('status', 'approved')
@@ -71,19 +65,19 @@ export function PublicArticle() {
           .neq('id', pData.id)
           .order('created_at', { ascending: false })
           .limit(3);
-        if (rData) setRelatedPosts(rData);
+        if (data) rData = data;
       }
 
       // Check follow status if logged in
+      let fData = false;
       if (user?.id && pData.author?.user_id) {
-        const { data: fData } = await supabase
+        const { data } = await supabase
           .from('followers')
           .select('id')
           .eq('follower_id', user.id)
           .eq('following_id', pData.author.user_id)
           .maybeSingle();
-        
-        setIsFollowing(!!fData);
+        fData = !!data;
       }
 
       // Increment View Count (Non-blocking)
@@ -91,18 +85,34 @@ export function PublicArticle() {
          if (error) console.error("View tracking error:", error);
       });
 
-      // Initialize reading timer
-      const readSeconds = pData.reading_time_seconds || 60;
-      const readFlag = localStorage.getItem(`jobbaworks_read_${pData.id}`);
+      return {
+        post: pData,
+        comments: cData || [],
+        relatedPosts: rData,
+        isFollowing: fData
+      };
+    }
+  });
+
+  const post = data?.post;
+  const comments = data?.comments || [];
+  const relatedPosts = data?.relatedPosts || [];
+
+  useEffect(() => {
+    if (data?.isFollowing !== undefined) {
+      setIsFollowing(data.isFollowing);
+    }
+    if (data?.post && timeLeft === null && !readCompleted) {
+      const readSeconds = data.post.reading_time_seconds || 60;
+      const readFlag = localStorage.getItem(`jobbaworks_read_${data.post.id}`);
       if (readFlag === 'true') {
         setReadCompleted(true);
       } else {
         setTimeLeft(readSeconds);
-        totalTimeRef[1](readSeconds);
+        setTotalTime(readSeconds);
       }
     }
-    setIsLoading(false);
-  };
+  }, [data]);
 
   useEffect(() => {
     if (timeLeft !== null && timeLeft > 0) {
@@ -145,7 +155,7 @@ export function PublicArticle() {
     if (!error) {
       setNewComment('');
       // Optimistic or explicit refetch
-      fetchArticle();
+      refetch();
     } else {
       alert("Failed to post comment");
     }
@@ -155,7 +165,7 @@ export function PublicArticle() {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
-  const totalTime = totalTimeRef[0];
+  const totalTime = totalTimeValue;
   const progressPercentage = timeLeft !== null && totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 100;
 
   return (
