@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppSettings } from '../hooks/useAppSettings';
+import confetti from 'canvas-confetti';
 
 export function Swap() {
   const { user } = useAuth();
@@ -102,6 +103,7 @@ export function Swap() {
     } else {
       setMessage('Swap successful!');
       setSwapAmount('');
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
     }
 
     setIsSubmitting(false);

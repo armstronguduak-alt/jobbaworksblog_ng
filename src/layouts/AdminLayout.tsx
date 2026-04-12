@@ -33,7 +33,9 @@ export function AdminLayout() {
     { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
     { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
     { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
+    { name: 'Story Moderation', path: '/admin/stories', icon: 'local_library' },
     { name: 'Referrals', path: '/admin/referrals', icon: 'hub' },
+    { name: 'Notifications', path: '/admin/notifications', icon: 'campaign' },
     { name: 'Global Settings', path: '/admin/settings', icon: 'tune' },
   ];
 

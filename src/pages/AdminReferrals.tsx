@@ -29,8 +29,8 @@ export function AdminReferrals() {
         .select(`
           created_at,
           referral_code_used,
-          referrer:referrer_user_id(name, email, avatar_url),
-          referred:referred_user_id(name, email, avatar_url, user_subscriptions(plan_id))
+          referrer:profiles!referrals_referrer_user_id_fkey(name, email, avatar_url),
+          referred:profiles!referrals_referred_user_id_fkey(name, email, avatar_url, user_subscriptions(plan_id))
         `)
         .order('created_at', { ascending: false })
         .limit(100);

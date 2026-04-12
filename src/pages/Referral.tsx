@@ -69,7 +69,7 @@ export function Referral() {
           .select(`
             created_at,
             referred_user_id,
-            profiles:referred_user_id (
+            profiles:profiles!referrals_referred_user_id_fkey(
               name,
               avatar_url,
               status,

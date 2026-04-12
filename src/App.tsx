@@ -23,6 +23,14 @@ const Earn = lazy(() => import('./pages/Earn').then(module => ({ default: module
 const Wallet = lazy(() => import('./pages/Wallet').then(module => ({ default: module.Wallet })));
 const Swap = lazy(() => import('./pages/Swap').then(module => ({ default: module.Swap })));
 const Referral = lazy(() => import('./pages/Referral').then(module => ({ default: module.Referral })));
+
+const MyStories = lazy(() => import('./pages/MyStories').then(module => ({ default: module.MyStories })));
+const CreateStory = lazy(() => import('./pages/CreateStory').then(module => ({ default: module.CreateStory })));
+
+const StoriesHub = lazy(() => import('./pages/StoriesHub').then(module => ({ default: module.StoriesHub })));
+const StoryDetail = lazy(() => import('./pages/StoryDetail').then(module => ({ default: module.StoryDetail })));
+const StoryReader = lazy(() => import('./pages/StoryReader').then(module => ({ default: module.StoryReader })));
+
 const Analytics = lazy(() => import('./pages/Analytics').then(module => ({ default: module.Analytics })));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
@@ -35,6 +43,8 @@ const AdminPromotions = lazy(() => import('./pages/AdminPromotions').then(module
 const AdminTasks = lazy(() => import('./pages/AdminTasks').then(module => ({ default: module.AdminTasks })));
 const AdminCategories = lazy(() => import('./pages/AdminCategories').then(module => ({ default: module.AdminCategories })));
 const AdminReferrals = lazy(() => import('./pages/AdminReferrals').then(module => ({ default: module.AdminReferrals })));
+const AdminNotifications = lazy(() => import('./pages/AdminNotifications').then(module => ({ default: module.AdminNotifications })));
+const AdminStories = lazy(() => import('./pages/AdminStories').then(module => ({ default: module.AdminStories })));
 
 function App() {
   return (
@@ -48,6 +58,9 @@ function App() {
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
           <Route path="author/:username" element={<PublicProfile />} />
+          <Route path="stories" element={<StoriesHub />} />
+          <Route path="stories/:slug" element={<StoryDetail />} />
+          <Route path="stories/read/:slug/:chapterNum" element={<StoryReader />} />
           <Route path=":slug" element={<Home />} />
           <Route path=":categorySlug/:slug" element={<PublicArticle />} />
           <Route path="promotional" element={<Promotional />} />
@@ -59,6 +72,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard/mystories" element={<MyStories />} />
+            <Route path="stories/create" element={<CreateStory />} />
             <Route path="plans" element={<Plans />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="articles" element={<Articles />} />
@@ -86,6 +101,8 @@ function App() {
             <Route path="tasks" element={<AdminTasks />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="referrals" element={<AdminReferrals />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="stories" element={<AdminStories />} />
           </Route>
         </Route>
 

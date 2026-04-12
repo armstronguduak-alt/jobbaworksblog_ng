@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import confetti from 'canvas-confetti';
 import { useAppSettings } from '../hooks/useAppSettings';
 
 export function Wallet() {
@@ -130,7 +131,8 @@ export function Wallet() {
         meta: { 
           withdrawalFeePercent: exchangeRates.withdrawalFee,
           feeDeducted: fee,
-          expectedAmount: youGet
+          expectedAmount: youGet,
+          account_details: payoutMethods.find((m: any) => m.id === selectedMethodId)?.details || {}
         }
       });
 
@@ -138,6 +140,7 @@ export function Wallet() {
 
       setMessage('Withdrawal request submitted! It is pending admin approval.');
       setWithdrawAmount('');
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       if (user) fetchWalletData(user.id);
     } catch (error: any) {
       setMessage(`Error: ${error.message || 'An error occurred during withdrawal.'}`);

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import confetti from 'canvas-confetti';
 
 export const fetchArticleData = async (slug: string, userId?: string) => {
   // Join posts with authored profile
@@ -195,13 +196,12 @@ export function PublicArticle() {
         if (response.success) {
           setNewComment('');
           refetch();
-          // If earned, redirect to earn page; otherwise show inline msg
+          refetch();
           if (response.amount > 0) {
-            navigate('/earn');
-          } else {
-            setCommentSuccess('Comment posted! ' + (response.message || ''));
-            setTimeout(() => setCommentSuccess(''), 4000);
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
           }
+          setCommentSuccess('Comment posted! ' + (response.message || ''));
+          setTimeout(() => setCommentSuccess(''), 4000);
         }
       }
     } catch (err: any) {

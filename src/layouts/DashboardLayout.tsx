@@ -39,6 +39,7 @@ export function DashboardLayout() {
     { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled },
     { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events', show: pageToggles.leaderboardEnabled },
     { name: 'My Articles', path: '/articles', icon: 'article', show: true },
+    { name: 'Writer Studio', path: '/dashboard/mystories', icon: 'auto_stories', show: true },
     { name: 'Tasks', path: '/earn', icon: 'task_alt', show: pageToggles.earningsEnabled },
     { name: 'Plans', path: '/plans', icon: 'rocket_launch', show: true },
     { name: 'Referrals', path: '/referral', icon: 'group_add', show: pageToggles.referralsEnabled },

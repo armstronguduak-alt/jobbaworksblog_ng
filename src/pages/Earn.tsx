@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CommunityTaskCard } from '../components/CommunityTaskCard';
+import confetti from 'canvas-confetti';
 
 export function Earn() {
   const { user } = useAuth();
@@ -117,6 +119,7 @@ export function Earn() {
       } else if (claimData) {
         setMessage(claimData.message);
         if (claimData.success && user?.id) {
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
           queryClient.invalidateQueries({ queryKey: ['earnData', user.id] });
         }
       }
@@ -305,31 +308,8 @@ export function Earn() {
           </div>
           
           <div className="grid gap-5">
-            {/* Hardcoded Mandatory Join Community Task */}
-            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-emerald-500/20 flex flex-col gap-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-[100px] pointer-events-none"></div>
-              <div className="flex justify-between items-start">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-emerald-700">forum</span>
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-on-surface">Join Our Community</h4>
-                    <p className="text-on-surface-variant text-[13px] line-clamp-2 mt-1">
-                      Join our official Telegram channel for updates, payments, and 24/7 support!
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="block text-emerald-600 font-black">Free</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-1 relative z-10">
-                <a href="https://t.me/jobbaworks" target="_blank" rel="noreferrer" className="w-full py-3 bg-[#0088cc] text-white font-bold rounded-xl text-center flex items-center justify-center gap-2 hover:bg-[#0077b3] transition-colors shadow-sm">
-                  Telegram
-                </a>
-              </div>
-            </div>
+            {/* Community Task Module */}
+            <CommunityTaskCard />
 
             {/* Dynamic DB Bounties */}
             {availableTasks.map((task: any) => (

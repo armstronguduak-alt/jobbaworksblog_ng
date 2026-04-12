@@ -51,11 +51,8 @@ export function AdminTransactions() {
     }
   }
 
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
+  const handleUpdateStatus = async (id: string, newStatus: string, userId: string, txType: string, txAmount: number) => {
     try {
-      // In a real production scenario, updating withdrawal to 'completed'
-      // might require decrementing total balance, but for this MVP,
-      // it just updates the status in the table since balance might be deducted at request.
       const { error } = await supabase
         .from('wallet_transactions')
         .update({ status: newStatus })
@@ -64,6 +61,25 @@ export function AdminTransactions() {
       if (!error) {
         setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
         showAlert('Transaction updated successfully.');
+        
+        if (newStatus === 'completed' && txType === 'withdrawal') {
+           await supabase.from('notifications').insert({
+             user_id: userId,
+             title: 'Withdrawal Approved & Sent',
+             message: `Your withdrawal request for ₦${txAmount.toLocaleString()} has been successfully processed. The funds are on their way to your account!`,
+             type: 'system',
+             is_read: false
+           });
+        }
+        if (newStatus === 'failed' && txType === 'withdrawal') {
+             await supabase.from('notifications').insert({
+             user_id: userId,
+             title: 'Withdrawal Failed',
+             message: `Your withdrawal request for ₦${txAmount.toLocaleString()} was rejected due to incorrect details or violations. Please contact support.`,
+             type: 'alert',
+             is_read: false
+           });
+        }
       } else {
         showAlert('Failed to update transaction status.', 'Error');
       }
@@ -135,6 +151,17 @@ export function AdminTransactions() {
                           {tx.meta.plan_id ? <span className="block truncate bg-surface-container px-1 rounded">Plan: {tx.meta.plan_id}</span> : null}
                           {tx.meta.referred_username ? <span className="block truncate bg-surface-container px-1 rounded mt-0.5">Ref: @{tx.meta.referred_username}</span> : null}
                           {tx.meta.transaction_details ? <span className="block truncate bg-surface-container px-1 rounded mt-0.5">{tx.meta.transaction_details}</span> : null}
+                          {tx.meta.account_details && Object.keys(tx.meta.account_details).length > 0 ? (
+                            <div className="mt-2 bg-surface p-2 rounded border border-outline-variant/30 w-max max-w-[200px]">
+                              <span className="block text-primary font-bold text-[10px]">PAYOUT DETAILS</span>
+                              {Object.entries(tx.meta.account_details).map(([k, v]) => (
+                                <span key={k} className="block text-[10px] text-on-surface truncate">
+                                  <span className="font-semibold text-on-surface-variant mr-1">{k}:</span>
+                                  {v as string}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       )}
                     </td>
@@ -155,12 +182,12 @@ export function AdminTransactions() {
                       {tx.type === 'withdrawal' && tx.status === 'pending' ? (
                         <>
                           <button 
-                            onClick={() => handleUpdateStatus(tx.id, 'completed')}
+                            onClick={() => handleUpdateStatus(tx.id, 'completed', tx.user_id, tx.type, tx.amount)}
                             className="bg-emerald-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-700 uppercase tracking-wider shadow-sm transition-transform active:scale-95">
                             Approve
                           </button>
                           <button 
-                            onClick={() => handleUpdateStatus(tx.id, 'failed')}
+                            onClick={() => handleUpdateStatus(tx.id, 'failed', tx.user_id, tx.type, tx.amount)}
                             className="bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-rose-100 uppercase tracking-wider shadow-sm transition-transform active:scale-95">
                             Reject
                           </button>

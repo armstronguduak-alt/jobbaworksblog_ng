@@ -217,56 +217,55 @@ export function AdminContent() {
             <p className="font-bold">No articles found.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             {filteredPosts.map(post => (
-              <div key={post.id} className="bg-white p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-surface-container-low shadow-[0px_4px_16px_-4px_rgba(0,0,0,0.02)] hover:shadow-md transition-all">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-black text-[#191c1d] bg-surface-container-low px-2 py-1 rounded-md uppercase tracking-[0.1em]">{post.categories?.name || 'Uncategorized'}</span>
-                    <span className="text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded-md uppercase tracking-[0.1em]">{post.status}</span>
-                    <span className="text-xs text-outline font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
+              <div key={post.id} className="bg-white p-4 rounded-[1rem] flex items-center justify-between gap-4 border border-surface-container-low shadow-[0px_2px_8px_-4px_rgba(0,0,0,0.05)] hover:shadow-md transition-all">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[9px] font-black text-[#191c1d] bg-surface-container-low px-2 py-0.5 rounded uppercase tracking-[0.1em]">{post.categories?.name || 'Uncategorized'}</span>
+                    <span className="text-[9px] font-bold text-white bg-slate-800 px-2 py-0.5 rounded uppercase tracking-[0.1em]">{post.status}</span>
+                    <span className="text-[10px] text-outline font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
-                  <h3 className="font-black text-xl text-[#0f172a] mb-2 font-headline">{post.title}</h3>
-                  <p className="text-sm text-outline line-clamp-2 mb-4 leading-relaxed">{post.excerpt || 'No excerpt provided.'}</p>
-                  <div className="flex items-center gap-2 bg-[#f8f9fa] inline-flex px-3 py-1.5 rounded-lg">
-                    <span className="material-symbols-outlined text-[16px] text-outline">account_circle</span>
-                    <span className="text-xs font-bold text-[#191c1d]">{post.profiles?.name || 'Unknown Author'} <span className="text-outline font-medium">({post.profiles?.email})</span></span>
+                  <h3 className="font-black text-sm text-[#0f172a] mb-1 font-headline truncate">{post.title}</h3>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="material-symbols-outlined text-[14px] text-outline">account_circle</span>
+                    <span className="text-[10px] font-bold text-[#191c1d]">{post.profiles?.name || 'Unknown Author'}</span>
                   </div>
                 </div>
                 
-                <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-40 mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-surface-container-low md:pl-6 md:border-l">
+                <div className="flex gap-2 shrink-0">
                   <button 
                     onClick={() => setSelectedPost(post)}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full mb-1"
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors"
+                    title="Review Details"
                   >
                     <span className="material-symbols-outlined text-[18px]">visibility</span>
-                    Review
                   </button>
 
                   {post.status !== 'approved' && (
                     <button 
                       onClick={() => handleUpdateStatus(post, 'approved')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-[#008751] hover:bg-[#006b3f] text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
+                      className="flex flex-col items-center justify-center p-2 rounded-lg bg-[#dcfce7] text-[#006b3f] hover:bg-[#bbf7d0] transition-colors"
+                      title="Approve"
                     >
                       <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                      Approve
                     </button>
                   )}
                   {post.status !== 'rejected' && (
                     <button 
                       onClick={() => handleUpdateStatus(post, 'rejected')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full"
+                      className="flex flex-col items-center justify-center p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                      title="Reject"
                     >
                       <span className="material-symbols-outlined text-[18px]">cancel</span>
-                      Reject
                     </button>
                   )}
                   <button 
                     onClick={() => handleDeleteArticle(post.id, post.title)}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 text-white text-sm px-4 py-2.5 rounded-xl font-bold transition-colors w-full mt-2"
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container text-rose-600 hover:bg-rose-600 hover:text-white transition-colors ml-2"
+                    title="Delete"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
-                    Delete
                   </button>
                 </div>
               </div>
