@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 export function PublicArticle() {
   const { slug } = useParams<{ slug: string }>();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
@@ -20,7 +20,7 @@ export function PublicArticle() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['article', slug, user?.id],
-    enabled: !!slug,
+    enabled: !!slug && !authLoading,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       // Join posts with authored profile
@@ -162,7 +162,7 @@ export function PublicArticle() {
     setIsSubmittingComment(false);
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (authLoading || isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
   const totalTime = totalTimeValue;

@@ -7,7 +7,6 @@ export function Dashboard() {
   const { user } = useAuth();
   
   const [walletData, setWalletData] = useState<any>(null);
-  const [walletData, setWalletData] = useState<any>(null);
   const [articlesRead, setArticlesRead] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [promotions, setPromotions] = useState<any[]>([]);

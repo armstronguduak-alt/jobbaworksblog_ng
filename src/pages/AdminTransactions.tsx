@@ -17,12 +17,12 @@ export function AdminTransactions() {
       // Real-time listener for incoming transactions
       const txListener = supabase.channel('admin-realtime-tx')
         .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'wallet_transactions' },
-          (payload) => {
-            fetchTransactions(); // Re-fetch or intelligently unshift payload.new
-          }
-        )
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_transactions' },
+        () => {
+          fetchTransactions(); // Re-fetch or intelligently unshift payload.new
+        }
+      )
         .subscribe();
       
       return () => {

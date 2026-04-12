@@ -16,7 +16,7 @@ export function Earn() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
-      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes] = await Promise.all([
+      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes] = await Promise.all([
         supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
         supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user!.id),
         supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).maybeSingle(),
@@ -51,7 +51,7 @@ export function Earn() {
 
       let postsQuery = supabase
         .from('posts')
-        .select('id, title, excerpt, featured_image, reading_time_seconds')
+        .select('id, slug, title, excerpt, featured_image, reading_time_seconds')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(10);
@@ -61,8 +61,8 @@ export function Earn() {
       }
       const { data: availablePosts } = await postsQuery;
 
-      const allActiveTasks = readPostIdsRes[1].data || [];
-      const userTasksDoneData = readPostIdsRes[2].data || [];
+      const allActiveTasks = activeTasksRes.data || [];
+      const userTasksDoneData = userTasksDoneDataRes.data || [];
       const completedTaskIds = userTasksDoneData.filter((t: any) => t.completed).map((t: any) => t.task_id);
       
       const availableTasks = allActiveTasks.filter((task: any) => !completedTaskIds.includes(task.id));
@@ -134,7 +134,7 @@ export function Earn() {
     setClaimingId(task.id);
     setMessage('');
     try {
-      const { data, error } = await supabase.rpc('claim_task_reward', { p_task_id: task.id });
+      const { error } = await supabase.rpc('claim_task_reward', { p_task_id: task.id });
       if (error) {
         setMessage(error.message);
       } else {
