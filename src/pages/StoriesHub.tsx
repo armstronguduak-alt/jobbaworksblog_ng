@@ -1,41 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { SEO } from '../components/SEO';
 
 export function StoriesHub() {
-  const [featuredStories, setFeaturedStories] = useState<any[]>([]);
-  const [trendingStories, setTrendingStories] = useState<any[]>([]);
-  const [newStories, setNewStories] = useState<any[]>([]);
-  const [allStories, setAllStories] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
-
   const genres = ['All', 'Fantasy', 'Romance', 'Thriller', 'Mystery', 'Horror', 'Sci-Fi'];
 
-  useEffect(() => {
-    fetchMainData();
-  }, []);
+  const { data: storiesData, isLoading } = useQuery({
+    queryKey: ['stories-hub'],
+    staleTime: 3 * 60 * 1000,
+    queryFn: async () => {
+      const [trendingRes, latestRes, allRes] = await Promise.all([
+        supabase.from('stories').select('id, title, slug, cover_image_url, genres, total_reads').eq('status', 'published').order('total_reads', { ascending: false }).limit(5),
+        supabase.from('stories').select('id, title, slug, cover_image_url, genres, description').eq('status', 'published').order('created_at', { ascending: false }).limit(5),
+        supabase.from('stories').select('id, title, slug, cover_image_url, genres, total_reads').eq('status', 'published').order('created_at', { ascending: false }).limit(50),
+      ]);
+      return {
+        trending: trendingRes.data || [],
+        latest: latestRes.data || [],
+        all: allRes.data || [],
+        featured: (trendingRes.data || []).slice(0, 4),
+      };
+    },
+  });
 
-  const fetchMainData = async () => {
-    setIsLoading(true);
-    try {
-      // Because we lack complex aggregation, we approximate "trending" by high total reads
-      const { data: trending } = await supabase.from('stories').select('id, title, slug, cover_image_url, genres, total_reads').eq('status', 'published').order('total_reads', { ascending: false }).limit(5);
-      const { data: latest } = await supabase.from('stories').select('id, title, slug, cover_image_url, genres, description').eq('status', 'published').order('created_at', { ascending: false }).limit(5);
-      const { data: all } = await supabase.from('stories').select('id, title, slug, cover_image_url, genres, total_reads').eq('status', 'published').order('created_at', { ascending: false }).limit(50);
-      
-      if (trending) setTrendingStories(trending);
-      if (latest) setNewStories(latest);
-      if (all) {
-        setAllStories(all);
-        setFeaturedStories(trending?.slice(0, 4) || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const trendingStories = storiesData?.trending || [];
+  const newStories = storiesData?.latest || [];
+  const allStories = storiesData?.all || [];
+  const featuredStories = storiesData?.featured || [];
 
   const filteredAllStories = selectedGenre === 'All' 
     ? allStories 
@@ -46,6 +40,14 @@ export function StoriesHub() {
   }
 
   return (
+    <>
+      <SEO 
+        title="Stories — Discover Serialized Fiction"
+        description="Explore and read serialized fiction stories on JobbaWorks. Fantasy, Romance, Thriller, Mystery and more. Read, earn, and discover new worlds."
+        url="/stories"
+        keywords="stories, webnovel, fiction, romance, fantasy, serialized fiction, reading, Nigeria"
+        breadcrumbs={[{ name: 'Home', url: '/' }, { name: 'Stories', url: '/stories' }]}
+      />
     <div className="bg-surface font-body min-h-screen">
       
       {/* Hero Section / Editor's Pick (Horizontal Scroll) */}
@@ -181,5 +183,6 @@ export function StoriesHub() {
       </section>
 
     </div>
+    </>
   );
 }

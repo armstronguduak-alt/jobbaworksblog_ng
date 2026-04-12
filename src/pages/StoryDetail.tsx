@@ -1,34 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { SEO } from '../components/SEO';
 
 export function StoryDetail() {
   const { slug } = useParams();
-  const [story, setStory] = useState<any>(null);
-  const [chapters, setChapters] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
 
-  useEffect(() => {
-    fetchStory();
-  }, [slug]);
-
-  const fetchStory = async () => {
-    setIsLoading(true);
-    try {
+  const { data, isLoading } = useQuery({
+    queryKey: ['story-detail', slug],
+    enabled: !!slug,
+    staleTime: 3 * 60 * 1000,
+    queryFn: async () => {
       const { data: s } = await supabase.from('stories').select('*, profiles:author_id(name)').eq('slug', slug).single();
-      if (s) {
-        setStory(s);
-        const { data: c } = await supabase.from('story_chapters').select('chapter_number, title, id, created_at').eq('story_id', s.id).eq('status', 'published').order('chapter_number', { ascending: true });
-        if (c) setChapters(c);
-      }
-    } catch (err) { } finally { setIsLoading(false); }
-  };
+      if (!s) return null;
+      const { data: c } = await supabase.from('story_chapters').select('chapter_number, title, id, created_at').eq('story_id', s.id).eq('status', 'published').order('chapter_number', { ascending: true });
+      return { story: s, chapters: c || [] };
+    },
+  });
 
-  if (isLoading) return <div className="py-20 text-center">Loading Story...</div>;
+  const story = data?.story;
+  const chapters = data?.chapters || [];
+
+  if (isLoading) return <div className="py-20 text-center animate-pulse"><div className="w-12 h-12 border-4 border-dotted border-primary rounded-full animate-spin mx-auto"></div></div>;
   if (!story) return <div className="py-20 text-center">Story not found.</div>;
 
   return (
+    <>
+    <SEO
+      title={story.title}
+      description={story.description?.substring(0, 155) + '...'}
+      image={story.cover_image_url}
+      url={`/stories/${story.slug}`}
+      type="article"
+      author={story.profiles?.name}
+      datePublished={story.created_at}
+      keywords={`${(story.genres || []).join(', ')}, story, webnovel, fiction, JobbaWorks`}
+      breadcrumbs={[
+        { name: 'Home', url: '/' },
+        { name: 'Stories', url: '/stories' },
+        { name: story.title, url: `/stories/${story.slug}` },
+      ]}
+    />
     <div className="bg-white min-h-screen font-body pb-20">
       <div className="max-w-3xl mx-auto">
         
@@ -116,5 +130,6 @@ export function StoryDetail() {
         </div>
       )}
     </div>
+    </>
   );
 }

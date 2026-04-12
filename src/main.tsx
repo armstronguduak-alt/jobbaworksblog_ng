@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { DialogProvider } from './contexts/DialogContext'
+import { HelmetProvider } from 'react-helmet-async'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') 
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <DialogProvider>
@@ -30,5 +32,6 @@ createRoot(document.getElementById('root')!).render(
         </DialogProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </HelmetProvider>
   </StrictMode>,
 )

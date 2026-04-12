@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
+import { SEO } from '../components/SEO';
 
 export const fetchArticleData = async (slug: string, userId?: string) => {
   // Join posts with authored profile
@@ -232,7 +233,29 @@ export function PublicArticle() {
   const totalTime = totalTimeValue;
   const progressPercentage = timeLeft !== null && totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 100;
 
+  // Extract plain text excerpt for SEO description
+  const seoExcerpt = post.content ? (() => { const tmp = document.createElement('div'); tmp.innerHTML = post.content; return tmp.textContent?.substring(0, 155) + '...' || ''; })() : post.title;
+  const categorySlug = post.category?.slug || 'post';
+
   return (
+    <>
+    <SEO
+      title={post.title}
+      description={seoExcerpt}
+      image={post.featured_image}
+      url={`/${categorySlug}/${post.slug}`}
+      type="article"
+      author={post.author?.name}
+      datePublished={post.created_at}
+      dateModified={post.updated_at || post.created_at}
+      articleBody={seoExcerpt}
+      keywords={`${post.category?.name || ''}, blog, article, JobbaWorks`}
+      breadcrumbs={[
+        { name: 'Home', url: '/' },
+        { name: post.category?.name || 'Article', url: `/${categorySlug}` },
+        { name: post.title, url: `/${categorySlug}/${post.slug}` },
+      ]}
+    />
     <article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 relative">
       
       {/* Floating Pie Countdown */}
@@ -493,5 +516,6 @@ export function PublicArticle() {
         </section>
       )}
     </article>
+    </>
   );
 }

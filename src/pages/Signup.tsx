@@ -90,6 +90,7 @@ export function Signup() {
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/email-verified`,
           data: {
             full_name: formData.fullName,
             username: formData.username,
@@ -122,7 +123,7 @@ export function Signup() {
         
         navigate('/dashboard');
       } else {
-        setErrorMsg('Success! Please check your email to verify your account.');
+        navigate('/email-confirmation');
       }
       
     } catch (err: any) {

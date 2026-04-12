@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /login
+Disallow: /signup
+Disallow: /settings
+Disallow: /profile
+Disallow: /wallet
+Disallow: /swap
+Disallow: /earn
+Disallow: /referral
+Disallow: /analytics
+Disallow: /transactions
+
+Sitemap: https://jobbaworks.com/sitemap.xml

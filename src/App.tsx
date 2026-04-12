@@ -47,6 +47,8 @@ const AdminReferrals = lazy(() => import('./pages/AdminReferrals').then(module =
 const AdminNotifications = lazy(() => import('./pages/AdminNotifications').then(module => ({ default: module.AdminNotifications })));
 const AdminStories = lazy(() => import('./pages/AdminStories').then(module => ({ default: module.AdminStories })));
 const AdminWithdrawals = lazy(() => import('./pages/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
+const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation').then(module => ({ default: module.EmailConfirmation })));
+const EmailVerified = lazy(() => import('./pages/EmailVerified').then(module => ({ default: module.EmailVerified })));
 
 function App() {
   return (
@@ -55,6 +57,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/email-confirmation" element={<EmailConfirmation />} />
+        <Route path="/email-verified" element={<EmailVerified />} />
         
         {/* PUBLIC BLOG LAYOUT */}
         <Route path="/" element={<BlogLayout />}>

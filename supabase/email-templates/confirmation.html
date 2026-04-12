@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirm Your Email — JobbaWorks</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f0f2f5; font-family:'Segoe UI', Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <table width="100%" cellspacing="0" cellpadding="0" border="0" style="padding:40px 16px;">
+    <tr>
+      <td align="center">
+
+        <!-- Main Card -->
+        <table width="560" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.06);">
+
+          <!-- Top Accent Bar -->
+          <tr>
+            <td style="height:6px; background:linear-gradient(90deg, #006b3f, #008751, #00b894, #6c5ce7);"></td>
+          </tr>
+
+          <!-- Logo Header -->
+          <tr>
+            <td style="padding:32px 40px 16px; text-align:center;">
+              <table cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                <tr>
+                  <td style="vertical-align:middle; padding-right:10px;">
+                    <img src="https://jobbaworks.com/logo.png" alt="JobbaWorks" width="40" height="40" style="border-radius:10px; display:block;" />
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-size:24px; font-weight:900; color:#008751; letter-spacing:-0.5px;">JobbaWorks</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Hero Icon -->
+          <tr>
+            <td style="text-align:center; padding:8px 0 20px;">
+              <div style="width:80px; height:80px; margin:0 auto; background:linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius:50%; line-height:80px; font-size:40px;">
+                ✉️
+              </div>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:0 40px; text-align:center;">
+              <h1 style="margin:0 0 8px; font-size:26px; font-weight:900; color:#0f172a; letter-spacing:-0.5px;">
+                Welcome aboard! 🎉
+              </h1>
+              <p style="margin:0 0 4px; font-size:16px; color:#475569; line-height:1.5;">
+                Dear <strong style="color:#0f172a;">{{ .UserMetaData.full_name }}</strong>,
+              </p>
+              <p style="margin:0; font-size:14px; color:#64748b; line-height:1.6;">
+                Thank you for joining JobbaWorks. You're one step away from unlocking your account.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td style="padding:32px 40px; text-align:center;">
+              <a href="{{ .ConfirmationURL }}"
+                 style="display:inline-block;
+                        background:linear-gradient(135deg, #006b3f, #008751);
+                        color:#ffffff;
+                        padding:16px 40px;
+                        text-decoration:none;
+                        border-radius:14px;
+                        font-weight:800;
+                        font-size:16px;
+                        letter-spacing:0.3px;
+                        box-shadow:0 6px 20px rgba(0,135,81,0.35);
+                        transition:all 0.2s;">
+                ✓&nbsp; Confirm My Email
+              </a>
+              <p style="margin:16px 0 0; font-size:12px; color:#94a3b8;">
+                Button not working? Copy and paste this link into your browser:
+              </p>
+              <p style="margin:4px 0 0; font-size:11px; color:#6c5ce7; word-break:break-all;">
+                {{ .ConfirmationURL }}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="height:1px; background:linear-gradient(90deg, transparent, #e2e8f0, transparent);"></div>
+            </td>
+          </tr>
+
+          <!-- What is JobbaWorks Section -->
+          <tr>
+            <td style="padding:28px 40px;">
+              <h2 style="margin:0 0 16px; font-size:16px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:1.5px; text-align:center;">
+                What you'll enjoy
+              </h2>
+              
+              <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                <!-- Feature 1 -->
+                <tr>
+                  <td style="padding:8px 0;">
+                    <table cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width:44px; vertical-align:top;">
+                          <div style="width:36px; height:36px; background:#e8f5e9; border-radius:10px; text-align:center; line-height:36px; font-size:18px;">📖</div>
+                        </td>
+                        <td style="vertical-align:top; padding-left:12px;">
+                          <p style="margin:0; font-size:14px; font-weight:700; color:#0f172a;">Read & Earn Rewards</p>
+                          <p style="margin:2px 0 0; font-size:12px; color:#64748b; line-height:1.4;">Earn points every time you read articles and stories. The more you read, the more you earn.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Feature 2 -->
+                <tr>
+                  <td style="padding:8px 0;">
+                    <table cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width:44px; vertical-align:top;">
+                          <div style="width:36px; height:36px; background:#ede9fe; border-radius:10px; text-align:center; line-height:36px; font-size:18px;">✍️</div>
+                        </td>
+                        <td style="vertical-align:top; padding-left:12px;">
+                          <p style="margin:0; font-size:14px; font-weight:700; color:#0f172a;">Write & Publish Stories</p>
+                          <p style="margin:2px 0 0; font-size:12px; color:#64748b; line-height:1.4;">Create serialized fiction, publish chapters, and build a loyal readership base.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Feature 3 -->
+                <tr>
+                  <td style="padding:8px 0;">
+                    <table cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width:44px; vertical-align:top;">
+                          <div style="width:36px; height:36px; background:#dbeafe; border-radius:10px; text-align:center; line-height:36px; font-size:18px;">💱</div>
+                        </td>
+                        <td style="vertical-align:top; padding-left:12px;">
+                          <p style="margin:0; font-size:14px; font-weight:700; color:#0f172a;">Swap & Withdraw</p>
+                          <p style="margin:2px 0 0; font-size:12px; color:#64748b; line-height:1.4;">Convert your Naira earnings to USD and withdraw directly to your bank account.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Feature 4 -->
+                <tr>
+                  <td style="padding:8px 0;">
+                    <table cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width:44px; vertical-align:top;">
+                          <div style="width:36px; height:36px; background:#fef3c7; border-radius:10px; text-align:center; line-height:36px; font-size:18px;">👥</div>
+                        </td>
+                        <td style="vertical-align:top; padding-left:12px;">
+                          <p style="margin:0; font-size:14px; font-weight:700; color:#0f172a;">Refer & Earn More</p>
+                          <p style="margin:2px 0 0; font-size:12px; color:#64748b; line-height:1.4;">Invite friends with your unique referral code and earn bonus points when they sign up.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="height:1px; background:linear-gradient(90deg, transparent, #e2e8f0, transparent);"></div>
+            </td>
+          </tr>
+
+          <!-- Security Notice -->
+          <tr>
+            <td style="padding:20px 40px;">
+              <table cellspacing="0" cellpadding="0" border="0" style="background:#f8fafc; border-radius:12px; width:100%;">
+                <tr>
+                  <td style="padding:16px;">
+                    <p style="margin:0; font-size:12px; color:#94a3b8; line-height:1.5; text-align:center;">
+                      🔒 This link expires in <strong>24 hours</strong>. If you didn't create an account on JobbaWorks, please ignore this email — no action is needed.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 30px; text-align:center;">
+              <p style="margin:0 0 4px; font-size:12px; color:#94a3b8;">
+                © 2026 <strong style="color:#64748b;">JobbaWorks</strong>. All rights reserved.
+              </p>
+              <p style="margin:0; font-size:11px; color:#cbd5e1;">
+                Read. Earn. Grow. 🚀
+              </p>
+            </td>
+          </tr>
+
+          <!-- Bottom Accent -->
+          <tr>
+            <td style="height:4px; background:linear-gradient(90deg, #6c5ce7, #008751, #00b894, #006b3f);"></td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

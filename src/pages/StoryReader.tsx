@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import confetti from 'canvas-confetti';
+import { SEO } from '../components/SEO';
 
 export function StoryReader() {
   const { slug, chapterNum } = useParams();
@@ -133,6 +134,20 @@ export function StoryReader() {
   if (!chapter) return <div className="py-32 text-center font-headline">Chapter could not be loaded.</div>;
 
   return (
+    <>
+    <SEO
+      title={`${chapter.title} — ${story.title}`}
+      description={`Read Chapter ${chapter.chapter_number} of ${story.title} on JobbaWorks. Serialized fiction you'll love.`}
+      url={`/stories/read/${story.slug}/${chapter.chapter_number}`}
+      type="article"
+      keywords={`${story.title}, chapter ${chapter.chapter_number}, webnovel, fiction, reading`}
+      breadcrumbs={[
+        { name: 'Home', url: '/' },
+        { name: 'Stories', url: '/stories' },
+        { name: story.title, url: `/stories/${story.slug}` },
+        { name: `Chapter ${chapter.chapter_number}`, url: `/stories/read/${story.slug}/${chapter.chapter_number}` },
+      ]}
+    />
     <div className="bg-[#fcfdfc] min-h-screen font-serif pb-32">
        {/* Reader top bar */}
        <div className="sticky top-0 bg-[#fcfdfc]/95 backdrop-blur-md border-b border-slate-100 p-4 z-40 flex items-center justify-between shadow-[0px_4px_20px_rgba(0,0,0,0.02)]">
@@ -218,5 +233,6 @@ export function StoryReader() {
          </div>
        </div>
     </div>
+    </>
   );
 }

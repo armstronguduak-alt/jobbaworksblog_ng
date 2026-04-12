@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchArticleData } from './PublicArticle';
+import { SEO } from '../components/SEO';
 
 
 
@@ -75,6 +76,13 @@ export function Home() {
   };
 
   return (
+    <>
+      <SEO 
+        title={slug ? `${activeCategory} Articles` : undefined}
+        description={slug ? `Browse ${activeCategory} articles on JobbaWorks. Read, learn, and earn rewards.` : undefined}
+        url={slug ? `/${slug}` : '/'}
+        breadcrumbs={slug ? [{ name: 'Home', url: '/' }, { name: activeCategory, url: `/${slug}` }] : undefined}
+      />
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
       {/* Hero Section */}
       {!user && !slug && (
@@ -302,5 +310,6 @@ export function Home() {
         )}
       </section>
     </main>
+    </>
   );
 }
