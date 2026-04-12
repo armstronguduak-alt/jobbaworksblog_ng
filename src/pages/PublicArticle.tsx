@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -103,7 +103,7 @@ export function PublicArticle() {
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [commentSuccess, setCommentSuccess] = useState('');
-  const navigate = useNavigate();
+  
   
   // Reading Timer State
   const [timeLeft, setTimeLeft] = useState<number | null>(null);

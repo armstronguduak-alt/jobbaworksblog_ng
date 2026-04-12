@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
 
 export function AdminStories() {
-  const { showAlert, showConfirm } = useDialog();
+  const { showAlert } = useDialog();
   const [stories, setStories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'published' | 'rejected'>('pending');

@@ -7,7 +7,7 @@ interface CommunityModalProps {
 }
 
 export function CommunityModal({ isOpen, onClose }: CommunityModalProps) {
-  const { user } = useAuth();
+  
   const [links, setLinks] = useState({ telegram: '#', whatsapp: '#' });
   useEffect(() => {
     if (isOpen) fetchData();
