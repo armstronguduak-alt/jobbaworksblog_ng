@@ -47,9 +47,9 @@ function App() {
         {/* PUBLIC BLOG LAYOUT */}
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
-          <Route path="category/:slug" element={<Home />} />
-          <Route path="article/:slug" element={<PublicArticle />} />
           <Route path="author/:username" element={<PublicProfile />} />
+          <Route path=":slug" element={<Home />} />
+          <Route path=":categorySlug/:slug" element={<PublicArticle />} />
           <Route path="promotional" element={<Promotional />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-of-service" element={<TermsOfService />} />

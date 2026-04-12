@@ -24,7 +24,7 @@ export function Home() {
         .from('posts')
         .select(`
           id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at,
-          category:categories(name),
+          category:categories(name, slug),
           author:profiles!posts_author_user_id_fkey(name, username, avatar_url, is_verified)
         `)
         .eq('status', 'approved')
@@ -143,7 +143,7 @@ export function Home() {
                 <span className="inline-block self-start px-3 py-1 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs mb-4">
                   {featuredPosts[0].category?.name || 'Featured'}
                 </span>
-                <Link to={`/article/${featuredPosts[0].slug}`}>
+                <Link to={`/${featuredPosts[0].category?.slug || 'post'}/${featuredPosts[0].slug}`}>
                   <h3 className="text-2xl md:text-4xl font-bold text-white mb-4 leading-tight hover:underline cursor-pointer">{featuredPosts[0].title}</h3>
                 </Link>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -193,7 +193,7 @@ export function Home() {
                   </div>
                 )}
                 <div className="flex flex-col py-1 overflow-hidden pr-2">
-                  <Link to={`/article/${post.slug}`} className="block">
+                  <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="block">
                     <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2 group-hover:text-primary transition-colors">{post.title}</h4>
                   </Link>
                   <div className="mt-auto flex items-center gap-2 text-[10px] text-slate-400 font-medium">
@@ -225,8 +225,9 @@ export function Home() {
             </div>
           )}
         </div>
-        </>
-      )}
+      </div>
+      </>
+    )}
 
       {/* Latest Posts Feed */}
       <section className="mb-20">
@@ -248,11 +249,11 @@ export function Home() {
             <p className="text-on-surface-variant font-medium">No articles found right now. Check back later!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredLatest.map((post) => (
               <div 
                 key={post.id} 
-                className="bg-white rounded-2xl flex gap-3 shadow-sm border border-surface-container-low hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer overflow-hidden"
+                className="bg-white rounded-3xl flex flex-col shadow-sm border border-surface-container-low hover:shadow-xl hover:-translate-y-1 transition-all group overflow-hidden"
                 onMouseEnter={() => {
                   queryClient.prefetchQuery({
                     queryKey: ['article', post.slug, user?.id],
@@ -262,7 +263,7 @@ export function Home() {
                 }}
               >
                 {/* Image */}
-                <div className="w-[100px] sm:w-[120px] h-[90px] sm:h-[100px] flex-shrink-0 relative overflow-hidden">
+                <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="w-full aspect-[4/3] flex-shrink-0 relative overflow-hidden block">
                   {post.featured_image ? (
                     <img 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
@@ -271,28 +272,28 @@ export function Home() {
                     />
                   ) : (
                     <div className="w-full h-full bg-surface-container flex items-center justify-center">
-                      <span className="material-symbols-outlined text-3xl text-on-surface-variant/30">article</span>
+                      <span className="material-symbols-outlined text-4xl text-on-surface-variant/30">article</span>
                     </div>
                   )}
                   {/* Category Tag */}
-                  <div className="absolute top-1.5 left-1.5">
-                    <span className="px-1.5 py-0.5 bg-black/65 backdrop-blur-md text-white rounded text-[8px] font-bold uppercase tracking-wider">
+                  <div className="absolute top-3 left-3">
+                    <span className="px-2.5 py-1 bg-black/65 backdrop-blur-md text-white rounded-lg text-[10px] font-bold uppercase tracking-wider">
                       {post.category?.name || 'Topic'}
                     </span>
                   </div>
-                </div>
+                </Link>
 
                 {/* Content */}
-                <div className="flex flex-col justify-center py-3 pr-3 flex-1 overflow-hidden">
-                  <Link to={`/article/${post.slug}`} className="block">
-                    <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-snug mb-1.5">
+                <div className="flex flex-col flex-1 p-5">
+                  <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="block mb-3 flex-1">
+                    <h3 className="text-base font-bold text-[#0f172a] group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                       {post.title}
                     </h3>
                   </Link>
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-slate-400 font-medium">{timeAgo(post.created_at)}</span>
+                  <div className="flex items-center gap-2 text-xs border-t border-surface-container pt-3 mt-auto">
+                    <span className="text-slate-500 font-medium">{timeAgo(post.created_at)}</span>
                     <span className="w-1 h-1 rounded-full bg-slate-300" />
-                    <span className="text-emerald-600 font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
+                    <span className="text-[#006b3f] font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
                   </div>
                 </div>
               </div>

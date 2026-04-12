@@ -54,7 +54,7 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
   let readAlsoData: any[] = [];
   const { data: trendData } = await supabase
     .from('posts')
-    .select('id, title, slug, featured_image, created_at')
+    .select('id, title, slug, featured_image, created_at, category:categories(slug)')
     .eq('status', 'approved')
     .neq('id', pData.id)
     .order('views', { ascending: false })
@@ -376,7 +376,7 @@ export function PublicArticle() {
               </h4>
               <div className="flex flex-col gap-3">
                 {readAlsoPosts.map((item: any, idx: number) => (
-                  <a key={idx} href={`/article/${item.slug}`} className="flex items-center gap-4 group cursor-pointer no-underline block hover:bg-white p-2.5 rounded-xl transition-all border border-transparent hover:border-surface-container-low shadow-sm hover:shadow-md shrink-0">
+                  <a key={idx} href={`/${item.category?.slug || 'post'}/${item.slug}`} className="flex items-center gap-4 group cursor-pointer no-underline block hover:bg-white p-2.5 rounded-xl transition-all border border-transparent hover:border-surface-container-low shadow-sm hover:shadow-md shrink-0">
                     {item.image || item.featured_image ? (
                       <img src={item.image || item.featured_image} className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover shrink-0 bg-surface-container" alt={item.title} />
                     ) : (
@@ -478,7 +478,7 @@ export function PublicArticle() {
           <h3 className="text-xl md:text-2xl font-black font-headline text-[#0f172a] mb-6">Related Articles</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {relatedPosts.map((rp: any) => (
-              <Link key={rp.slug} to={`/article/${rp.slug}`} className="group flex flex-col">
+              <Link key={rp.slug} to={`/${post.category?.slug || 'post'}/${rp.slug}`} className="group flex flex-col">
                 <div className="aspect-[4/3] rounded-xl overflow-hidden bg-surface-container-low mb-3 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] relative border border-surface-container-low/50">
                   {rp.featured_image || rp.image ? (
                     <img src={rp.featured_image || rp.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={rp.title} />
