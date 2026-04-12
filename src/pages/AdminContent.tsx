@@ -281,6 +281,16 @@ export function AdminContent() {
           <div className="bg-surface rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between p-6 border-b border-surface-container-low bg-surface-container-lowest">
               <h2 className="text-xl font-black font-headline text-on-surface">Reviewing: {selectedPost.title}</h2>
+              <div className="flex items-center gap-4 border border-surface-container rounded-lg px-2 py-1 bg-white">
+                <label className="text-[10px] font-bold text-outline">Reading time (s):</label>
+                <input 
+                  type="number"
+                  min="0"
+                  className="w-16 text-right outline-none text-sm font-bold text-on-surface"
+                  value={selectedPost.reading_time_seconds || 0}
+                  onChange={(e) => setSelectedPost({...selectedPost, reading_time_seconds: parseInt(e.target.value) || 0})}
+                />
+              </div>
               <button 
                 onClick={() => setSelectedPost(null)}
                 className="w-10 h-10 rounded-full hover:bg-surface-container flex items-center justify-center transition-colors shrink-0"
@@ -308,10 +318,17 @@ export function AdminContent() {
                 Reject Article
               </button>
               <button 
-                onClick={() => handleUpdateStatus(selectedPost, 'approved')}
+                onClick={async () => {
+                  try {
+                    await supabase.from('posts').update({ reading_time_seconds: selectedPost.reading_time_seconds }).eq('id', selectedPost.id);
+                    await handleUpdateStatus(selectedPost, 'approved');
+                  } catch (e) {
+                    console.error('Error saving reading time', e);
+                  }
+                }}
                 className="px-8 py-3 rounded-xl font-bold bg-primary text-white hover:bg-emerald-700 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
               >
-                Approve & Publish
+                Approve & Publish (Save changes)
               </button>
             </div>
           </div>

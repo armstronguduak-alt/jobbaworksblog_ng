@@ -46,7 +46,7 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
       .eq('category_id', pData.category_id)
       .neq('id', pData.id)
       .order('created_at', { ascending: false })
-      .limit(3);
+      .limit(5);
     if (data) rData = data;
   }
 
@@ -176,6 +176,7 @@ export function PublicArticle() {
 
       if (error) {
         console.error('Comment error:', error.message);
+        setCommentSuccess('Error: ' + error.message);
       } else {
         const response = data as any;
         if (response.success) {
@@ -185,8 +186,8 @@ export function PublicArticle() {
           if (response.amount > 0) {
             navigate('/earn');
           } else {
-            setCommentSuccess('Comment posted!');
-            setTimeout(() => setCommentSuccess(''), 3000);
+            setCommentSuccess('Comment posted! ' + (response.message || ''));
+            setTimeout(() => setCommentSuccess(''), 4000);
           }
         }
       }
@@ -320,8 +321,8 @@ export function PublicArticle() {
       </div>
 
       {post.featured_image && (
-        <div className="w-full h-[400px] md:h-[500px] mb-12 rounded-3xl overflow-hidden shadow-lg">
-          <img src={post.featured_image} alt={post.title} className="w-full h-full object-cover" />
+        <div className="w-full mb-12 rounded-3xl overflow-hidden shadow-lg border border-surface-container-low">
+          <img src={post.featured_image} alt={post.title} className="w-full h-auto object-cover" />
         </div>
       )}
 
@@ -336,11 +337,13 @@ export function PublicArticle() {
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
       
-      {/* Read Also Section */}
+      {/* Read Also Section - Inline */}
       {relatedPosts.length > 0 && (
         <div className="my-10 p-5 md:p-6 bg-surface-container-lowest border-l-4 border-primary rounded-r-2xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 group cursor-pointer hover:border-emerald-600 transition-colors" onClick={() => window.location.href = `/article/${relatedPosts[0].slug}`}>
           <div>
-            <span className="text-xs font-black uppercase tracking-widest text-primary mb-1 block">Read Also</span>
+            <span className="text-xs font-black uppercase tracking-widest text-primary mb-1 block flex items-center gap-2">
+              <span className="material-symbols-outlined text-[14px]">bolt</span> Read Also
+            </span>
             <span className="text-lg md:text-xl font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
               {relatedPosts[0].title}
             </span>

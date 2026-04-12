@@ -29,6 +29,7 @@ export function AdminLayout() {
     { name: 'Post Moderation', path: '/admin/moderation', icon: 'fact_check' },
     { name: 'User Management', path: '/admin/users', icon: 'group' },
     { name: 'Categories', path: '/admin/categories', icon: 'sell' },
+    { name: 'Transactions', path: '/admin/transactions', icon: 'payments' },
     { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
     { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
     { name: 'Articles Management', path: '/admin/articles', icon: 'article' },

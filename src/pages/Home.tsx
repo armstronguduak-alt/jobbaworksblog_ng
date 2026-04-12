@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { fetchArticleData } from './PublicArticle';
 
 export function Home() {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const [activeCategory, setActiveCategory] = useState('All Feed');
 
   const queryClient = useQueryClient();
@@ -57,9 +58,12 @@ export function Home() {
     }
   }, [slug, categories]);
 
-  const filteredLatest = activeCategory === 'All Feed'
+  const searchQuery = new URLSearchParams(location.search).get('search')?.toLowerCase() || '';
+
+  const filteredLatest = (activeCategory === 'All Feed'
     ? latestPosts
-    : latestPosts.filter(p => p.category?.name === activeCategory);
+    : latestPosts.filter(p => p.category?.name === activeCategory))
+    .filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery) || p.excerpt?.toLowerCase().includes(searchQuery));
 
   const timeAgo = (date: string) => {
     if (!date) return '';

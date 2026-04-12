@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Menu, X, Search } from 'lucide-react';
 import { Footer } from '../components/Footer';
@@ -8,10 +8,12 @@ import { supabase } from '../lib/supabase';
 export function BlogLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
   const { user, profile, signOut } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Hide search bar on individual article pages
   const isArticlePage = location.pathname.startsWith('/article/');
@@ -74,6 +76,13 @@ export function BlogLayout() {
                 <Search size={15} className="text-on-surface-variant mr-2" />
                 <input 
                   type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }
+                  }}
                   placeholder="Search articles..." 
                   className="bg-transparent border-none outline-none text-sm w-full text-on-surface placeholder:text-on-surface-variant font-medium" 
                 />
@@ -113,7 +122,8 @@ export function BlogLayout() {
             ) : (
               <div className="flex gap-2 ml-1">
                 <Link to="/login" className="text-sm font-bold text-emerald-800 px-3 py-1.5 hover:bg-emerald-50 rounded-full transition-colors hidden md:block">Login</Link>
-                <Link to="/signup" className="text-sm font-bold text-white bg-primary px-3 py-1.5 hover:bg-emerald-800 rounded-full shadow-md transition-colors">Sign Up</Link>
+                <Link to="/signup" className="text-sm font-bold text-white bg-primary px-3 py-1.5 hover:bg-emerald-800 rounded-full shadow-md transition-colors hidden md:block">Sign Up</Link>
+                <Link to="/login" className="text-sm font-bold text-white bg-primary px-3 py-1.5 hover:bg-emerald-800 rounded-full shadow-md transition-colors md:hidden">Sign In</Link>
               </div>
             )}
           </div>
@@ -126,6 +136,13 @@ export function BlogLayout() {
               <Search size={15} className="text-on-surface-variant mr-2" />
               <input 
                 type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+                  }
+                }}
                 placeholder="Search articles..." 
                 className="bg-transparent border-none outline-none text-sm w-full text-on-surface" 
               />
@@ -218,10 +235,16 @@ export function BlogLayout() {
               </button>
             </div>
           ) : (
-            <Link to="/signup" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold shadow-md">
-              <span className="material-symbols-outlined text-[18px]">person_add</span>
-              Create Free Account
-            </Link>
+            <div className="space-y-2">
+              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold shadow-md">
+                <span className="material-symbols-outlined text-[18px]">login</span>
+                Sign In
+              </Link>
+              <Link to="/signup" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center justify-center gap-2 border border-surface-container py-3 rounded-xl font-bold text-emerald-950">
+                <span className="material-symbols-outlined text-[18px]">person_add</span>
+                Create Free Account
+              </Link>
+            </div>
           )}
         </div>
       </aside>
