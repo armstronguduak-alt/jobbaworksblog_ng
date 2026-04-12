@@ -128,6 +128,17 @@ export function CreateStory() {
     setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
   };
 
+  // Rich text commands (same as article editor)
+  const executeCommand = (command: string, value: string | undefined = undefined) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const handleInsertLink = () => {
+    const url = prompt('Enter the link URL:');
+    if (url) executeCommand('createLink', url);
+  };
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -158,10 +169,10 @@ export function CreateStory() {
       try {
         const ext = file.name.split('.').pop();
         const fileName = `story-covers/${user!.id}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
+        const { error: uploadError } = await supabase.storage.from('post_images').upload(fileName, file, { upsert: true });
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
+        const { data: urlData } = supabase.storage.from('post_images').getPublicUrl(fileName);
         setCoverUrl(urlData.publicUrl);
         showAlert('Cover image uploaded successfully!', 'Success');
       } catch (err: any) {
@@ -311,14 +322,71 @@ export function CreateStory() {
             <div className="space-y-1 pt-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-[#0f172a] block">Chapter Content (Rich Text)</label>
               
+              {/* Rich Text Toolbar */}
+              <div className="flex flex-wrap items-center gap-1 p-2 bg-surface-container rounded-2xl overflow-x-auto">
+                <button title="Bold" onMouseDown={e => { e.preventDefault(); executeCommand('bold'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_bold</span>
+                </button>
+                <button title="Italic" onMouseDown={e => { e.preventDefault(); executeCommand('italic'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_italic</span>
+                </button>
+                <button title="Underline" onMouseDown={e => { e.preventDefault(); executeCommand('underline'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_underlined</span>
+                </button>
+                <button title="Heading 2" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'h2'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="text-xs font-black text-on-surface-variant group-hover:text-primary">H2</span>
+                </button>
+                <button title="Heading 3" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'h3'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="text-xs font-black text-on-surface-variant group-hover:text-primary">H3</span>
+                </button>
+                <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
+                <button title="Bullet List" onMouseDown={e => { e.preventDefault(); executeCommand('insertUnorderedList'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_list_bulleted</span>
+                </button>
+                <button title="Numbered List" onMouseDown={e => { e.preventDefault(); executeCommand('insertOrderedList'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_list_numbered</span>
+                </button>
+                <div className="w-px h-6 bg-outline-variant/30 mx-1 hidden sm:block"></div>
+                <button title="Insert Link" onMouseDown={e => { e.preventDefault(); handleInsertLink(); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">link</span>
+                </button>
+                <button title="Blockquote" onMouseDown={e => { e.preventDefault(); executeCommand('formatBlock', 'BLOCKQUOTE'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_quote</span>
+                </button>
+                <button title="Undo" onMouseDown={e => { e.preventDefault(); executeCommand('undo'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">undo</span>
+                </button>
+                <button title="Redo" onMouseDown={e => { e.preventDefault(); executeCommand('redo'); }} className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors group">
+                  <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">redo</span>
+                </button>
+                <div className="ml-auto flex items-center gap-2 pr-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-outline">Story Editor</span>
+                </div>
+              </div>
+
               <div 
                 ref={editorRef}
-                className="w-full min-h-[400px] bg-surface-container-lowest rounded-xl p-4 md:p-6 border border-outline-variant/50 focus:border-primary transition-colors outline-none text-on-surface overflow-y-auto prose prose-emerald prose-headings:font-headline"
+                className="w-full min-h-[400px] bg-surface-container-lowest rounded-xl p-4 md:p-6 border border-outline-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-on-surface overflow-y-auto"
                 contentEditable
+                suppressContentEditableWarning
                 data-placeholder="Once upon a time..."
                 style={{ emptyCells: 'show' }}
               />
-              <style>{'[contentEditable]:empty:before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; display: block; }'}</style>
+              <style>{`
+                [contentEditable]:empty:before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; display: block; }
+                [contentEditable] h1 { font-size: 2em; font-weight: 900; margin: 1rem 0 0.5rem; line-height: 1.2; }
+                [contentEditable] h2 { font-size: 1.5em; font-weight: 800; margin: 1rem 0 0.5rem; line-height: 1.3; }
+                [contentEditable] h3 { font-size: 1.2em; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+                [contentEditable] p { margin-bottom: 0.75rem; line-height: 1.8; }
+                [contentEditable] strong, [contentEditable] b { font-weight: 700; }
+                [contentEditable] em, [contentEditable] i { font-style: italic; }
+                [contentEditable] u { text-decoration: underline; }
+                [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }
+                [contentEditable] ul { list-style-type: disc !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
+                [contentEditable] ol { list-style-type: decimal !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
+                [contentEditable] li { margin-bottom: 0.5rem !important; display: list-item !important; }
+                [contentEditable] br { display: block; content: ""; margin-top: 0.5rem; }
+              `}</style>
             </div>
             
             <button onClick={handleChapterSubmit} disabled={isSubmitting} className="w-full py-4 rounded-xl bg-primary text-white font-black text-lg hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all">

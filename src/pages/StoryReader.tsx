@@ -153,9 +153,10 @@ export function StoryReader() {
          </h2>
          
          <div 
-           className="prose prose-lg md:prose-xl max-w-none prose-slate prose-p:leading-loose prose-p:mb-6 text-slate-800"
-           dangerouslySetInnerHTML={{ __html: chapter.content }}
-         />
+            className="prose prose-lg md:prose-xl max-w-none prose-slate prose-p:leading-loose prose-p:mb-6 prose-headings:font-headline prose-headings:text-slate-900 prose-blockquote:border-l-[#6c5ce7] prose-blockquote:text-slate-600 prose-a:text-[#6c5ce7] text-slate-800"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            dangerouslySetInnerHTML={{ __html: chapter.content }}
+          />
        </div>
 
        {/* Chapter Navigation */}
