@@ -28,15 +28,29 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
   }
   pData.author.is_verified = isVerified;
   
-  // Fetch Comments
-  const { data: cData } = await supabase
+  // Fetch Comments then enrich with profile data
+  const { data: rawComments } = await supabase
     .from('post_comments')
-    .select(`
-      id, content, created_at,
-      profiles!post_comments_user_id_fkey(name, username, avatar_url)
-    `)
+    .select('id, content, created_at, user_id')
     .eq('post_id', pData.id)
     .order('created_at', { ascending: false });
+
+  let cData: any[] = [];
+  if (rawComments && rawComments.length > 0) {
+    const userIds = [...new Set(rawComments.map(c => c.user_id))];
+    const { data: commentProfiles } = await supabase
+      .from('profiles')
+      .select('user_id, name, username, avatar_url')
+      .in('user_id', userIds);
+    
+    const profileMap: Record<string, any> = {};
+    (commentProfiles || []).forEach(p => { profileMap[p.user_id] = p; });
+
+    cData = rawComments.map(c => ({
+      ...c,
+      profiles: profileMap[c.user_id] || { name: 'Unknown', username: 'user' }
+    }));
+  }
 
   // Fetch Related Posts
   let rData: any[] = [];

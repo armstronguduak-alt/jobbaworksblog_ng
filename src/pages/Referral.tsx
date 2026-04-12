@@ -10,7 +10,6 @@ export function Referral() {
   const [pendingBonus, setPendingBonus] = useState<number>(0);
   const [perUserEarnings, setPerUserEarnings] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
   const [visibleCount, setVisibleCount] = useState(5);
 
   // Fetch initial data & set up real-time subscriptions
@@ -210,22 +209,7 @@ export function Referral() {
     }
   };
 
-  const isRefActive = (ref: any) => {
-    const p = ref.profiles?.[0] || ref.profiles || {};
-    const sub = p.user_subscriptions?.[0] || p.user_subscriptions || {};
-    return sub.plan_id && sub.plan_id !== 'free'; // Consider active if they have a non-free plan
-  };
-
-  // Filter referrals by tab
-  const filteredReferrals = referrals.filter((ref: any) => {
-    if (activeTab === 'all') return true;
-    const active = isRefActive(ref);
-    return activeTab === 'active' ? active : !active;
-  });
-
-  const activeCount = referrals.filter(isRefActive).length;
-  
-  const displayedReferrals = filteredReferrals.slice(0, visibleCount);
+  const displayedReferrals = referrals.slice(0, visibleCount);
 
   if (isLoading) {
     return (
@@ -326,10 +310,10 @@ export function Referral() {
             </div>
           </div>
           <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Active Referrals</p>
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Referrers</p>
             <div className="flex items-baseline gap-1 pt-1">
-              <span className="text-2xl font-black text-emerald-900 font-headline">{activeCount}</span>
-              <span className="text-xs text-on-surface-variant font-medium">/ {referrals.length} total</span>
+              <span className="text-2xl font-black text-emerald-900 font-headline">{referrals.length}</span>
+              <span className="text-xs text-on-surface-variant font-medium">people referred</span>
             </div>
           </div>
           <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20 relative overflow-hidden">
@@ -394,32 +378,16 @@ export function Referral() {
         <section className="space-y-4 pb-4">
           <div className="flex justify-between items-center px-1">
             <h3 className="font-headline font-bold text-lg text-emerald-900">Your Referrals</h3>
-            <div className="flex gap-1 bg-surface-container rounded-full p-1">
-              {(['all', 'active', 'inactive'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                    activeTab === tab
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'text-on-surface-variant hover:bg-surface-container-highest'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <span className="text-xs text-on-surface-variant font-bold">{referrals.length} total</span>
           </div>
           <div className="space-y-3">
             {displayedReferrals.length === 0 ? (
                <div className="text-center bg-surface-container-lowest p-8 border border-dashed border-outline-variant/30 rounded-2xl">
                  <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">group_off</span>
                  <p className="text-on-surface-variant font-medium mb-1">
-                   {activeTab === 'all'
-                     ? "You haven't referred anyone yet."
-                     : `No ${activeTab} referrals found.`}
+                   You haven't referred anyone yet.
                  </p>
-                 <p className="text-xs text-on-surface-variant">Share your link above to start earning!</p>
+                 <p className="text-xs text-on-surface-variant">Share your link above to start!</p>
                </div>
             ) : (
               displayedReferrals.map((ref: any, index: number) => {
@@ -463,7 +431,7 @@ export function Referral() {
               })
             )}
 
-            {filteredReferrals.length > visibleCount && (
+            {referrals.length > visibleCount && (
               <div className="flex justify-center pt-4">
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 10)}
