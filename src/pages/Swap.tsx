@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function Swap() {
   const { user } = useAuth();
@@ -11,8 +12,10 @@ export function Swap() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  const EXCHANGE_RATE = 1600;
-  const FEE_PERCENT = 0.005;
+  const { exchangeRates } = useAppSettings();
+
+  const EXCHANGE_RATE = exchangeRates.dollarPrice;
+  const FEE_PERCENT = exchangeRates.swapFee / 100;
 
   useEffect(() => {
     if (user?.id) {
@@ -214,7 +217,7 @@ export function Swap() {
           {/* Transaction Details */}
           <div className="space-y-3 pt-4 border-t border-surface-container-highest">
             <div className="flex justify-between text-sm">
-              <span className="text-on-surface-variant">Service Fee (0.5%)</span>
+              <span className="text-on-surface-variant">Service Fee ({exchangeRates.swapFee}%)</span>
               <span className="font-semibold text-on-surface">₦{fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-sm">

@@ -15,6 +15,11 @@ export function PublicArticle() {
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [relatedPosts, setRelatedPosts] = useState<any[]>([]);
+  
+  // Reading Timer State
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [readCompleted, setReadCompleted] = useState(false);
+  const totalTimeRef = useState<number>(0);
 
   useEffect(() => {
     if (slug) fetchArticle();
@@ -85,9 +90,29 @@ export function PublicArticle() {
       supabase.rpc('increment_view_count', { post_slug: slug }).then(({error}) => {
          if (error) console.error("View tracking error:", error);
       });
+
+      // Initialize reading timer
+      const readSeconds = pData.reading_time_seconds || 60;
+      const readFlag = localStorage.getItem(`jobbaworks_read_${pData.id}`);
+      if (readFlag === 'true') {
+        setReadCompleted(true);
+      } else {
+        setTimeLeft(readSeconds);
+        totalTimeRef[1](readSeconds);
+      }
     }
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    if (timeLeft !== null && timeLeft > 0) {
+      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timerId);
+    } else if (timeLeft === 0 && post) {
+      setReadCompleted(true);
+      localStorage.setItem(`jobbaworks_read_${post.id}`, 'true');
+    }
+  }, [timeLeft, post]);
 
   const toggleFollow = async () => {
     if (!user?.id || !post?.author) return;
@@ -130,8 +155,54 @@ export function PublicArticle() {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
+  const totalTime = totalTimeRef[0];
+  const progressPercentage = timeLeft !== null && totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 100;
+
   return (
-    <article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32">
+    <article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 relative">
+      
+      {/* Floating Pie Countdown */}
+      {timeLeft !== null && !readCompleted && (
+        <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50 bg-white p-3 rounded-full shadow-2xl border border-emerald-100 flex items-center justify-center">
+          <div className="relative w-14 h-14 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <path
+                className="text-emerald-100"
+                strokeWidth="3"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="text-emerald-500 transition-all duration-1000 ease-linear"
+                strokeDasharray={`${progressPercentage}, 100`}
+                strokeWidth="3"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center flex-col">
+              <span className="text-xs font-black text-emerald-800">{timeLeft}s</span>
+            </div>
+          </div>
+          <div className="absolute -top-10 right-0 whitespace-nowrap bg-emerald-900 text-white text-[10px] uppercase font-bold py-1 px-3 rounded-full shadow-md animate-pulse">
+            Reading Task Active
+          </div>
+        </div>
+      )}
+
+      {/* Task Completed Alert */}
+      {readCompleted && user && (
+        <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50 bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
+          <span className="material-symbols-outlined text-3xl">check_circle</span>
+          <div>
+            <p className="font-bold text-sm leading-tight">Reading Verified!</p>
+            <Link to="/earn" className="text-[10px] font-black uppercase underline hover:text-emerald-100">Claim Reward Now</Link>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         {post.category && (
           <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs uppercase tracking-widest mb-4">
@@ -188,7 +259,7 @@ export function PublicArticle() {
       )}
 
       <div 
-        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-16"
+        className="prose prose-lg md:prose-xl max-w-none prose-emerald prose-headings:font-headline mb-16 whitespace-pre-wrap text-slate-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
       

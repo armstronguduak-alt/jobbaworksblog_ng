@@ -13,6 +13,21 @@ export function AdminTransactions() {
   useEffect(() => {
     if (isAdmin) {
       fetchTransactions();
+
+      // Real-time listener for incoming transactions
+      const txListener = supabase.channel('admin-realtime-tx')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'wallet_transactions' },
+          (payload) => {
+            fetchTransactions(); // Re-fetch or intelligently unshift payload.new
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(txListener);
+      };
     }
   }, [isAdmin]);
 
@@ -114,10 +129,19 @@ export function AdminTransactions() {
                       <p className="text-[10px] text-on-surface-variant truncate max-w-[150px]">{tx.profiles?.email}</p>
                     </td>
                     <td className="p-4">
-                      <span className="capitalize font-medium">{tx.type.replace(/_/g, ' ')}</span>
+                      <span className="capitalize font-bold text-on-surface">{tx.type.replace(/_/g, ' ')}</span>
+                      {tx.meta && Object.keys(tx.meta).length > 0 && (
+                        <div className="mt-1 text-[10px] text-on-surface-variant max-w-[150px]">
+                          {tx.meta.plan_id ? <span className="block truncate bg-surface-container px-1 rounded">Plan: {tx.meta.plan_id}</span> : null}
+                          {tx.meta.referred_username ? <span className="block truncate bg-surface-container px-1 rounded mt-0.5">Ref: @{tx.meta.referred_username}</span> : null}
+                          {tx.meta.transaction_details ? <span className="block truncate bg-surface-container px-1 rounded mt-0.5">{tx.meta.transaction_details}</span> : null}
+                        </div>
+                      )}
                     </td>
-                    <td className="p-4 font-bold text-emerald-800">
-                      ₦{Number(tx.amount).toLocaleString()}
+                    <td className="p-4 font-black flex flex-col justify-center h-full">
+                       <span className={tx.type === 'withdrawal' && tx.status === 'completed' ? 'text-rose-600' : tx.type === 'deposit' || tx.type === 'referral_bonus' ? 'text-emerald-600' : 'text-on-surface'}>
+                         {tx.type === 'withdrawal' && tx.status === 'completed' ? '-' : '+'}₦{Number(tx.amount).toLocaleString()}
+                       </span>
                     </td>
                     <td className="p-4 text-on-surface-variant text-[11px]">
                       {new Date(tx.created_at).toLocaleString()}

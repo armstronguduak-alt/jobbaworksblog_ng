@@ -11,6 +11,8 @@ export function AdminManagement() {
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
   const [activePostsCount, setActivePostsCount] = useState(0);
   const [recentWithdrawals, setRecentWithdrawals] = useState<any[]>([]);
+  const [totalDeposits, setTotalDeposits] = useState(0);
+  const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -94,6 +96,31 @@ export function AdminManagement() {
 
       if (recentWth) setRecentWithdrawals(recentWth);
 
+      // Fetch Total Deposits / Revenue
+      const { data: depositsData } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
+        .eq('status', 'completed');
+      
+      if (depositsData) {
+        const depSum = depositsData.reduce((acc, tx) => acc + Number(tx.amount), 0);
+        setTotalDeposits(depSum);
+      }
+
+      // Fetch Recent Deposits/Purchases
+      const { data: rDeposits } = await supabase
+        .from('wallet_transactions')
+        .select(`
+          id, amount, status, type, metadata, created_at,
+          profiles:user_id (name, username)
+        `)
+        .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
+        .order('created_at', { ascending: false })
+        .limit(5);
+        
+      if (rDeposits) setRecentDeposits(rDeposits);
+
     } catch (err) {
       console.error("Error fetching admin stats:", err);
     } finally {
@@ -170,6 +197,19 @@ export function AdminManagement() {
             <span>Live Articles Count</span>
           </div>
         </div>
+
+        {/* Total Revenue / Deposits */}
+        <div className="bg-[#f0f9ff] p-6 rounded-[1.5rem] border border-[#bae6fd]">
+          <div className="w-12 h-12 rounded-full bg-[#38bdf8]/20 flex items-center justify-center text-[#0284c7] mb-4">
+            <span className="material-symbols-outlined">account_balance_wallet</span>
+          </div>
+          <p className="text-[#0c4a6e]/70 text-sm font-medium mb-1">Total System Revenue</p>
+          <h3 className="text-[#0c4a6e] text-3xl font-bold font-headline">₦{isLoading ? '...' : totalDeposits.toLocaleString()}</h3>
+          <div className="mt-4 flex items-center gap-2 text-[#0284c7] text-xs font-bold">
+            <span className="material-symbols-outlined text-sm">trending_up</span>
+            <span>Deposits & Subscriptions</span>
+          </div>
+        </div>
       </div>
 
       {/* Asymmetric Section: Pending Approvals & Quick Insights */}
@@ -200,6 +240,44 @@ export function AdminManagement() {
                   <div className="text-right shrink-0 ml-2">
                     <p className="font-bold text-on-surface text-sm md:text-base">₦{Number(tx.amount).toLocaleString()}</p>
                     <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex justify-between items-end px-2 mt-8">
+            <h2 className="text-xl font-bold font-headline text-on-surface">Recent Deposits & Plans</h2>
+          </div>
+          <div className="space-y-4 pt-2">
+            {isLoading ? (
+              <div className="p-6 text-center text-on-surface-variant">Loading deposits...</div>
+            ) : recentDeposits.length === 0 ? (
+              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl">No recent deposits.</div>
+            ) : (
+              recentDeposits.map(tx => (
+                <div key={tx.id} className="bg-white p-5 rounded-[1.2rem] flex items-center justify-between shadow-[0px_4px_12px_rgba(0,0,0,0.02)] border border-surface-container-low hover:border-blue-200 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                      <span className="material-symbols-outlined">
+                         {tx.type === 'plan_purchase' || tx.type === 'subscription_payment' ? 'workspace_premium' : 'savings'}
+                      </span>
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-on-surface text-sm md:text-base truncate">
+                        {tx.profiles?.name || 'Unknown'} 
+                        <span className="opacity-50 text-xs ml-1 font-normal">(@{tx.profiles?.username || 'user'})</span>
+                      </p>
+                      <p className="text-[10px] md:text-xs text-on-surface-variant truncate">
+                         {tx.type === 'plan_purchase' ? `Bought ${tx.meta?.plan_id || 'Plan'}` : 'Wallet Deposit'} • {timeAgo(tx.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="font-black text-emerald-600 text-sm md:text-base">+₦{Number(tx.amount).toLocaleString()}</p>
+                    <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest mt-1">
+                      {tx.status}
+                    </span>
                   </div>
                 </div>
               ))

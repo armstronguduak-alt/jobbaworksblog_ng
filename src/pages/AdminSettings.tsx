@@ -10,7 +10,7 @@ export function AdminSettings() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
-  const { pageToggles, monetizationRate: fetchedMonetizationRate, refetchToggles, refetchMonetizationRate } = useAppSettings();
+  const { pageToggles, monetizationRate: fetchedMonetizationRate, exchangeRates: fetchedExchangeRates, refetchToggles, refetchMonetizationRate, refetchExchangeRates } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
   
@@ -25,6 +25,11 @@ export function AdminSettings() {
 
   const [toggles, setToggles] = useState(pageToggles);
   const [monetizationRate, setMonetizationRate] = useState(fetchedMonetizationRate.toString());
+  const [exchangeRates, setExchangeRates] = useState({
+    dollarPrice: fetchedExchangeRates.dollarPrice.toString(),
+    swapFee: fetchedExchangeRates.swapFee.toString(),
+    withdrawalFee: fetchedExchangeRates.withdrawalFee.toString()
+  });
 
   // Sync internal state when pageToggles load
   useEffect(() => {
@@ -34,6 +39,14 @@ export function AdminSettings() {
   useEffect(() => {
     setMonetizationRate(fetchedMonetizationRate.toString());
   }, [fetchedMonetizationRate]);
+
+  useEffect(() => {
+    setExchangeRates({
+      dollarPrice: fetchedExchangeRates.dollarPrice.toString(),
+      swapFee: fetchedExchangeRates.swapFee.toString(),
+      withdrawalFee: fetchedExchangeRates.withdrawalFee.toString()
+    });
+  }, [fetchedExchangeRates]);
 
   const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
     queryKey: ['admin_subscription_plans'],
@@ -116,6 +129,30 @@ export function AdminSettings() {
 
   const handleMonetizationSave = () => {
     updateMonetizationMutation.mutate();
+  };
+
+  const updateExchangeRatesMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('system_settings')
+        .upsert({ 
+          key: 'exchange_rates', 
+          value: { 
+            dollarPrice: Number(exchangeRates.dollarPrice),
+            swapFee: Number(exchangeRates.swapFee),
+            withdrawalFee: Number(exchangeRates.withdrawalFee),
+          } 
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchExchangeRates();
+      showAlert(`Exchange rates & fees saved successfully.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
+
+  const handleExchangeRatesSave = () => {
+    updateExchangeRatesMutation.mutate();
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
@@ -332,6 +369,76 @@ export function AdminSettings() {
               <p className="text-[13px] text-[#6b7280] leading-relaxed">
                 This is the base rate paid to authors automatically as their articles generate distinct views across the ecosystem.
               </p>
+            </div>
+          </div>
+
+          {/* Exchange Rates & Fees */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                <span className="material-symbols-outlined">currency_exchange</span>
+              </div>
+              <h2 className="text-2xl font-extrabold font-headline text-[#111928]">Rates & Platform Fees</h2>
+            </div>
+            
+            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-4 space-y-6">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                    DOLLAR PRICE (₦/$1)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">₦</span>
+                    <input 
+                      type="number" 
+                      value={exchangeRates.dollarPrice}
+                      onChange={(e) => setExchangeRates(prev => ({...prev, dollarPrice: e.target.value}))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-blue-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                    SWAP FEE (%)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">%</span>
+                    <input 
+                      type="number" 
+                      value={exchangeRates.swapFee}
+                      onChange={(e) => setExchangeRates(prev => ({...prev, swapFee: e.target.value}))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-blue-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                    WITHDRAWAL FEE (%)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">%</span>
+                    <input 
+                      type="number" 
+                      value={exchangeRates.withdrawalFee}
+                      onChange={(e) => setExchangeRates(prev => ({...prev, withdrawalFee: e.target.value}))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-blue-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button 
+                  onClick={handleExchangeRatesSave}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all"
+                >
+                  Save Rates & Fees
+                </button>
+              </div>
+
             </div>
           </div>
 

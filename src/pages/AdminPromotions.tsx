@@ -1,13 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { supabase } from '../lib/supabase';
 
+interface Promotion {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  cta_text: string;
+  cta_url: string;
+  is_active: boolean;
+}
+
 export function AdminPromotions() {
   const { isAdmin, isLoading: authLoading, profile } = useAuth();
-  const { showAlert } = useDialog();
+  const { showAlert, showConfirm } = useDialog();
   
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     imageUrl: '',
@@ -18,12 +33,53 @@ export function AdminPromotions() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isAdmin) fetchPromotions();
+  }, [isAdmin]);
+
+  const fetchPromotions = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase.from('promotions').select('*').order('created_at', { ascending: false });
+    if (!error && data) {
+      setPromotions(data);
+    }
+    setIsLoading(false);
+  };
+
+  const handleEdit = (promo: Promotion) => {
+    setEditingId(promo.id);
+    setFormData({
+      title: promo.title,
+      imageUrl: promo.image_url,
+      ctaText: promo.cta_text,
+      ctaUrl: promo.cta_url,
+      description: promo.description || ''
+    });
+    setImageFile(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id: string) => {
+    const confirmed = await showConfirm('Are you sure you want to delete this promotion?', 'Delete Promotion');
+    if (!confirmed) return;
+    const { error } = await supabase.from('promotions').delete().eq('id', id);
+    if (error) showAlert('Failed to delete promotion');
+    else {
+      setPromotions(prev => prev.filter(p => p.id !== id));
+      showAlert('Promotion deleted successfully', 'Success');
+    }
+  };
+
+  const toggleActive = async (id: string, currentActive: boolean) => {
+    const { error } = await supabase.from('promotions').update({ is_active: !currentActive }).eq('id', id);
+    if (!error) {
+      setPromotions(prev => prev.map(p => p.id === id ? { ...p, is_active: !currentActive } : p));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) {
-      showAlert('You must be logged in to add promotions.', 'Error');
-      return;
-    }
+    if (!profile) return;
     setIsSubmitting(true);
 
     try {
@@ -32,32 +88,41 @@ export function AdminPromotions() {
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('promotions')
-          .upload(fileName, imageFile);
-          
+        const { error: uploadError } = await supabase.storage.from('promotions').upload(fileName, imageFile);
         if (uploadError) throw uploadError;
-        
         const { data: urlData } = supabase.storage.from('promotions').getPublicUrl(fileName);
         finalImageUrl = urlData.publicUrl;
       }
 
       if (!finalImageUrl) throw new Error('Please provide an image URL or upload a file');
 
-      const { error } = await supabase.from('promotions').insert({
-        title: formData.title,
-        description: formData.description,
-        image_url: finalImageUrl,
-        cta_text: formData.ctaText,
-        cta_url: formData.ctaUrl,
-        created_by_user_id: profile.id
-      });
+      if (editingId) {
+        const { error } = await supabase.from('promotions').update({
+          title: formData.title,
+          description: formData.description,
+          image_url: finalImageUrl,
+          cta_text: formData.ctaText,
+          cta_url: formData.ctaUrl,
+        }).eq('id', editingId);
+        if (error) throw error;
+        showAlert('Promotion updated!', 'Success');
+      } else {
+        const { error } = await supabase.from('promotions').insert({
+          title: formData.title,
+          description: formData.description,
+          image_url: finalImageUrl,
+          cta_text: formData.ctaText,
+          cta_url: formData.ctaUrl,
+          created_by_user_id: profile.id
+        });
+        if (error) throw error;
+        showAlert('Promotion added successfully!', 'Success');
+      }
 
-      if (error) throw error;
-
-      showAlert('Promotion added successfully!', 'Success');
       setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
       setImageFile(null);
+      setEditingId(null);
+      fetchPromotions();
     } catch (error: any) {
       showAlert(`Error: ${error.message}`, 'Error');
     } finally {
@@ -69,7 +134,7 @@ export function AdminPromotions() {
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   return (
-    <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 pb-32">
+    <main className="max-w-6xl mx-auto px-4 md:px-6 pt-10 pb-32">
       <div className="mb-10">
         <div className="inline-flex items-center gap-1 px-3 py-1 bg-[#dcfce7] text-[#006b3f] rounded-full mb-3">
           <span className="material-symbols-outlined text-sm">campaign</span>
@@ -78,103 +143,125 @@ export function AdminPromotions() {
         <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight mb-1 font-headline">
           Promotional Campaigns
         </h1>
-        <p className="text-outline text-sm md:text-base mb-8">
-          Share ready-made product promotions to help users grow JobbaWorks reach and conversions.
+        <p className="text-outline text-sm md:text-base">
+          Manage and monitor all active promotions globally visible to users.
         </p>
       </div>
 
-      <div className="bg-white p-6 md:p-8 rounded-[1.5rem] shadow-[0px_10px_30px_rgba(0,0,0,0.03)] border border-surface-container-low overflow-hidden">
-        <h2 className="text-xl md:text-2xl font-black font-headline text-[#191c1d] mb-6">Add Promotion</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Editor Form */}
+        <div className="lg:col-span-5 bg-white p-6 md:p-8 rounded-[1.5rem] shadow-[0px_10px_30px_rgba(0,0,0,0.03)] border border-surface-container-low h-fit sticky top-24">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-black font-headline text-[#191c1d]">
+              {editingId ? 'Edit Promotion' : 'Create Promotion'}
+            </h2>
+            {editingId && (
+              <button 
+                onClick={() => {
+                  setEditingId(null);
+                  setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
+                }}
+                className="text-xs font-bold text-outline hover:text-primary transition-colors"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Title */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 sr-only">Promotion title</label>
               <input 
-                type="text" 
-                placeholder="Promotion title"
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full px-5 py-4 rounded-xl bg-[#f8f9fa] border border-surface-container-low focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#191c1d] font-bold shadow-sm"
-                required
+                type="text" placeholder="Title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})}
+                className="w-full px-5 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low focus:border-emerald-500 text-sm font-bold shadow-sm" required
               />
             </div>
 
-            {/* Image Upload/URL Container */}
-            <div className="p-4 rounded-xl bg-[#f8f9fa] border border-surface-container-low shadow-sm flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <label className="px-4 py-2 border border-emerald-600 text-[#006b3f] bg-[#dcfce7] rounded-xl font-bold cursor-pointer hover:bg-emerald-200 transition-colors text-xs shrink-0 self-center">
-                  Choose File
+            <div className="p-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low shadow-sm flex flex-col gap-2">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <label className="px-3 py-1.5 border border-emerald-600 text-[#006b3f] bg-[#dcfce7] rounded-lg font-bold cursor-pointer hover:bg-emerald-200 text-[11px] shrink-0">
+                  Upload Image
                   <input type="file" className="hidden" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
                 </label>
-                <span className="text-xs text-outline italic truncate">{imageFile ? imageFile.name : 'No file chosen'}</span>
+                <span className="text-[11px] text-outline italic truncate">{imageFile ? imageFile.name : formData.imageUrl ? 'URL Provided' : 'Required'}</span>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-outline uppercase tracking-widest shrink-0">OR URL</span>
-                <input 
-                  type="url" 
-                  placeholder="https://..."
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                  className="w-full px-4 py-3 bg-white border border-surface-container-low rounded-lg focus:border-emerald-500 outline-none transition-all text-sm font-medium"
-                />
-              </div>
-            </div>
-
-            {/* CTA Text */}
-            <div>
-               <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 sr-only">Promote now</label>
               <input 
-                type="text" 
-                placeholder="Promote now"
-                value={formData.ctaText}
-                onChange={(e) => setFormData({...formData, ctaText: e.target.value})}
-                className="w-full px-5 py-4 rounded-xl bg-[#f8f9fa] border border-surface-container-low focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#191c1d] font-bold shadow-sm"
-                required
+                type="url" placeholder="Or Image URL" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                className="w-full px-3 py-2 bg-white border border-surface-container-low rounded-lg focus:border-emerald-500 text-sm"
               />
             </div>
 
-            {/* CTA URL */}
-            <div>
-               <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 sr-only">CTA URL</label>
+            <div className="grid grid-cols-2 gap-3">
               <input 
-                type="url" 
-                placeholder="CTA URL"
-                value={formData.ctaUrl}
-                onChange={(e) => setFormData({...formData, ctaUrl: e.target.value})}
-                className="w-full px-5 py-4 rounded-xl bg-[#f8f9fa] border border-surface-container-low focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#191c1d] font-bold shadow-sm"
-                required
+                type="text" placeholder="CTA Text" value={formData.ctaText} onChange={(e) => setFormData({...formData, ctaText: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low text-sm font-bold" required
+              />
+              <input 
+                type="url" placeholder="CTA Action URL" value={formData.ctaUrl} onChange={(e) => setFormData({...formData, ctaUrl: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low text-sm font-bold" required
               />
             </div>
 
-            {/* Description */}
-            <div className="md:col-span-2">
-               <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 sr-only">Description</label>
+            <div>
               <textarea 
-                placeholder="Description"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full px-5 py-4 rounded-xl bg-[#f8f9fa] border border-surface-container-low focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#191c1d] font-bold shadow-sm resize-none"
-                required
+                placeholder="Description" rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
+                className="w-full px-5 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low resize-none text-sm font-medium" required
               ></textarea>
             </div>
-          </div>
 
-          <div className="pt-4">
             <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="bg-[#008751] hover:bg-[#006b3f] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform shadow-sm text-sm disabled:opacity-50"
+              type="submit" disabled={isSubmitting}
+              className="w-full bg-[#008751] hover:bg-[#006b3f] text-white py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-transform shadow-sm disabled:opacity-50 mt-2"
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              {isSubmitting ? 'UPLOADING...' : 'ADD PROMOTION'}
+              {isSubmitting ? 'SAVING...' : editingId ? 'UPDATE PROMOTION' : 'PUBLISH'}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        {/* Existing Data Grid */}
+        <div className="lg:col-span-7">
+          <h2 className="text-xl font-black font-headline text-[#191c1d] mb-4">Existing Promotions</h2>
+          
+          {isLoading ? (
+            <div className="text-center py-10 bg-white rounded-[1.5rem]">Loading...</div>
+          ) : promotions.length === 0 ? (
+            <div className="text-center py-20 bg-white border border-surface-container-high rounded-[1.5rem] opacity-50">
+              <span className="material-symbols-outlined text-4xl mb-2">inbox</span>
+              <p className="font-bold">No active promotions</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {promotions.map(promo => (
+                <div key={promo.id} className="bg-white rounded-[1.5rem] p-4 flex flex-col gap-3 shadow-[0px_4px_12px_rgba(0,0,0,0.03)] border border-surface-container-low transition-all hover:border-emerald-200 group">
+                  <div className="w-full h-32 bg-surface-container-low rounded-xl overflow-hidden relative">
+                    <img src={promo.image_url} alt={promo.title} className="w-full h-full object-cover" />
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <button onClick={() => handleEdit(promo)} className="w-8 h-8 bg-white/90 backdrop-blur rounded-lg flex items-center justify-center text-primary shadow hover:bg-primary-container">
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button onClick={() => handleDelete(promo.id)} className="w-8 h-8 bg-error/90 backdrop-blur rounded-lg flex items-center justify-center text-white shadow hover:bg-error">
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-bold text-[#191c1d] truncate text-sm">{promo.title}</h3>
+                      <button 
+                        onClick={() => toggleActive(promo.id, promo.is_active)}
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${promo.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-surface-container-low text-outline border-transparent'}`}
+                      >
+                        {promo.is_active ? 'Active' : 'Hidden'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-outline line-clamp-2 leading-snug">{promo.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
       </div>
     </main>
   );

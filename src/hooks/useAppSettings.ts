@@ -19,6 +19,18 @@ const defaultToggles: PageToggles = {
   promotionsEnabled: true,
 };
 
+export interface ExchangeRates {
+  dollarPrice: number;
+  swapFee: number;
+  withdrawalFee: number;
+}
+
+const defaultExchangeRates: ExchangeRates = {
+  dollarPrice: 1500,
+  swapFee: 5,
+  withdrawalFee: 5,
+};
+
 export function useAppSettings() {
   const { data: pageToggles, isLoading: isLoadingToggles, refetch: refetchToggles } = useQuery({
     queryKey: ['systemSettings', 'page_toggles'],
@@ -50,11 +62,28 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: exchangeRates, refetch: refetchExchangeRates } = useQuery({
+    queryKey: ['systemSettings', 'exchange_rates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'exchange_rates')
+        .maybeSingle();
+      
+      if (error || !data) return defaultExchangeRates;
+      return { ...defaultExchangeRates, ...(data.value as Partial<ExchangeRates>) } as ExchangeRates;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     monetizationRate: monetizationRate ?? 100,
+    exchangeRates: exchangeRates || defaultExchangeRates,
     isLoadingToggles,
     refetchToggles,
-    refetchMonetizationRate
+    refetchMonetizationRate,
+    refetchExchangeRates
   };
 }

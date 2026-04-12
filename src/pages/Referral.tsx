@@ -8,6 +8,7 @@ export function Referral() {
   const [referrals, setReferrals] = useState<any[]>([]);
   const [earnings, setEarnings] = useState<number>(0);
   const [pendingBonus, setPendingBonus] = useState<number>(0);
+  const [perUserEarnings, setPerUserEarnings] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
 
@@ -43,6 +44,24 @@ export function Referral() {
           setPendingBonus(total);
         }
 
+        // Fetch per-user referral bonuses
+        const { data: bonusTx } = await supabase
+          .from('wallet_transactions')
+          .select('amount, meta')
+          .eq('user_id', user!.id)
+          .eq('type', 'referral_bonus');
+        
+        if (bonusTx) {
+          const map: Record<string, number> = {};
+          bonusTx.forEach(tx => {
+            const refId = tx.meta?.referred_user_id;
+            if (refId) {
+              map[refId] = (map[refId] || 0) + Number(tx.amount || 0);
+            }
+          });
+          setPerUserEarnings(map);
+        }
+
         // Fetch referred users & their details
         const { data: referralData, error } = await supabase
           .from('referrals')
@@ -52,7 +71,8 @@ export function Referral() {
             profiles:referred_user_id (
               name,
               avatar_url,
-              status
+              status,
+              user_subscriptions (plan_id)
             )
           `)
           .eq('referrer_user_id', user!.id)
@@ -155,12 +175,11 @@ export function Referral() {
     };
   }, [user]);
 
-  // Prefer username as the referral code, fall back to referral_code field
-  const referralCode = profile?.username || profile?.referral_code || 'Loading...';
+  const referralCode = profile?.referral_code || 'Loading...';
   const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
 
   const copyToClipboard = () => {
-    if (!profile?.referral_code) return;
+    if (!referralCode || referralCode === 'Loading...') return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -200,7 +219,8 @@ export function Referral() {
 
   const activeCount = referrals.filter((ref: any) => {
     const p = ref.profiles?.[0] || ref.profiles || {};
-    return (p.status || 'active').toLowerCase() === 'active';
+    const sub = p.user_subscriptions?.[0] || p.user_subscriptions || {};
+    return sub.plan_id && sub.plan_id !== 'free'; // Consider active if they have a non-free plan
   }).length;
 
   if (isLoading) {
@@ -313,11 +333,11 @@ export function Referral() {
               <div className="absolute top-2 right-3">
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 uppercase tracking-widest">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  Pending
+                  Processing
                 </span>
               </div>
             )}
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Pending Bonus</p>
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Rewards</p>
             <div className="flex items-baseline gap-1 pt-1">
               <span className={`text-2xl font-black font-headline ${pendingBonus > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>
                 ₦{pendingBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -400,42 +420,39 @@ export function Referral() {
             ) : (
               filteredReferrals.map((ref: any, index: number) => {
                 const profileData = ref.profiles?.[0] || ref.profiles || {};
-                const joinedDate = new Date(ref.created_at).toLocaleDateString();
-                const isActive = (profileData.status || 'active').toLowerCase() === 'active';
+                const subData = profileData.user_subscriptions?.[0] || profileData.user_subscriptions || {};
+                const planId = subData.plan_id && subData.plan_id !== 'free' ? subData.plan_id.toUpperCase() : 'FREE PLAN';
+                const isActive = subData.plan_id && subData.plan_id !== 'free';
+                const rewardVal = perUserEarnings[ref.referred_user_id] || 0;
                 
                 return (
                   <div
                     key={ref.referred_user_id || index}
-                    className="bg-surface-container-lowest p-4 rounded-2xl flex items-center justify-between border border-surface-container-highest/20 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
+                    className="bg-white p-4 rounded-2xl flex items-center justify-between border border-surface-container-highest/30 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-container border border-surface-container-highest">
+                        <div className="w-14 h-14 rounded-full overflow-hidden border border-surface-container-highest shadow-sm">
                           <img
-                            alt="Referral avatar"
+                            alt={profileData.name}
                             className="w-full h-full object-cover"
                             src={profileData.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profileData.name || 'user'}`}
                           />
                         </div>
-                        {/* Status indicator dot */}
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-container-lowest ${
-                          isActive ? 'bg-emerald-500' : 'bg-gray-400'
-                        }`}></span>
                       </div>
                       <div>
-                        <p className="font-bold text-sm text-on-surface">{profileData.name || 'Unknown User'}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full ${
-                            isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {isActive ? 'Active' : 'Inactive'}
+                        <p className="font-bold text-base md:text-lg text-on-surface leading-tight mb-1">{profileData.name || 'Unknown User'}</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
+                          <span className="text-[11px] md:text-xs font-bold text-on-surface-variant uppercase tracking-widest flex items-center gap-1">
+                             {planId} <span className="opacity-50">•</span> 0 JOBS DONE
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Joined</p>
-                      <p className="font-bold text-emerald-900 text-xs">{joinedDate}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-1 leading-tight">REWARD</p>
+                      <p className="font-black text-emerald-800 text-lg md:text-xl font-headline leading-tight">₦{rewardVal.toLocaleString()}</p>
                     </div>
                   </div>
                 );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function Wallet() {
   const { user } = useAuth();
@@ -13,8 +14,13 @@ export function Wallet() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  
+  const { exchangeRates } = useAppSettings();
   const PAYOUT_THRESHOLD = 10.00;
+  
+  const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
+  const numAmount = Number(withdrawAmount) || 0;
+  const fee = numAmount * widthdrawalFeePercent;
+  const youGet = numAmount - fee;
 
   useEffect(() => {
     if (user?.id) {
@@ -117,6 +123,11 @@ export function Wallet() {
         amount: Number(withdrawAmount),
         status: 'pending',
         description: `Withdrawal request via ${payoutMethods.find((m: any) => m.id === selectedMethodId)?.method || 'payout method'}`,
+        meta: { 
+          withdrawalFeePercent: exchangeRates.withdrawalFee,
+          feeDeducted: fee,
+          expectedAmount: youGet
+        }
       });
 
       if (error) throw error;
@@ -211,6 +222,20 @@ export function Wallet() {
                 MAX ${isLoading ? '...' : usdtBalance.toLocaleString()}
               </button>
             </div>
+            
+            {numAmount > 0 && numAmount >= 10 && (
+              <div className="mt-6 space-y-3 pt-4 border-t border-surface-container-highest">
+                <div className="flex justify-between text-sm">
+                  <span className="text-on-surface-variant">Withdrawal Fee ({exchangeRates.withdrawalFee}%)</span>
+                  <span className="font-semibold text-error">-${fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold">
+                  <span className="text-on-surface">You will receive:</span>
+                  <span className="text-primary">${youGet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            )}
+
             {message && (
                <p className={`mt-4 text-sm font-bold ${message.includes('pending') || message.includes('success') ? 'text-primary' : 'text-error'}`}>
                  {message}

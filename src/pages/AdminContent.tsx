@@ -10,6 +10,13 @@ export function AdminContent() {
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [filter, setFilter] = useState<'all' | 'published' | 'drafts' | 'pending'>('all');
+  
+  const [stats, setStats] = useState({
+    totalArticles: 0,
+    totalViews: 0,
+    totalPaidOut: 0
+  });
 
   useEffect(() => {
     if (isAdmin) {
@@ -34,12 +41,42 @@ export function AdminContent() {
       }
 
       if (data) setPosts(data);
+
+      // Fetch Stats
+      const [articlesRes, walletRes] = await Promise.all([
+        supabase.from('posts').select('status, views'),
+        supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'completed')
+      ]);
+
+      if (articlesRes.data) {
+        const approved = articlesRes.data.filter(p => p.status === 'approved');
+        const views = approved.reduce((sum, p) => sum + (p.views || 0), 0);
+        
+        let paidOut = 0;
+        if (walletRes.data) {
+          paidOut = walletRes.data.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        }
+
+        setStats({
+          totalArticles: approved.length,
+          totalViews: views,
+          totalPaidOut: paidOut
+        });
+      }
     } catch (err) {
       console.error('Error fetching posts:', err);
     } finally {
       setIsLoading(false);
     }
   }
+
+  const filteredPosts = posts.filter(post => {
+    if (filter === 'all') return true;
+    if (filter === 'published') return post.status === 'approved';
+    if (filter === 'drafts') return post.status === 'draft';
+    if (filter === 'pending') return post.status === 'pending';
+    return true;
+  });
 
   const handleUpdateStatus = async (post: any, newStatus: string) => {
     let rejectionReason = '';
@@ -116,8 +153,52 @@ export function AdminContent() {
           <p className="text-outline text-sm md:text-base">Review, approve, and manage user-submitted articles.</p>
         </div>
       </div>
+      
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="bg-white p-6 rounded-[2rem] border border-surface-container-highest/30 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[100px] opacity-50 pointer-events-none"></div>
+          <span className="material-symbols-outlined text-blue-500 mb-4 block text-3xl">article</span>
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Articles</p>
+          <h3 className="text-3xl font-black font-headline text-on-surface">{stats.totalArticles}</h3>
+        </div>
+        <div className="bg-white p-6 rounded-[2rem] border border-surface-container-highest/30 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[100px] opacity-50 pointer-events-none"></div>
+          <span className="material-symbols-outlined text-purple-500 mb-4 block text-3xl">visibility</span>
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Views</p>
+          <h3 className="text-3xl font-black font-headline text-on-surface">{stats.totalViews.toLocaleString()}</h3>
+        </div>
+        <div className="bg-white p-6 rounded-[2rem] border border-surface-container-highest/30 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[100px] opacity-50 pointer-events-none"></div>
+          <span className="material-symbols-outlined text-emerald-500 mb-4 block text-3xl">payments</span>
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Paid Out</p>
+          <h3 className="text-3xl font-black font-headline text-on-surface">₦{stats.totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+        </div>
+      </div>
 
       <div className="bg-transparent overflow-hidden">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          {[
+            { id: 'all', label: 'All Articles' },
+            { id: 'published', label: 'Published' },
+            { id: 'drafts', label: 'Drafts' },
+            { id: 'pending', label: 'Pending Review' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id as any)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all ${
+                filter === f.id
+                  ? 'bg-[#0f172a] text-white shadow-md'
+                  : 'bg-white text-on-surface-variant border border-surface-container-high hover:bg-surface-container-lowest hover:border-[#0f172a]/30'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-black font-headline text-[#191c1d]">
             All Articles
@@ -137,7 +218,7 @@ export function AdminContent() {
           </div>
         ) : (
           <div className="space-y-4">
-            {posts.map(post => (
+            {filteredPosts.map(post => (
               <div key={post.id} className="bg-white p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-surface-container-low shadow-[0px_4px_16px_-4px_rgba(0,0,0,0.02)] hover:shadow-md transition-all">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">

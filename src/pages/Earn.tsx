@@ -22,7 +22,9 @@ export function Earn() {
         supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).maybeSingle(),
         supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', user!.id).eq('counter_date', today).maybeSingle(),
         supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', user!.id).maybeSingle(),
-        supabase.from('post_reads').select('post_id').eq('user_id', user!.id)
+        supabase.from('post_reads').select('post_id').eq('user_id', user!.id),
+        supabase.from('tasks').select('*').eq('status', 'active'),
+        supabase.from('user_tasks').select('task_id, completed').eq('user_id', user!.id)
       ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
@@ -57,10 +59,20 @@ export function Earn() {
       if (alreadyRead.length > 0) {
         postsQuery = postsQuery.not('id', 'in', `(${alreadyRead.join(',')})`);
       }
-
       const { data: availablePosts } = await postsQuery;
 
-      return { stats, availablePosts: availablePosts || [], walletData: walletDataRes.data };
+      const allActiveTasks = readPostIdsRes[1].data || [];
+      const userTasksDoneData = readPostIdsRes[2].data || [];
+      const completedTaskIds = userTasksDoneData.filter((t: any) => t.completed).map((t: any) => t.task_id);
+      
+      const availableTasks = allActiveTasks.filter((task: any) => !completedTaskIds.includes(task.id));
+
+      return { 
+        stats, 
+        availablePosts: availablePosts || [], 
+        availableTasks: availableTasks || [],
+        walletData: walletDataRes.data 
+      };
     }
   });
 
@@ -115,8 +127,30 @@ export function Earn() {
     }
   };
 
+  const handleExecuteExternalTask = async (task: any) => {
+    // 1. Mark 'started' state or simply claim it instantly as per simple flow
+    if (task.affiliate_url) window.open(task.affiliate_url, '_blank');
+    
+    setClaimingId(task.id);
+    setMessage('');
+    try {
+      const { data, error } = await supabase.rpc('claim_task_reward', { p_task_id: task.id });
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage('Task submission received for verification!');
+        queryClient.invalidateQueries({ queryKey: ['earnData', user?.id] });
+      }
+    } catch (err: any) {
+      setMessage('Error verifying task.');
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   const stats = data?.stats || { tasksCompleted: 0, totalEarned: 0, dailyReadsLeft: 0, dailyCommentsLeft: 0 };
   const availablePosts = data?.availablePosts || [];
+  const availableTasks = data?.availableTasks || [];
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
@@ -203,19 +237,32 @@ export function Earn() {
                       <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Per Plan</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleClaimRead(post.id)}
-                    disabled={claimingId === post.id || stats.dailyReadsLeft === 0}
-                    className={`w-full py-3 font-bold rounded-xl active:scale-95 transition-all ${
-                      stats.dailyReadsLeft === 0
-                        ? 'bg-surface-container-highest text-on-surface-variant cursor-not-allowed'
-                        : claimingId === post.id
-                        ? 'bg-surface-variant text-on-surface-variant'
-                        : 'bg-primary text-white'
-                    }`}
-                  >
-                    {claimingId === post.id ? 'Claiming...' : stats.dailyReadsLeft === 0 ? 'Daily Limit Reached' : 'Read & Earn'}
-                  </button>
+                  {localStorage.getItem(`jobbaworks_read_${post.id}`) === 'true' ? (
+                    <button
+                      onClick={() => handleClaimRead(post.id)}
+                      disabled={claimingId === post.id || stats.dailyReadsLeft === 0}
+                      className={`w-full py-3 font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                        stats.dailyReadsLeft === 0
+                          ? 'bg-surface-container-highest text-on-surface-variant cursor-not-allowed'
+                          : claimingId === post.id
+                          ? 'bg-surface-variant text-on-surface-variant'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                      }`}
+                    >
+                      {claimingId === post.id ? 'Claiming...' : stats.dailyReadsLeft === 0 ? 'Daily Limit Reached' : (
+                        <>
+                          <span className="material-symbols-outlined text-[18px]">payments</span> Claim Reward
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      to={`/article/${post.slug}`}
+                      className="w-full py-3 font-bold rounded-xl active:scale-95 transition-all text-center bg-primary text-white hover:bg-emerald-800 shadow-sm block"
+                    >
+                      Read Content First
+                    </Link>
+                  )}
                 </div>
               ))
             ) : (
@@ -247,6 +294,72 @@ export function Earn() {
                 Invite Contacts
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Action Bounties / Platform Tasks */}
+        <section className="space-y-6">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-xl font-bold font-headline text-on-surface">Platform Bounties</h3>
+            <span className="text-[#008751] text-sm font-semibold">{availableTasks.length + 1} bounties</span>
+          </div>
+          
+          <div className="grid gap-5">
+            {/* Hardcoded Mandatory Join Community Task */}
+            <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-emerald-500/20 flex flex-col gap-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-[100px] pointer-events-none"></div>
+              <div className="flex justify-between items-start">
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-emerald-700">forum</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-on-surface">Join Our Community</h4>
+                    <p className="text-on-surface-variant text-[13px] line-clamp-2 mt-1">
+                      Join our official Telegram channel for updates, payments, and 24/7 support!
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="block text-emerald-600 font-black">Free</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-1 relative z-10">
+                <a href="https://t.me/jobbaworks" target="_blank" rel="noreferrer" className="w-full py-3 bg-[#0088cc] text-white font-bold rounded-xl text-center flex items-center justify-center gap-2 hover:bg-[#0077b3] transition-colors shadow-sm">
+                  Telegram
+                </a>
+              </div>
+            </div>
+
+            {/* Dynamic DB Bounties */}
+            {availableTasks.map((task: any) => (
+              <div key={task.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined">
+                        {task.task_type === 'social' ? 'thumb_up' : task.task_type === 'referrals' ? 'group_add' : 'task_alt'}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-on-surface line-clamp-1">{task.title}</h4>
+                      <p className="text-on-surface-variant text-[13px] line-clamp-2 mt-1">{task.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="block text-primary font-black">₦{task.reward_amount?.toLocaleString() || 0}</span>
+                    <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Reward</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleExecuteExternalTask(task)}
+                  disabled={claimingId === task.id}
+                  className="w-full py-3 font-bold rounded-xl active:scale-95 transition-all bg-surface-container-high text-on-surface hover:bg-surface-container-highest flex justify-center items-center gap-2"
+                >
+                  {claimingId === task.id ? 'Verifying...' : 'Complete Task'}
+                </button>
+              </div>
+            ))}
           </div>
         </section>
 

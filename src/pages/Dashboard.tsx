@@ -7,8 +7,11 @@ export function Dashboard() {
   const { user } = useAuth();
   
   const [walletData, setWalletData] = useState<any>(null);
+  const [walletData, setWalletData] = useState<any>(null);
   const [articlesRead, setArticlesRead] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [promotions, setPromotions] = useState<any[]>([]);
+  const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -16,10 +19,11 @@ export function Dashboard() {
       if (!walletData) setIsLoading(true);
 
       try {
-        const [walletRes, tasksRes] = await Promise.all([
+        const [walletRes, tasksRes, promoRes] = await Promise.all([
           supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('user_tasks').select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id).eq('completed', true)
+            .eq('user_id', user.id).eq('completed', true),
+          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })
         ]);
           
         if (walletRes.data) {
@@ -28,6 +32,10 @@ export function Dashboard() {
 
         if (!tasksRes.error && tasksRes.count !== null) {
           setArticlesRead(tasksRes.count);
+        }
+
+        if (promoRes.data) {
+          setPromotions(promoRes.data);
         }
 
       } catch (err) {
@@ -63,6 +71,15 @@ export function Dashboard() {
       supabase.removeChannel(walletChannel);
     };
   }, [user]);
+
+  // Carousel auto-slide
+  useEffect(() => {
+    if (promotions.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentPromoIndex((prev) => (prev + 1) % promotions.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [promotions.length]);
 
   // Fallback defaults
   const balance = walletData?.balance || 0;
@@ -201,22 +218,74 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* Promotional Card */}
-      <section className="relative rounded-[2rem] overflow-hidden aspect-[16/7] md:aspect-[21/6] group mt-6">
-        <img 
-          alt="Promotional Banner" 
-          className="w-full h-full object-cover"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVzN6StLGsJSOuIdPHO2AG7KeSTjQNL7njCa5ELJU3LPosoYFhTSRmDY-1fvsBbNupPcgUH1XUyR2F-6SAFiyS-OVyrONuo87mQZTphF9wYUaG5Lr5ODv60vVyQTLxGYVFhbcpA9lCwiEApKIWD6x63Kq0OQ3JPegaieU_H-yEx0xQnQlq8whbQcSa9dkNysfdmvcgNATfCNzLQBNYE7C36W3E7L5oSEoLY-n0hcD9IT-wR9nv_WSnH96c2nrsf8iJo29ntG34Ti0" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/80 to-transparent p-6 md:p-8 flex flex-col justify-center">
-          <span className="text-emerald-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Build Your Value</span>
-          <h4 className="text-white text-xl md:text-2xl font-black font-headline max-w-[200px] md:max-w-[250px] leading-tight">
-            Read Premium Articles Exclusively.
-          </h4>
-          <Link to="/plans" className="mt-4 bg-white text-emerald-900 font-bold px-4 md:px-6 py-2 rounded-full w-fit hover:bg-emerald-50 transition-colors text-sm">
-            View Articles
-          </Link>
-        </div>
+      {/* Promotional Card Carousel */}
+      <section className="relative rounded-[2rem] overflow-hidden aspect-[16/7] md:aspect-[21/6] group mt-6 bg-emerald-950">
+        {promotions.length > 0 ? (
+          <>
+            {promotions.map((promo, idx) => (
+              <div 
+                key={promo.id} 
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  idx === currentPromoIndex ? 'opacity-100 relative' : 'opacity-0'
+                }`}
+              >
+                <img 
+                  alt={promo.title} 
+                  className="w-full h-full object-cover"
+                  src={promo.image_url} 
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/80 to-transparent p-6 md:p-8 flex flex-col justify-center">
+                  <span className="text-emerald-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Build Your Value</span>
+                  <h4 className="text-white text-xl md:text-2xl font-black font-headline max-w-[200px] md:max-w-[350px] leading-tight line-clamp-2">
+                    {promo.title}
+                  </h4>
+                  {(promo.description) && (
+                     <p className="text-white/80 text-xs md:text-sm max-w-[200px] md:max-w-[300px] mt-2 line-clamp-2 block hidden sm:block">
+                       {promo.description}
+                     </p>
+                  )}
+                  {promo.cta_url && promo.cta_text && (
+                    <a href={promo.cta_url} target="_blank" rel="noopener noreferrer" className="mt-4 bg-white text-emerald-900 font-bold px-4 md:px-6 py-2 rounded-full w-fit hover:bg-emerald-50 transition-colors text-sm shadow-sm hover:scale-105">
+                      {promo.cta_text}
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {/* Carousel navigation controls */}
+            {promotions.length > 1 && (
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
+                {promotions.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentPromoIndex(idx)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      idx === currentPromoIndex ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="absolute inset-0">
+            <img 
+              alt="Promotional Banner" 
+              className="w-full h-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVzN6StLGsJSOuIdPHO2AG7KeSTjQNL7njCa5ELJU3LPosoYFhTSRmDY-1fvsBbNupPcgUH1XUyR2F-6SAFiyS-OVyrONuo87mQZTphF9wYUaG5Lr5ODv60vVyQTLxGYVFhbcpA9lCwiEApKIWD6x63Kq0OQ3JPegaieU_H-yEx0xQnQlq8whbQcSa9dkNysfdmvcgNATfCNzLQBNYE7C36W3E7L5oSEoLY-n0hcD9IT-wR9nv_WSnH96c2nrsf8iJo29ntG34Ti0" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/80 to-transparent p-6 md:p-8 flex flex-col justify-center">
+              <span className="text-emerald-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Build Your Value</span>
+              <h4 className="text-white text-xl md:text-2xl font-black font-headline max-w-[200px] md:max-w-[250px] leading-tight">
+                Read Premium Articles Exclusively.
+              </h4>
+              <Link to="/plans" className="mt-4 bg-white text-emerald-900 font-bold px-4 md:px-6 py-2 rounded-full w-fit hover:bg-emerald-50 transition-colors text-sm">
+                View Articles
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

@@ -11,6 +11,7 @@ export function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [referrerUsername, setReferrerUsername] = useState<string | null>(null);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [formData, setFormData] = useState({
@@ -32,6 +33,22 @@ export function Signup() {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+  // ── Fetch Referrer Name if refCode is present ───────────────────────────
+  useEffect(() => {
+    if (!refCode) return;
+    const fetchReferrer = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('referral_code', refCode)
+        .maybeSingle();
+      if (data?.username) {
+        setReferrerUsername(data.username);
+      }
+    };
+    fetchReferrer();
+  }, [refCode]);
 
   // ── Username availability check (debounced 600ms) ─────────────────────────
   useEffect(() => {
@@ -315,11 +332,15 @@ export function Signup() {
                       readOnly={!!refCode}
                     />
                   </div>
-                  {refCode && (
+                  {referrerUsername ? (
                     <p className="text-[10px] md:text-xs text-primary font-medium ml-1 mt-1">
-                      You were referred by <span className="font-bold">{refCode}</span>
+                      You were referred by <span className="font-bold">@{referrerUsername}</span>
                     </p>
-                  )}
+                  ) : refCode ? (
+                    <p className="text-[10px] md:text-xs text-primary font-medium ml-1 mt-1">
+                      Applying referral code...
+                    </p>
+                  ) : null}
                 </div>
                 
                 {/* Terms & Conditions */}
