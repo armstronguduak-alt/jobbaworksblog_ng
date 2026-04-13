@@ -1,243 +1,90 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function Referral() {
   const { user, profile } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [referrals, setReferrals] = useState<any[]>([]);
-  const [earnings, setEarnings] = useState<number>(0);
-  const [pendingBonus, setPendingBonus] = useState<number>(0);
-  const [perUserEarnings, setPerUserEarnings] = useState<Record<string, number>>({});
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
 
-  // Fetch initial data & set up real-time subscriptions
-  useEffect(() => {
-    if (!user) return;
+  // ─── TanStack Query — cached, retried, never infinite ──────────────
+  const { data: referralData, isLoading } = useQuery({
+    queryKey: ['referrals', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
 
-    async function loadReferralData() {
-      setIsLoading(true);
+      const [walletRes, pendingTxRes, bonusTxRes, referralListRes] = await Promise.all([
+        supabase.from('wallet_balances').select('referral_earnings').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_transactions').select('amount').eq('user_id', user.id).eq('type', 'referral_bonus').eq('status', 'pending'),
+        supabase.from('wallet_transactions').select('amount, meta').eq('user_id', user.id).eq('type', 'referral_bonus'),
+        supabase.from('referrals')
+          .select(`created_at, referred_user_id, profiles:profiles!referrals_referred_user_id_fkey(name, avatar_url, status)`)
+          .eq('referrer_user_id', user.id).order('created_at', { ascending: false }),
+      ]);
 
-      try {
-        // Fetch wallet balance for referral earnings
-        const { data: wallet } = await supabase
-          .from('wallet_balances')
-          .select('referral_earnings, balance')
-          .eq('user_id', user!.id)
-          .maybeSingle();
+      const earnings = walletRes.data?.referral_earnings || 0;
+      const pendingBonus = (pendingTxRes.data || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
 
-        if (wallet) {
-          setEarnings(wallet.referral_earnings || 0);
-        }
+      // Per-user earnings map
+      const perUserEarnings: Record<string, number> = {};
+      (bonusTxRes.data || []).forEach((tx: any) => {
+        const refId = tx.meta?.referred_user_id;
+        if (refId) perUserEarnings[refId] = (perUserEarnings[refId] || 0) + Number(tx.amount || 0);
+      });
 
-        // Fetch pending referral transactions (pending bonus)
-        const { data: pendingTx } = await supabase
-          .from('wallet_transactions')
-          .select('amount')
-          .eq('user_id', user!.id)
-          .eq('type', 'referral_bonus')
-          .eq('status', 'pending');
-
-        if (pendingTx) {
-          const total = pendingTx.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
-          setPendingBonus(total);
-        }
-
-        // Fetch per-user referral bonuses
-        const { data: bonusTx } = await supabase
-          .from('wallet_transactions')
-          .select('amount, meta')
-          .eq('user_id', user!.id)
-          .eq('type', 'referral_bonus');
-        
-        if (bonusTx) {
-          const map: Record<string, number> = {};
-          bonusTx.forEach(tx => {
-            const refId = tx.meta?.referred_user_id;
-            if (refId) {
-              map[refId] = (map[refId] || 0) + Number(tx.amount || 0);
-            }
-          });
-          setPerUserEarnings(map);
-        }
-
-        // Fetch referred users & their details (without nested user_subscriptions to avoid PGRST200)
-        const { data: referralData, error } = await supabase
-          .from('referrals')
-          .select(`
-            created_at,
-            referred_user_id,
-            profiles:profiles!referrals_referred_user_id_fkey(
-              name,
-              avatar_url,
-              status
-            )
-          `)
-          .eq('referrer_user_id', user!.id)
-          .order('created_at', { ascending: false });
-
-        if (!error && referralData) {
-          // Fetch subscription data separately for each referred user
-          const referredUserIds = referralData.map((r: any) => r.referred_user_id).filter(Boolean);
-          let subsMap: Record<string, string> = {};
-          
-          if (referredUserIds.length > 0) {
-            const { data: subsData } = await supabase
-              .from('user_subscriptions')
-              .select('user_id, plan_id')
-              .in('user_id', referredUserIds);
-            
-            if (subsData) {
-              subsData.forEach((s: any) => {
-                subsMap[s.user_id] = s.plan_id;
-              });
-            }
-          }
-
-          // Merge subscription data into referral records
-          const enrichedReferrals = referralData.map((r: any) => ({
-            ...r,
-            plan_id: subsMap[r.referred_user_id] || 'free',
-          }));
-
-          setReferrals(enrichedReferrals);
-        } else if (error) {
-          console.error('Error fetching referral list:', error);
-          
-          // Fallback: use profiles.referred_by_code to find referrals
-          if (profile?.referral_code) {
-            const { data: fallbackData } = await supabase
-              .from('profiles')
-              .select('user_id, name, avatar_url, status')
-              .eq('referred_by_code', profile.referral_code);
-            
-            if (fallbackData && fallbackData.length > 0) {
-              const referredUserIds = fallbackData.map((p: any) => p.user_id);
-              let subsMap: Record<string, string> = {};
-              
-              const { data: subsData } = await supabase
-                .from('user_subscriptions')
-                .select('user_id, plan_id')
-                .in('user_id', referredUserIds);
-              
-              if (subsData) {
-                subsData.forEach((s: any) => {
-                  subsMap[s.user_id] = s.plan_id;
-                });
-              }
-
-              const fallbackReferrals = fallbackData.map((p: any) => ({
-                referred_user_id: p.user_id,
-                created_at: new Date().toISOString(),
-                profiles: { name: p.name, avatar_url: p.avatar_url, status: p.status },
-                plan_id: subsMap[p.user_id] || 'free',
-              }));
-
-              setReferrals(fallbackReferrals);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching referrals:', err);
-      } finally {
-        setIsLoading(false);
+      // Enrich referrals with subscription data
+      let referrals = referralListRes.data || [];
+      if (!referralListRes.error && referrals.length > 0) {
+        const ids = referrals.map((r: any) => r.referred_user_id).filter(Boolean);
+        const { data: subsData } = await supabase.from('user_subscriptions').select('user_id, plan_id').in('user_id', ids);
+        const subsMap: Record<string, string> = {};
+        (subsData || []).forEach((s: any) => { subsMap[s.user_id] = s.plan_id; });
+        referrals = referrals.map((r: any) => ({ ...r, plan_id: subsMap[r.referred_user_id] || 'free' }));
+      } else if (referralListRes.error && profile?.referral_code) {
+        // Fallback
+        const { data: fallback } = await supabase.from('profiles').select('user_id, name, avatar_url, status').eq('referred_by_code', profile.referral_code);
+        referrals = (fallback || []).map((p: any) => ({ referred_user_id: p.user_id, created_at: new Date().toISOString(), profiles: p, plan_id: 'free' }));
       }
-    }
 
-    loadReferralData();
+      return { earnings, pendingBonus, perUserEarnings, referrals };
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
+  });
 
-    // ─── REAL-TIME SUBSCRIPTIONS ─────────────────────────────────
-    // 1. Listen for new referrals
-    const referralsChannel = supabase
-      .channel(`referrals-realtime-${Math.random().toString(36).substring(7)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'referrals',
-          filter: `referrer_user_id=eq.${user.id}`,
-        },
-        async (payload) => {
-          // When a new referral comes in, fetch the profile info
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('name, avatar_url, status')
-            .eq('user_id', payload.new.referred_user_id)
-            .maybeSingle();
+  const earnings = referralData?.earnings || 0;
+  const pendingBonus = referralData?.pendingBonus || 0;
+  const perUserEarnings = referralData?.perUserEarnings || {};
+  const referrals = referralData?.referrals || [];
 
-          const { data: subData } = await supabase
-            .from('user_subscriptions')
-            .select('plan_id')
-            .eq('user_id', payload.new.referred_user_id)
-            .maybeSingle();
+  // ─── Real-time: invalidate cache for new referrals & wallet changes ──
+  useEffect(() => {
+    if (!user?.id) return;
 
-          const newReferral = {
-            ...payload.new,
-            profiles: profileData || {},
-            plan_id: subData?.plan_id || 'free',
-          };
-
-          setReferrals((prev) => [newReferral, ...prev]);
-        }
-      )
+    const refCh = supabase.channel(`ref-rt-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'referrals', filter: `referrer_user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['referrals', user.id] }))
       .subscribe();
 
-    // 2. Listen for wallet balance changes (earnings updates)
-    const walletChannel = supabase
-      .channel(`wallet-referral-realtime-${Math.random().toString(36).substring(7)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wallet_balances',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.new && typeof (payload.new as any).referral_earnings === 'number') {
-            setEarnings((payload.new as any).referral_earnings);
-          }
-        }
-      )
+    const walletCh = supabase.channel(`ref-wallet-rt-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['referrals', user.id] }))
       .subscribe();
 
-    // 3. Listen for referral bonus transaction updates
-    const txChannel = supabase
-      .channel(`referral-tx-realtime-${Math.random().toString(36).substring(7)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wallet_transactions',
-          filter: `user_id=eq.${user.id}`,
-        },
-        async () => {
-          // Re-fetch pending bonus on any transaction change
-          const { data: pendingTx } = await supabase
-            .from('wallet_transactions')
-            .select('amount')
-            .eq('user_id', user!.id)
-            .eq('type', 'referral_bonus')
-            .eq('status', 'pending');
-
-          if (pendingTx) {
-            const total = pendingTx.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
-            setPendingBonus(total);
-          }
-        }
-      )
+    const txCh = supabase.channel(`ref-tx-rt-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions', filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['referrals', user.id] }))
       .subscribe();
 
-    // Cleanup
     return () => {
-      supabase.removeChannel(referralsChannel);
-      supabase.removeChannel(walletChannel);
-      supabase.removeChannel(txChannel);
+      supabase.removeChannel(refCh);
+      supabase.removeChannel(walletCh);
+      supabase.removeChannel(txCh);
     };
-  }, [user]);
+  }, [user?.id, queryClient]);
+
 
   const referralCode = profile?.referral_code || 'Loading...';
   const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;

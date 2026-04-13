@@ -2,74 +2,59 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function Dashboard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
-  const [walletData, setWalletData] = useState<any>(null);
-  const [articlesRead, setArticlesRead] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [promotions, setPromotions] = useState<any[]>([]);
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
 
+  // TanStack Query — cached, retried, never infinite
+  const { data: dashData, isLoading } = useQuery({
+    queryKey: ['dashboard', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
+      
+      const [walletRes, tasksRes, promoRes] = await Promise.all([
+        supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_tasks').select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id).eq('completed', true),
+        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })
+      ]);
+        
+      return {
+        wallet: walletRes.data || { balance: 0, total_earnings: 0, referral_earnings: 0 },
+        articlesRead: tasksRes.count ?? 0,
+        promotions: promoRes.data || [],
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000, // 2 min stale
+  });
+
+  // Real-time subscription for wallet balance — updates the query cache
   useEffect(() => {
-    async function fetchDashboardData() {
-      if (!user?.id) return;
-      if (!walletData) setIsLoading(true);
-
-      try {
-        const [walletRes, tasksRes, promoRes] = await Promise.all([
-          supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
-          supabase.from('user_tasks').select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id).eq('completed', true),
-          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })
-        ]);
-          
-        if (walletRes.data) {
-          setWalletData(walletRes.data);
-        }
-
-        if (!tasksRes.error && tasksRes.count !== null) {
-          setArticlesRead(tasksRes.count);
-        }
-
-        if (promoRes.data) {
-          setPromotions(promoRes.data);
-        }
-
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchDashboardData();
-
-    // Real-time subscription for wallet balance changes
     if (!user?.id) return;
     const walletChannel = supabase
-      .channel(`dashboard-wallet-realtime-${Math.random().toString(36).substring(7)}`)
+      .channel(`dashboard-wallet-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wallet_balances',
-          filter: `user_id=eq.${user.id}`,
-        },
+        { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
         (payload) => {
           if (payload.new) {
-            setWalletData(payload.new);
+            queryClient.setQueryData(['dashboard', user.id], (old: any) => old ? { ...old, wallet: payload.new } : old);
           }
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(walletChannel);
-    };
-  }, [user]);
+    return () => { supabase.removeChannel(walletChannel); };
+  }, [user?.id, queryClient]);
+
+  const walletData = dashData?.wallet;
+  const articlesRead = dashData?.articlesRead || 0;
+  const promotions = dashData?.promotions || [];
 
   // Carousel auto-slide
   useEffect(() => {

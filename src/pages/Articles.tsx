@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Article {
   id: string;
@@ -22,73 +23,50 @@ interface Article {
 
 export function Articles() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('All');
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const { showConfirm, showAlert } = useDialog();
 
   const tabs = ['All Articles', 'Published', 'Drafts'];
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchArticles(user.id);
-    }
-  }, [user]);
-
-  // Real-time subscription
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`articles-realtime-${Math.random().toString(36).substring(7)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'posts',
-          filter: `author_user_id=eq.${user.id}`,
-        },
-        () => {
-          // Re-fetch on any change
-          fetchArticles(user.id);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  const fetchArticles = async (userId: string) => {
-    try {
-      setIsLoading(true);
+  const { data: articles = [], isLoading } = useQuery<Article[]>({
+    queryKey: ['my-articles', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('posts')
         .select('id, title, slug, excerpt, featured_image, status, word_count, reading_time_seconds, views, reads, earnings, created_at, published_at')
-        .eq('author_user_id', userId)
+        .eq('author_user_id', user.id)
         .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data as Article[]) || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
+  });
 
-      if (!error && data) {
-        setArticles(data as Article[]);
-      }
-    } catch (err) {
-      console.error('Error fetching articles:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Real-time subscription — invalidates cache when posts change
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`articles-rt-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'posts', filter: `author_user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['my-articles', user.id] })
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
 
   const handleDeleteArticle = async (id: string) => {
     const confirmed = await showConfirm('Are you sure you want to delete this article? This action cannot be undone.', 'Delete Article');
     if (!confirmed) return;
-
     try {
       const { error } = await supabase.from('posts').delete().eq('id', id);
       if (error) throw error;
-      setArticles(prev => prev.filter(a => a.id !== id));
+      // Optimistically remove from cache
+      queryClient.setQueryData(['my-articles', user?.id], (old: Article[]) => (old || []).filter(a => a.id !== id));
       showAlert('Article successfully deleted.', 'Success');
     } catch (err: any) {
       console.error(err);

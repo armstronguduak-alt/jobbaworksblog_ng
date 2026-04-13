@@ -4,6 +4,16 @@ import { BlogLayout } from './layouts/BlogLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+// Branded loading skeleton shown during lazy chunk loads
+const PageLoader = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-surface gap-4">
+    <img src="/logo.png" alt="Loading" className="w-12 h-12 rounded-xl animate-pulse" />
+    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+    <p className="text-sm text-on-surface-variant font-medium">Loading...</p>
+  </div>
+);
 
 // Lazy loaded pages to optimize bundle size and TTI
 const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
@@ -52,8 +62,9 @@ const EmailVerified = lazy(() => import('./pages/EmailVerified').then(module => 
 
 function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-surface"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div></div>}>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -119,6 +130,7 @@ function App() {
       </Routes>
       </Suspense>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

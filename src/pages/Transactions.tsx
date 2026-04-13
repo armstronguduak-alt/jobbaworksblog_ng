@@ -1,53 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 type TxFilter = 'all' | 'swap' | 'withdrawal' | 'earning' | 'comment_bonus' | 'referral';
 
 export function Transactions() {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<TxFilter>('all');
-  const [stats, setStats] = useState({ totalEarned: 0, totalSwapped: 0, totalWithdrawn: 0, totalTx: 0 });
 
-  useEffect(() => {
-    if (user?.id) fetchTransactions();
-  }, [user, filter]);
-
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    try {
+  const { data, isLoading } = useQuery({
+    queryKey: ['transactions', user?.id, filter],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
       let q = supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(100);
-
-      if (filter !== 'all') {
-        q = q.eq('type', filter);
-      }
-
-      const { data, error } = await q;
+      if (filter !== 'all') q = q.eq('type', filter);
+      const { data: rows, error } = await q;
       if (error) throw error;
-      if (data) {
-        setTransactions(data);
-        
-        // Calculate stats from all transactions (not filtered)
-        if (filter === 'all') {
-          const earned = data.filter(t => t.amount > 0 && !['swap', 'subscription_fee', 'withdrawal'].includes(t.type)).reduce((s, t) => s + t.amount, 0);
-          const swapped = data.filter(t => t.type === 'swap').reduce((s, t) => s + Math.abs(t.amount), 0);
-          const withdrawn = data.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Math.abs(t.amount), 0);
-          setStats({ totalEarned: earned, totalSwapped: swapped, totalWithdrawn: withdrawn, totalTx: data.length });
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const txs = rows || [];
+      const earned = txs.filter(t => t.amount > 0 && !['swap','subscription_fee','withdrawal'].includes(t.type)).reduce((s,t) => s + t.amount, 0);
+      const swapped = txs.filter(t => t.type === 'swap').reduce((s,t) => s + Math.abs(t.amount), 0);
+      const withdrawn = txs.filter(t => t.type === 'withdrawal').reduce((s,t) => s + Math.abs(t.amount), 0);
+      return { transactions: txs, stats: { totalEarned: earned, totalSwapped: swapped, totalWithdrawn: withdrawn, totalTx: txs.length } };
+    },
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+  });
+
+  const transactions = data?.transactions || [];
+  const stats = data?.stats || { totalEarned: 0, totalSwapped: 0, totalWithdrawn: 0, totalTx: 0 };
+
 
   const getTypeIcon = (type: string) => {
     switch(type) {

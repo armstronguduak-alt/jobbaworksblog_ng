@@ -1,43 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function MyStories() {
   const { user } = useAuth();
   const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate();
-  const [stories, setStories] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (user) {
-      fetchStories();
-    }
-  }, [user]);
-
-  const fetchStories = async () => {
-    setIsLoading(true);
-    try {
+  const { data: stories = [], isLoading } = useQuery<any[]>({
+    queryKey: ['my-stories', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('stories')
-        .select(`
-          id, title, slug, cover_image_url, status, total_reads, total_comments, created_at,
-          story_chapters (id, chapter_number, status)
-        `)
-        .eq('author_id', user!.id)
+        .select(`id, title, slug, cover_image_url, status, total_reads, total_comments, created_at, story_chapters (id, chapter_number, status)`)
+        .eq('author_id', user.id)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      if (data) setStories(data);
-    } catch (err: any) {
-      console.error(err);
-      showAlert('Error loading your stories: ' + err.message, 'Error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Realtime — invalidate cache on any story change
+  useEffect(() => {
+    if (!user?.id) return;
+    const ch = supabase.channel(`my-stories-rt-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stories', filter: `author_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ['my-stories', user.id] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id, queryClient]);
+
 
   const getStatusBadge = (status: string) => {
     switch(status) {
@@ -52,10 +51,10 @@ export function MyStories() {
   const handleDelete = async (id: string, title: string) => {
     const confirmed = await showConfirm(`Are you sure you want to delete "${title}"? This will delete all chapters and cannot be undone.`, 'Delete Story');
     if (!confirmed) return;
-
     const { error } = await supabase.from('stories').delete().eq('id', id);
     if (!error) {
-      setStories(stories.filter(s => s.id !== id));
+      // Optimistic cache update
+      queryClient.setQueryData(['my-stories', user?.id], (old: any[]) => (old || []).filter(s => s.id !== id));
       showAlert('Story deleted.');
     } else {
       showAlert('Error deleting story.', 'Error');

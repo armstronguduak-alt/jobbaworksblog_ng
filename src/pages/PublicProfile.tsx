@@ -1,82 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 export function PublicProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
-  
-  const [profile, setProfile] = useState<any>(null);
-  const [articles, setArticles] = useState<any[]>([]);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
-  useEffect(() => {
-    if (username) fetchProfile();
-  }, [username, user]);
+  const { data, isLoading, isPending } = useQuery({
+    queryKey: ['public-profile', username, user?.id],
+    queryFn: async () => {
+      // 1. Fetch profile
+      const { data: pData } = await supabase
+        .from('profiles')
+        .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified, gender')
+        .eq('username', username!)
+        .maybeSingle();
+      if (!pData) return null;
 
-  const fetchProfile = async () => {
-    setIsLoading(true);
-    // Find user by username
-    const { data: pData } = await supabase
-      .from('profiles')
-      .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified, gender')
-      .eq('username', username)
-      .maybeSingle();
+      // 2. Parallel: articles + subscription + follow status
+      const [aRes, subRes, fRes] = await Promise.all([
+        supabase.from('posts').select('id, title, slug, excerpt, reading_time_seconds, created_at, category:categories(slug)')
+          .eq('author_user_id', pData.user_id).eq('status', 'approved').order('created_at', { ascending: false }),
+        supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.user_id).maybeSingle(),
+        user?.id
+          ? supabase.from('followers').select('id').eq('follower_id', user.id).eq('following_id', pData.user_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
 
-    if (pData) {
-      let isVerified = pData.is_verified || false;
-      const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.user_id).maybeSingle();
-      if (subData && subData.plan_id !== 'free') {
-        isVerified = true;
-      }
-      
-      setProfile({ ...pData, is_verified: isVerified });
-      
-      // Fetch articles
-      const { data: aData } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('author_user_id', pData.user_id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-      
-      if (aData) setArticles(aData);
+      const isVerified = pData.is_verified || (subRes.data?.plan_id && subRes.data.plan_id !== 'free');
+      return {
+        profile: { ...pData, is_verified: isVerified },
+        articles: aRes.data || [],
+        isFollowing: !!fRes.data,
+      };
+    },
+    enabled: !!username,
+    staleTime: 3 * 60 * 1000,
+  });
 
-      // Check if current logged-in user is following this profile
-      if (user?.id) {
-        const { data: fData } = await supabase
-          .from('followers')
-          .select('id')
-          .eq('follower_id', user.id)
-          .eq('following_id', pData.user_id)
-          .maybeSingle();
-        
-        setIsFollowing(!!fData);
-      }
-    }
-    setIsLoading(false);
-  };
+  const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
+  const profile = data?.profile;
+  const articles = data?.articles || [];
+  // Use local state for follow if toggled, fallback to fetched value
+  const following = isFollowing !== null ? isFollowing : (data?.isFollowing ?? false);
 
   const toggleFollow = async () => {
     if (!user?.id || !profile) return;
     setIsFollowLoading(true);
-    
-    if (isFollowing) {
+    if (following) {
       await supabase.rpc('unfollow_user', { target_user_id: profile.user_id });
-      setProfile({ ...profile, followers_count: Math.max(0, (profile.followers_count || 0) - 1) });
     } else {
       await supabase.rpc('follow_user', { target_user_id: profile.user_id });
-      setProfile({ ...profile, followers_count: (profile.followers_count || 0) + 1 });
     }
-    
-    setIsFollowing(!isFollowing);
+    setIsFollowing(!following);
     setIsFollowLoading(false);
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (isLoading || isPending) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!profile) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Profile not found.</div>;
 
   return (
@@ -114,9 +97,9 @@ export function PublicProfile() {
                <button 
                  onClick={toggleFollow}
                  disabled={isFollowLoading}
-                 className={`w-full py-2.5 rounded-xl font-bold transition-all ${isFollowing ? 'bg-surface-container-high text-slate-700 hover:bg-slate-300' : 'bg-primary text-white hover:bg-emerald-800 shadow-lg'}`}
+                 className={`w-full py-2.5 rounded-xl font-bold transition-all ${following ? 'bg-surface-container-high text-slate-700 hover:bg-slate-300' : 'bg-primary text-white hover:bg-emerald-800 shadow-lg'}`}
                >
-                 {isFollowLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
+                 {isFollowLoading ? '...' : following ? 'Unfollow' : 'Follow'}
                </button>
              )}
           </div>
