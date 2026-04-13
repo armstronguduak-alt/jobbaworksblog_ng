@@ -105,6 +105,11 @@ export function Signup() {
       
       // If auto-login happens and session exists, initialize account
       if (data.session) {
+        // Generate gender-specific avatar
+        const genderSeed = formData.username || formData.fullName || 'user';
+        const avatarStyle = formData.gender === 'female' ? 'lorelei' : 'notionists';
+        const avatarUrl = `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(genderSeed)}`;
+
         // Initialize user profile and wallet via the predefined RPC
         const { error: initError } = await supabase.rpc('initialize_my_account', {
           _name: formData.fullName,
@@ -112,7 +117,7 @@ export function Signup() {
           _phone: formData.phone,
           _username: formData.username,
           _gender: formData.gender,
-          _avatar_url: '',
+          _avatar_url: avatarUrl,
           _referred_by_code: formData.referral || null
         });
 

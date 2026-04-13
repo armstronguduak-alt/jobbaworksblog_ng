@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Menu, X, Search } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { supabase } from '../lib/supabase';
+import { NotificationBell } from '../components/NotificationBell';
 
 export function BlogLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,6 +41,9 @@ export function BlogLayout() {
     setIsMenuOpen(false);
   }, [location.pathname]);
 
+  // Truncate long category names for the nav bar
+  const truncateName = (name: string, max = 12) => name.length > max ? name.substring(0, max) + '…' : name;
+
   return (
     <div className="min-h-screen bg-surface text-on-surface antialiased flex flex-col font-body">
       
@@ -61,13 +65,13 @@ export function BlogLayout() {
             </Link>
           </div>
           
-          <nav className="hidden lg:flex items-center gap-3 xl:gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide flex-1 px-4 lg:max-w-[400px] xl:max-w-none">
+          {/* Desktop nav — Plans removed, category names truncated */}
+          <nav className="hidden lg:flex items-center gap-2 xl:gap-3 flex-1 px-4 justify-center max-w-[500px] xl:max-w-none">
             <Link to="/" className="text-emerald-700 font-bold font-headline text-xs shrink-0">Home</Link>
             <Link to="/stories" className="text-primary font-bold font-headline text-xs shrink-0">Stories✨</Link>
-            <Link to="/plans" className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">Plans</Link>
             {categories.map(cat => (
-              <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0">
-                {cat.name}
+              <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0" title={cat.name}>
+                {truncateName(cat.name)}
               </Link>
             ))}
           </nav>
@@ -92,35 +96,40 @@ export function BlogLayout() {
             )}
             
             {user ? (
-              <div className="relative" ref={menuRef}>
-                <button 
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm focus:border-emerald-200 transition-all ml-1"
-                >
-                  <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="Avatar" className="w-full h-full object-cover" />
-                </button>
+              <>
+                {/* Notification Bell */}
+                <NotificationBell />
                 
-                {isProfileOpen && (
-                  <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-surface-container p-2 transform origin-top-right transition-all">
-                    <div className="p-3 border-b border-surface-container mb-2">
-                      <p className="font-bold text-emerald-950 font-headline truncate">{profile?.name || 'User'}</p>
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Member</p>
+                <div className="relative" ref={menuRef}>
+                  <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm focus:border-emerald-200 transition-all ml-1"
+                  >
+                    <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="Avatar" className="w-full h-full object-cover" />
+                  </button>
+                  
+                  {isProfileOpen && (
+                    <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-surface-container p-2 transform origin-top-right transition-all">
+                      <div className="p-3 border-b border-surface-container mb-2">
+                        <p className="font-bold text-emerald-950 font-headline truncate">{profile?.name || 'User'}</p>
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Member</p>
+                      </div>
+                      <Link to="/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">person</span>
+                        Dashboard
+                      </Link>
+                      <Link to="/plans" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">credit_card</span>
+                        Plans
+                      </Link>
+                      <button onClick={() => { signOut(); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition-colors mt-1">
+                        <span className="material-symbols-outlined text-[18px]">logout</span>
+                        Logout
+                      </button>
                     </div>
-                    <Link to="/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">person</span>
-                      Dashboard
-                    </Link>
-                    <Link to="/plans" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">credit_card</span>
-                      Plans
-                    </Link>
-                    <button onClick={() => { signOut(); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition-colors mt-1">
-                      <span className="material-symbols-outlined text-[18px]">logout</span>
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </>
             ) : (
               <div className="flex gap-2 ml-1">
                 <Link to="/login" className="text-sm font-bold text-emerald-800 px-3 py-1.5 hover:bg-emerald-50 rounded-full transition-colors hidden md:block">Login</Link>

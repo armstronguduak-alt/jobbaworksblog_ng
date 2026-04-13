@@ -9,6 +9,7 @@ export function Leaderboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'all-time'>('weekly');
   const [userRankData, setUserRankData] = useState<any>(null);
+  const [showFullList, setShowFullList] = useState(false);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -249,8 +250,8 @@ export function Leaderboard() {
               
               {/* Main List Box */}
               <div className="lg:col-span-7 space-y-4">
-                {/* Users 4 to 10 */}
-                {topEarners.slice(topEarners.length >= 3 ? 3 : 0, 10).map((earner, idx) => {
+                {/* Users 4+ */}
+                {topEarners.slice(topEarners.length >= 3 ? 3 : 0, showFullList ? 100 : 10).map((earner, idx) => {
                   const rankNum = topEarners.length >= 3 ? idx + 4 : idx + 1;
                   return (
                    <div key={earner.user_id} className="bg-white px-5 py-4 rounded-[1.25rem] flex items-center gap-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
@@ -270,6 +271,17 @@ export function Leaderboard() {
                    </div>
                   );
                 })}
+
+                {/* View More / Show Less button */}
+                {topEarners.length > 10 && (
+                  <button
+                    onClick={() => setShowFullList(!showFullList)}
+                    className="w-full py-3 bg-surface-container-lowest hover:bg-surface-container-low rounded-[1.25rem] font-bold text-primary text-sm flex items-center justify-center gap-2 transition-colors shadow-sm border border-surface-container-highest/20"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">{showFullList ? 'expand_less' : 'expand_more'}</span>
+                    {showFullList ? 'Show Less' : `View Full Top ${Math.min(topEarners.length, 100)} Rankings`}
+                  </button>
+                )}
               </div>
 
               {/* Sidebars */}

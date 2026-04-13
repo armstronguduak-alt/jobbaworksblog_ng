@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { SEO } from '../components/SEO';
+import { ShareButton } from '../components/ShareButton';
 
 export const fetchArticleData = async (slug: string, userId?: string) => {
   // Join posts with authored profile
@@ -353,7 +354,7 @@ export function PublicArticle() {
             </div>
           </Link>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap">
             <span className="text-sm font-bold text-slate-400">{new Date(post.created_at).toLocaleDateString()}</span>
             <span className="text-sm font-bold text-slate-400">• {Math.ceil(post.reading_time_seconds / 60)} min read</span>
             
@@ -366,6 +367,7 @@ export function PublicArticle() {
                 {isFollowLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
               </button>
             )}
+            <ShareButton url={`/${categorySlug}/${post.slug}`} title={post.title} description={seoExcerpt} image={post.featured_image} />
           </div>
         </div>
       </div>
@@ -435,7 +437,14 @@ export function PublicArticle() {
         );
       })()}
       
-      <hr className="border-t-2 border-surface-container-high mb-12 mt-4" />
+      {/* Share Strip */}
+      <div className="flex items-center justify-between py-4 mt-4 border-t-2 border-b-2 border-surface-container-high mb-12">
+        <div className="flex items-center gap-2 text-on-surface-variant text-sm">
+          <span className="material-symbols-outlined text-[18px]">visibility</span>
+          <span className="font-medium">{post.views?.toLocaleString() || 0} views</span>
+        </div>
+        <ShareButton url={`/${categorySlug}/${post.slug}`} title={post.title} description={seoExcerpt} image={post.featured_image} />
+      </div>
 
       {/* Comment Section */}
       <section className="mb-12">

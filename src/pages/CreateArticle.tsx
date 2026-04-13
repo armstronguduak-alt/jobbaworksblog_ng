@@ -169,9 +169,25 @@ export function CreateArticle() {
     editorRef.current?.focus();
   };
 
+  // ── Modal states for professional link/video dialogs ─────────────────────
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [modalLinkUrl, setModalLinkUrl] = useState('');
+  const [modalVideoUrl, setModalVideoUrl] = useState('');
+  const [videoError, setVideoError] = useState('');
+
   const handleInsertLink = () => {
-    const url = prompt('Enter the link URL:');
-    if (url) executeCommand('createLink', url);
+    setModalLinkUrl('');
+    setShowLinkModal(true);
+  };
+
+  const confirmInsertLink = () => {
+    if (modalLinkUrl.trim()) {
+      editorRef.current?.focus();
+      executeCommand('createLink', modalLinkUrl.trim());
+    }
+    setShowLinkModal(false);
+    setModalLinkUrl('');
   };
 
   const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,20 +232,30 @@ export function CreateArticle() {
   };
 
   const handleInsertYoutube = () => {
-    const url = prompt('Enter YouTube Video URL:');
-    if (url) {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const match = url.match(regExp);
-      const videoId = (match && match[2].length === 11) ? match[2] : null;
+    setModalVideoUrl('');
+    setVideoError('');
+    setShowVideoModal(true);
+  };
 
-      if (videoId) {
-        const iframeHtml = `<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 16px 0;">
-          <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>
-        </div><p><br></p>`;
-        executeCommand('insertHTML', iframeHtml);
-      } else {
-        showAlert('Invalid YouTube URL');
-      }
+  const confirmInsertYoutube = () => {
+    const url = modalVideoUrl.trim();
+    if (!url) return;
+
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+    if (videoId) {
+      // Use loading="lazy" and a stable container to prevent blinking
+      const iframeHtml = `<div class="yt-embed-wrapper" contenteditable="false" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 16px 0; background: #000;">
+        <iframe loading="lazy" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/${videoId}?rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div><p><br></p>`;
+      editorRef.current?.focus();
+      executeCommand('insertHTML', iframeHtml);
+      setShowVideoModal(false);
+      setModalVideoUrl('');
+    } else {
+      setVideoError('Invalid YouTube URL. Please use a valid youtube.com or youtu.be link.');
     }
   };
 
@@ -454,6 +480,8 @@ export function CreateArticle() {
                [contentEditable] em, [contentEditable] i { font-style: italic; }
                [contentEditable] u { text-decoration: underline; }
                [contentEditable] iframe { display: block; margin: 10px auto; max-width: 100%; border-radius: 8px; }
+               [contentEditable] .yt-embed-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 16px 0; background: #000; user-select: none; }
+               [contentEditable] .yt-embed-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; pointer-events: none; }
                [contentEditable] blockquote { border-left: 4px solid #008751; padding-left: 1rem; color: #404943; font-style: italic; margin: 1rem 0; }
                [contentEditable] ul { list-style-type: disc !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
                [contentEditable] ol { list-style-type: decimal !important; padding-left: 2rem !important; margin-bottom: 1rem !important; display: block !important; }
@@ -555,6 +583,75 @@ export function CreateArticle() {
           </div>
         </aside>
       </main>
+
+      {/* ── Link Insert Modal ────────────────────────────────────────────── */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowLinkModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary">link</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-on-surface">Insert Link</h3>
+                <p className="text-xs text-on-surface-variant">Enter the URL you want to link to</p>
+              </div>
+            </div>
+            <input
+              type="url"
+              value={modalLinkUrl}
+              onChange={e => setModalLinkUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') confirmInsertLink(); }}
+              placeholder="https://example.com"
+              className="w-full bg-surface-container-low px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              autoFocus
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowLinkModal(false)} className="px-4 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors">Cancel</button>
+              <button onClick={confirmInsertLink} disabled={!modalLinkUrl.trim()} className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-emerald-800 rounded-xl transition-colors disabled:opacity-40">Insert Link</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── YouTube Video Modal ──────────────────────────────────────────── */}
+      {showVideoModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowVideoModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center">
+                <span className="material-symbols-outlined text-rose-500">smart_display</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-on-surface">Embed YouTube Video</h3>
+                <p className="text-xs text-on-surface-variant">Paste a YouTube video link below</p>
+              </div>
+            </div>
+            <input
+              type="url"
+              value={modalVideoUrl}
+              onChange={e => { setModalVideoUrl(e.target.value); setVideoError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') confirmInsertYoutube(); }}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className={`w-full bg-surface-container-low px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 transition-all ${videoError ? 'ring-2 ring-rose-300 focus:ring-rose-300' : 'focus:ring-primary/30'}`}
+              autoFocus
+            />
+            {videoError && <p className="text-xs text-rose-500 font-medium">{videoError}</p>}
+            <div className="bg-surface-container-low/50 rounded-xl p-3 text-xs text-on-surface-variant space-y-1">
+              <p className="font-bold text-on-surface">Supported formats:</p>
+              <p>• https://www.youtube.com/watch?v=VIDEO_ID</p>
+              <p>• https://youtu.be/VIDEO_ID</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowVideoModal(false)} className="px-4 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors">Cancel</button>
+              <button onClick={confirmInsertYoutube} disabled={!modalVideoUrl.trim()} className="px-5 py-2 text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-colors disabled:opacity-40 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px]">smart_display</span>
+                Embed Video
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

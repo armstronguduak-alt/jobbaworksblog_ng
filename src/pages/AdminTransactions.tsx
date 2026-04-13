@@ -14,13 +14,13 @@ export function AdminTransactions() {
     if (isAdmin) {
       fetchTransactions();
 
-      // Real-time listener for incoming transactions
-      const txListener = supabase.channel('admin-realtime-tx')
+      // Real-time listener — unique channel name prevents reconnect conflicts
+      const txListener = supabase.channel(`admin-tx-${Math.random().toString(36).substring(7)}`)
         .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wallet_transactions' },
         () => {
-          fetchTransactions(); // Re-fetch or intelligently unshift payload.new
+          fetchTransactions(true); // silent refresh — no loading spinner
         }
       )
         .subscribe();
@@ -31,8 +31,8 @@ export function AdminTransactions() {
     }
   }, [isAdmin]);
 
-  async function fetchTransactions() {
-    setIsLoading(true);
+  async function fetchTransactions(silent = false) {
+    if (!silent) setIsLoading(true);
     try {
       const { data } = await supabase
         .from('wallet_transactions')
@@ -47,7 +47,7 @@ export function AdminTransactions() {
     } catch (err) {
       console.error('Error fetching transactions:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }
 
@@ -114,7 +114,7 @@ export function AdminTransactions() {
       <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
         <h2 className="text-lg font-bold font-headline mb-4 border-b border-surface-container pb-4 flex justify-between items-center">
           Recent Transactions
-          <button onClick={fetchTransactions} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline px-2 py-1">Refresh</button>
+          <button onClick={() => fetchTransactions()} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline px-2 py-1">Refresh</button>
         </h2>
         
         {isLoading ? (
