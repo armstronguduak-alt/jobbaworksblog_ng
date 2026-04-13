@@ -104,69 +104,144 @@ export function Leaderboard() {
           <>
             {/* Top 3 Asymmetric Card Podium */}
             {topEarners.length >= 3 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end w-full">
+              <>
+                {/* ── DESKTOP PODIUM (unchanged) ── */}
+                <div className="hidden md:grid md:grid-cols-3 gap-6 mb-16 items-end w-full">
                 
-                {/* Rank 2 */}
-                <div className="order-2 md:order-1 bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-secondary/20 relative overflow-hidden h-fit">
-                  <div className="absolute top-4 right-4 text-4xl font-black text-secondary/10">2</div>
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-20 h-20 rounded-full border-4 border-secondary-container mb-4 overflow-hidden">
-                      <img 
-                        src={topEarners[1].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[1].name || 'R2'}`} 
-                        className="w-full h-full object-cover" alt="Rank 2"
-                      />
-                    </div>
-                    <h3 className="font-headline font-bold text-lg text-on-surface">{topEarners[1].name}</h3>
-                    <p className="text-secondary font-medium text-sm mb-4">@{topEarners[1].username || 'user'}</p>
-                    <div className="bg-secondary-container text-on-secondary-container px-4 py-1 rounded-full font-bold text-sm">
-                      {formatMoney(topEarners[1].total_earnings)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rank 1 - Hero Card */}
-                <div className="order-1 md:order-2 primary-gradient p-10 rounded-[2.5rem] shadow-[0px_30px_60px_rgba(0,107,63,0.15)] relative overflow-hidden md:-translate-y-8" style={{background: 'linear-gradient(135deg, #006b3f 0%, #008751 100%)'}}>
-                  <div className="absolute top-6 right-6 text-6xl font-black text-white/10">1</div>
-                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
-                  <div className="flex flex-col items-center text-center relative z-10">
-                    <div className="relative mb-6">
-                      <div className="w-28 h-28 rounded-full border-4 border-tertiary-fixed mb-1 overflow-hidden">
+                  {/* Rank 2 */}
+                  <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-secondary/20 relative overflow-hidden h-fit">
+                    <div className="absolute top-4 right-4 text-4xl font-black text-secondary/10">2</div>
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-20 h-20 rounded-full border-4 border-secondary-container mb-4 overflow-hidden">
                         <img 
-                          src={topEarners[0].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[0].name || 'R1'}`} 
-                          className="w-full h-full object-cover" alt="Rank 1"
+                          src={topEarners[1].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[1].name || 'R2'}`} 
+                          className="w-full h-full object-cover" alt="Rank 2"
                         />
                       </div>
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-tertiary-fixed text-on-tertiary-fixed px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
-                        King
+                      <h3 className="font-headline font-bold text-lg text-on-surface">{topEarners[1].name}</h3>
+                      <p className="text-secondary font-medium text-sm mb-4">@{topEarners[1].username || 'user'}</p>
+                      <div className="bg-secondary-container text-on-secondary-container px-4 py-1 rounded-full font-bold text-sm">
+                        {formatMoney(topEarners[1].total_earnings)}
                       </div>
                     </div>
-                    <h3 className="font-headline font-extrabold text-2xl text-white">{topEarners[0].name}</h3>
-                    <p className="text-primary-fixed/80 font-medium text-base mb-6">@{topEarners[0].username || 'user'}</p>
-                    <div className="bg-white/20 backdrop-blur-md text-white px-6 py-2 rounded-2xl font-black text-xl border border-white/10">
-                      {formatMoney(topEarners[0].total_earnings)}
+                  </div>
+
+                  {/* Rank 1 - Hero Card */}
+                  <div className="primary-gradient p-10 rounded-[2.5rem] shadow-[0px_30px_60px_rgba(0,107,63,0.15)] relative overflow-hidden -translate-y-8" style={{background: 'linear-gradient(135deg, #006b3f 0%, #008751 100%)'}}>
+                    <div className="absolute top-6 right-6 text-6xl font-black text-white/10">1</div>
+                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+                    <div className="flex flex-col items-center text-center relative z-10">
+                      <div className="relative mb-6">
+                        <div className="w-28 h-28 rounded-full border-4 border-tertiary-fixed mb-1 overflow-hidden">
+                          <img 
+                            src={topEarners[0].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[0].name || 'R1'}`} 
+                            className="w-full h-full object-cover" alt="Rank 1"
+                          />
+                        </div>
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-tertiary-fixed text-on-tertiary-fixed px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+                          King
+                        </div>
+                      </div>
+                      <h3 className="font-headline font-extrabold text-2xl text-white">{topEarners[0].name}</h3>
+                      <p className="text-primary-fixed/80 font-medium text-base mb-6">@{topEarners[0].username || 'user'}</p>
+                      <div className="bg-white/20 backdrop-blur-md text-white px-6 py-2 rounded-2xl font-black text-xl border border-white/10">
+                        {formatMoney(topEarners[0].total_earnings)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rank 3 */}
+                  <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-outline-variant/20 relative overflow-hidden h-fit">
+                    <div className="absolute top-4 right-4 text-4xl font-black text-outline-variant/20">3</div>
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-20 h-20 rounded-full border-4 border-surface-container-high mb-4 overflow-hidden">
+                        <img 
+                          src={topEarners[2].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[2].name || 'R3'}`} 
+                          className="w-full h-full object-cover" alt="Rank 3"
+                        />
+                      </div>
+                      <h3 className="font-headline font-bold text-lg text-on-surface">{topEarners[2].name}</h3>
+                      <p className="text-on-surface-variant font-medium text-sm mb-4">@{topEarners[2].username || 'user'}</p>
+                      <div className="bg-surface-container-high text-on-surface-variant px-4 py-1 rounded-full font-bold text-sm">
+                        {formatMoney(topEarners[2].total_earnings)}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Rank 3 */}
-                <div className="order-3 bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-outline-variant/20 relative overflow-hidden h-fit">
-                  <div className="absolute top-4 right-4 text-4xl font-black text-outline-variant/20">3</div>
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-20 h-20 rounded-full border-4 border-surface-container-high mb-4 overflow-hidden">
-                      <img 
-                        src={topEarners[2].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[2].name || 'R3'}`} 
-                        className="w-full h-full object-cover" alt="Rank 3"
-                      />
+                {/* ── MOBILE PODIUM (rectangular stacked cards) ── */}
+                <div className="md:hidden flex flex-col gap-3 mb-10 w-full px-1">
+                  
+                  {/* Rank 1 — tallest card */}
+                  <div className="relative rounded-[1.5rem] overflow-hidden shadow-[0px_16px_32px_rgba(0,107,63,0.15)]" style={{background: 'linear-gradient(135deg, #006b3f 0%, #008751 100%)'}}>
+                    <div className="absolute top-3 right-4 text-5xl font-black text-white/10">1</div>
+                    <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
+                    <div className="flex items-center gap-4 px-5 py-5 relative z-10">
+                      <div className="relative shrink-0">
+                        <div className="w-16 h-16 rounded-full border-[3px] border-tertiary-fixed overflow-hidden">
+                          <img 
+                            src={topEarners[0].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[0].name || 'R1'}`} 
+                            className="w-full h-full object-cover" alt="Rank 1"
+                          />
+                        </div>
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-tertiary-fixed text-on-tertiary-fixed px-2 py-px rounded-full text-[8px] font-black uppercase tracking-widest shadow-md whitespace-nowrap">
+                          King
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-headline font-extrabold text-lg text-white leading-tight truncate">{topEarners[0].name}</h3>
+                        <p className="text-primary-fixed/70 text-xs font-medium">@{topEarners[0].username || 'user'}</p>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm text-white px-4 py-1.5 rounded-xl font-black text-base border border-white/10 shrink-0">
+                        {formatMoney(topEarners[0].total_earnings)}
+                      </div>
                     </div>
-                    <h3 className="font-headline font-bold text-lg text-on-surface">{topEarners[2].name}</h3>
-                    <p className="text-on-surface-variant font-medium text-sm mb-4">@{topEarners[2].username || 'user'}</p>
-                    <div className="bg-surface-container-high text-on-surface-variant px-4 py-1 rounded-full font-bold text-sm">
-                      {formatMoney(topEarners[2].total_earnings)}
+                  </div>
+
+                  {/* Rank 2 & 3 side by side — shorter cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Rank 2 */}
+                    <div className="bg-surface-container-lowest rounded-[1.25rem] p-4 shadow-[0px_8px_20px_rgba(0,33,16,0.04)] border-b-[3px] border-secondary/20 relative overflow-hidden">
+                      <div className="absolute top-2 right-3 text-3xl font-black text-secondary/10">2</div>
+                      <div className="flex flex-col items-center text-center gap-2">
+                        <div className="w-12 h-12 rounded-full border-[3px] border-secondary-container overflow-hidden">
+                          <img 
+                            src={topEarners[1].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[1].name || 'R2'}`} 
+                            className="w-full h-full object-cover" alt="Rank 2"
+                          />
+                        </div>
+                        <div>
+                          <h3 className="font-headline font-bold text-sm text-on-surface leading-tight truncate max-w-[120px]">{topEarners[1].name}</h3>
+                          <p className="text-secondary text-[10px] font-medium">@{topEarners[1].username || 'user'}</p>
+                        </div>
+                        <div className="bg-secondary-container text-on-secondary-container px-3 py-0.5 rounded-full font-bold text-xs">
+                          {formatMoney(topEarners[1].total_earnings)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rank 3 */}
+                    <div className="bg-surface-container-lowest rounded-[1.25rem] p-4 shadow-[0px_8px_20px_rgba(0,33,16,0.04)] border-b-[3px] border-outline-variant/20 relative overflow-hidden">
+                      <div className="absolute top-2 right-3 text-3xl font-black text-outline-variant/15">3</div>
+                      <div className="flex flex-col items-center text-center gap-2">
+                        <div className="w-12 h-12 rounded-full border-[3px] border-surface-container-high overflow-hidden">
+                          <img 
+                            src={topEarners[2].avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${topEarners[2].name || 'R3'}`} 
+                            className="w-full h-full object-cover" alt="Rank 3"
+                          />
+                        </div>
+                        <div>
+                          <h3 className="font-headline font-bold text-sm text-on-surface leading-tight truncate max-w-[120px]">{topEarners[2].name}</h3>
+                          <p className="text-on-surface-variant text-[10px] font-medium">@{topEarners[2].username || 'user'}</p>
+                        </div>
+                        <div className="bg-surface-container-high text-on-surface-variant px-3 py-0.5 rounded-full font-bold text-xs">
+                          {formatMoney(topEarners[2].total_earnings)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-              </div>
+              </>
             )}
 
             {/* List and Personal Ranking Grid */}

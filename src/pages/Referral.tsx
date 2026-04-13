@@ -62,7 +62,7 @@ export function Referral() {
           setPerUserEarnings(map);
         }
 
-        // Fetch referred users & their details
+        // Fetch referred users & their details (without nested user_subscriptions to avoid PGRST200)
         const { data: referralData, error } = await supabase
           .from('referrals')
           .select(`
@@ -71,15 +71,72 @@ export function Referral() {
             profiles:profiles!referrals_referred_user_id_fkey(
               name,
               avatar_url,
-              status,
-              user_subscriptions (plan_id)
+              status
             )
           `)
           .eq('referrer_user_id', user!.id)
           .order('created_at', { ascending: false });
 
         if (!error && referralData) {
-          setReferrals(referralData);
+          // Fetch subscription data separately for each referred user
+          const referredUserIds = referralData.map((r: any) => r.referred_user_id).filter(Boolean);
+          let subsMap: Record<string, string> = {};
+          
+          if (referredUserIds.length > 0) {
+            const { data: subsData } = await supabase
+              .from('user_subscriptions')
+              .select('user_id, plan_id')
+              .in('user_id', referredUserIds);
+            
+            if (subsData) {
+              subsData.forEach((s: any) => {
+                subsMap[s.user_id] = s.plan_id;
+              });
+            }
+          }
+
+          // Merge subscription data into referral records
+          const enrichedReferrals = referralData.map((r: any) => ({
+            ...r,
+            plan_id: subsMap[r.referred_user_id] || 'free',
+          }));
+
+          setReferrals(enrichedReferrals);
+        } else if (error) {
+          console.error('Error fetching referral list:', error);
+          
+          // Fallback: use profiles.referred_by_code to find referrals
+          if (profile?.referral_code) {
+            const { data: fallbackData } = await supabase
+              .from('profiles')
+              .select('user_id, name, avatar_url, status')
+              .eq('referred_by_code', profile.referral_code);
+            
+            if (fallbackData && fallbackData.length > 0) {
+              const referredUserIds = fallbackData.map((p: any) => p.user_id);
+              let subsMap: Record<string, string> = {};
+              
+              const { data: subsData } = await supabase
+                .from('user_subscriptions')
+                .select('user_id, plan_id')
+                .in('user_id', referredUserIds);
+              
+              if (subsData) {
+                subsData.forEach((s: any) => {
+                  subsMap[s.user_id] = s.plan_id;
+                });
+              }
+
+              const fallbackReferrals = fallbackData.map((p: any) => ({
+                referred_user_id: p.user_id,
+                created_at: new Date().toISOString(),
+                profiles: { name: p.name, avatar_url: p.avatar_url, status: p.status },
+                plan_id: subsMap[p.user_id] || 'free',
+              }));
+
+              setReferrals(fallbackReferrals);
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching referrals:', err);
@@ -107,12 +164,19 @@ export function Referral() {
           const { data: profileData } = await supabase
             .from('profiles')
             .select('name, avatar_url, status')
-            .eq('id', payload.new.referred_user_id)
-            .single();
+            .eq('user_id', payload.new.referred_user_id)
+            .maybeSingle();
+
+          const { data: subData } = await supabase
+            .from('user_subscriptions')
+            .select('plan_id')
+            .eq('user_id', payload.new.referred_user_id)
+            .maybeSingle();
 
           const newReferral = {
             ...payload.new,
             profiles: profileData || {},
+            plan_id: subData?.plan_id || 'free',
           };
 
           setReferrals((prev) => [newReferral, ...prev]);
@@ -392,9 +456,8 @@ export function Referral() {
             ) : (
               displayedReferrals.map((ref: any, index: number) => {
                 const profileData = ref.profiles?.[0] || ref.profiles || {};
-                const subData = profileData.user_subscriptions?.[0] || profileData.user_subscriptions || {};
-                const planId = subData.plan_id && subData.plan_id !== 'free' ? subData.plan_id.toUpperCase() : 'FREE PLAN';
-                const isActive = subData.plan_id && subData.plan_id !== 'free';
+                const planId = ref.plan_id && ref.plan_id !== 'free' ? ref.plan_id.toUpperCase() : 'FREE PLAN';
+                const isActive = ref.plan_id && ref.plan_id !== 'free';
                 const rewardVal = perUserEarnings[ref.referred_user_id] || 0;
                 
                 return (

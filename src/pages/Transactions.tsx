@@ -36,7 +36,7 @@ export function Transactions() {
         
         // Calculate stats from all transactions (not filtered)
         if (filter === 'all') {
-          const earned = data.filter(t => t.amount > 0 && t.type !== 'swap').reduce((s, t) => s + t.amount, 0);
+          const earned = data.filter(t => t.amount > 0 && !['swap', 'subscription_fee', 'withdrawal'].includes(t.type)).reduce((s, t) => s + t.amount, 0);
           const swapped = data.filter(t => t.type === 'swap').reduce((s, t) => s + Math.abs(t.amount), 0);
           const withdrawn = data.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Math.abs(t.amount), 0);
           setStats({ totalEarned: earned, totalSwapped: swapped, totalWithdrawn: withdrawn, totalTx: data.length });

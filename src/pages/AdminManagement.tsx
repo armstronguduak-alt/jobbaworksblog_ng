@@ -56,70 +56,48 @@ export function AdminManagement() {
   async function fetchAdminStats() {
     setIsLoading(true);
     try {
-      // Fetch Total Users
-      const { count: usersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-      if (usersCount !== null) setTotalUsers(usersCount);
+      // Run all queries in parallel instead of sequentially
+      const [usersRes, withdrawalsRes, postsRes, recentWithdrawalsRes, depositsRes, recentDepositsRes] = await Promise.all([
+        // Total Users
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        // Pending Withdrawals sum & count
+        supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'pending'),
+        // Total Active Posts
+        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+        // Recent Withdrawals with Profiles
+        supabase.from('wallet_transactions')
+          .select(`id, amount, status, created_at, profiles:user_id (name)`)
+          .eq('type', 'withdrawal').eq('status', 'pending')
+          .order('created_at', { ascending: false }).limit(5),
+        // Total Deposits / Revenue
+        supabase.from('wallet_transactions')
+          .select('amount')
+          .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
+          .eq('status', 'completed'),
+        // Recent Deposits/Purchases
+        supabase.from('wallet_transactions')
+          .select(`id, amount, status, type, metadata, created_at, profiles:user_id (name, username)`)
+          .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
+          .order('created_at', { ascending: false }).limit(5),
+      ]);
 
-      // Fetch Pending Withdrawals sum & count
-      const { data: withdrawals } = await supabase
-        .from('wallet_transactions')
-        .select('amount')
-        .eq('type', 'withdrawal')
-        .eq('status', 'pending');
+      if (usersRes.count !== null) setTotalUsers(usersRes.count);
       
-      if (withdrawals) {
-        setPendingWithdrawalsCount(withdrawals.length);
-        const sum = withdrawals.reduce((acc, tx) => acc + Number(tx.amount), 0);
+      if (withdrawalsRes.data) {
+        setPendingWithdrawalsCount(withdrawalsRes.data.length);
+        const sum = withdrawalsRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
         setPendingWithdrawalsSum(sum);
       }
 
-      // Fetch Total Active Posts
-      const { count: postsCount } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved');
-      if (postsCount !== null) setActivePostsCount(postsCount);
-
-      // Fetch Recent Withdrawals (Pending) with Profiles
-      const { data: recentWth } = await supabase
-        .from('wallet_transactions')
-        .select(`
-          id, amount, status, created_at,
-          profiles:user_id (name)
-        `)
-        .eq('type', 'withdrawal')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (recentWth) setRecentWithdrawals(recentWth);
-
-      // Fetch Total Deposits / Revenue
-      const { data: depositsData } = await supabase
-        .from('wallet_transactions')
-        .select('amount')
-        .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
-        .eq('status', 'completed');
+      if (postsRes.count !== null) setActivePostsCount(postsRes.count);
+      if (recentWithdrawalsRes.data) setRecentWithdrawals(recentWithdrawalsRes.data);
       
-      if (depositsData) {
-        const depSum = depositsData.reduce((acc, tx) => acc + Number(tx.amount), 0);
+      if (depositsRes.data) {
+        const depSum = depositsRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
         setTotalDeposits(depSum);
       }
 
-      // Fetch Recent Deposits/Purchases
-      const { data: rDeposits } = await supabase
-        .from('wallet_transactions')
-        .select(`
-          id, amount, status, type, metadata, created_at,
-          profiles:user_id (name, username)
-        `)
-        .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
-        .order('created_at', { ascending: false })
-        .limit(5);
-        
-      if (rDeposits) setRecentDeposits(rDeposits);
+      if (recentDepositsRes.data) setRecentDeposits(recentDepositsRes.data);
 
     } catch (err) {
       console.error("Error fetching admin stats:", err);

@@ -23,26 +23,49 @@ export function AdminReferrals() {
   async function fetchReferrals() {
     setIsLoading(true);
     try {
-      // Get all referrals
+      // Get all referrals (without nested user_subscriptions to avoid PGRST200)
       let query = supabase
         .from('referrals')
         .select(`
           created_at,
           referral_code_used,
+          referred_user_id,
           referrer:profiles!referrals_referrer_user_id_fkey(name, email, avatar_url),
-          referred:profiles!referrals_referred_user_id_fkey(name, email, avatar_url, user_subscriptions(plan_id))
+          referred:profiles!referrals_referred_user_id_fkey(name, email, avatar_url)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
 
       const { data } = await query;
       
-      // Since inner joins across relationships with .or() search is complex in PostgREST without a view,
-      // we do simple client sie filtering if there's a search term
-      let filtered = data || [];
-      if (search && data) {
+      // Fetch subscription data separately for referred users
+      let subsMap: Record<string, string> = {};
+      if (data && data.length > 0) {
+        const referredUserIds = data.map((r: any) => r.referred_user_id).filter(Boolean);
+        if (referredUserIds.length > 0) {
+          const { data: subsData } = await supabase
+            .from('user_subscriptions')
+            .select('user_id, plan_id')
+            .in('user_id', referredUserIds);
+          
+          if (subsData) {
+            subsData.forEach((s: any) => {
+              subsMap[s.user_id] = s.plan_id;
+            });
+          }
+        }
+      }
+
+      // Enrich data with subscription info
+      let enriched = (data || []).map((r: any) => ({
+        ...r,
+        plan_id: subsMap[r.referred_user_id] || 'free',
+      }));
+
+      // Client-side search filtering
+      if (search && enriched.length > 0) {
         const s = search.toLowerCase();
-        filtered = data.filter((r: any) => 
+        enriched = enriched.filter((r: any) => 
           r.referrer?.name?.toLowerCase().includes(s) || 
           r.referrer?.email?.toLowerCase().includes(s) ||
           r.referred?.name?.toLowerCase().includes(s) ||
@@ -51,7 +74,7 @@ export function AdminReferrals() {
         );
       }
       
-      setReferralsList(filtered);
+      setReferralsList(enriched);
 
       // Fetch absolute counts
       const counts = await supabase.from('referrals').select('id', { count: 'exact', head: true });
@@ -137,9 +160,8 @@ export function AdminReferrals() {
               </thead>
               <tbody className="before:content-[''] before:block before:h-4 text-sm divide-y divide-surface-container/50">
                 {referralsList.map((r, i) => {
-                  const subData = r.referred?.user_subscriptions?.[0] || r.referred?.user_subscriptions || {};
-                  const planId = subData.plan_id && subData.plan_id !== 'free' ? subData.plan_id.toUpperCase() : 'FREE PLAN';
-                  const isActive = subData.plan_id && subData.plan_id !== 'free';
+                  const planId = r.plan_id && r.plan_id !== 'free' ? r.plan_id.toUpperCase() : 'FREE PLAN';
+                  const isActive = r.plan_id && r.plan_id !== 'free';
 
                   return (
                     <tr key={i} className="hover:bg-black/5 transition-colors">

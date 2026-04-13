@@ -139,7 +139,7 @@ export function Dashboard() {
           <h3 className="text-lg font-bold font-headline text-on-surface">Quick Actions</h3>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-5 gap-4">
-          <Link to="/earn" className="flex flex-col items-center gap-2 group cursor-pointer">
+          <Link to="/" className="flex flex-col items-center gap-2 group cursor-pointer">
             <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
               <span className="material-symbols-outlined text-3xl">menu_book</span>
             </div>
@@ -157,7 +157,7 @@ export function Dashboard() {
             </div>
             <span className="text-xs font-semibold text-center text-on-surface-variant">Plans</span>
           </Link>
-          <Link to="/wallet" className="flex flex-col items-center gap-2 group cursor-pointer">
+          <Link to="/transactions" className="flex flex-col items-center gap-2 group cursor-pointer">
             <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
               <span className="material-symbols-outlined text-3xl">history</span>
             </div>
