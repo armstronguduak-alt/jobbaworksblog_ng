@@ -129,22 +129,13 @@ export function Login() {
             </form>
           </div>
 
-          {/* Sign Up & Admin Prompt */}
-          <div className="text-center relative z-20 space-y-4">
-            <p className="text-on-surface-variant font-medium">
-              Don't have an account?
-              <Link to="/signup" className="text-primary font-bold hover:underline underline-offset-4 decoration-2 decoration-primary-fixed-dim ml-1">
-                Sign Up
-              </Link>
-            </p>
-            
-            <div className="pt-4 border-t border-surface-container w-1/2 mx-auto">
-              <Link to="/admin-login" className="flex items-center justify-center gap-1.5 text-xs text-on-surface-variant hover:text-primary font-bold transition-colors">
-                <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
-                Admin Portal
-              </Link>
-            </div>
-          </div>
+          {/* Sign Up Prompt */}
+          <p className="text-center text-on-surface-variant font-medium relative z-20">
+            Don't have an account?
+            <Link to="/signup" className="text-primary font-bold hover:underline underline-offset-4 decoration-2 decoration-primary-fixed-dim ml-1">
+              Sign Up
+            </Link>
+          </p>
         </div>
       </main>
 

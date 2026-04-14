@@ -219,16 +219,6 @@ export function Dashboard() {
             <span className="material-symbols-outlined text-primary mb-2">article</span>
             <p className="text-sm font-medium text-on-surface-variant">Tasks Completed</p>
             <h4 className="text-xl font-bold font-headline text-on-surface">{articlesRead}</h4>
-          </div>
-          {/* Daily Login Streak Card */}
-          <button
-            onClick={() => setShowStreakModal(true)}
-            className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-[2rem] shadow-sm text-left hover:shadow-md transition-all active:scale-95 border border-amber-100/50 group"
-          >
-            <span className="text-2xl mb-1 block group-hover:scale-110 transition-transform">🔥</span>
-            <p className="text-sm font-medium text-amber-700">Daily Login Streak</p>
-            <h4 className="text-xl font-bold font-headline text-amber-900">Claim Reward</h4>
-          </button>
         </div>
       </section>
 
