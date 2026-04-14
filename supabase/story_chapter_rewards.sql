@@ -4,7 +4,14 @@
 -- + Retroactive Rewards for already published chapters
 -- =========================================================
 
--- 1. Create the Trigger Function for Future Chapter Approvals
+-- 1. ADD 'story_reward' TO transaction_type ENUM (safe)
+DO $$
+BEGIN
+  ALTER TYPE public.transaction_type ADD VALUE IF NOT EXISTS 'story_reward';
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+-- 2. Create the Trigger Function for Future Chapter Approvals
 CREATE OR REPLACE FUNCTION public.credit_chapter_approval_reward()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
