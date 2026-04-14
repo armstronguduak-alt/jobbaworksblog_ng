@@ -59,6 +59,20 @@ export function Home() {
     }
   }, [slug, categories]);
 
+  // Aggressive Background Prefetching (Essential for Mobile/Instant Load)
+  useEffect(() => {
+    if (latestPosts.length > 0) {
+      // Prefetch the top 6 posts automatically in the background
+      latestPosts.slice(0, 6).forEach(post => {
+        queryClient.prefetchQuery({
+          queryKey: ['article', post.slug, user?.id],
+          queryFn: () => fetchArticleData(post.slug, user?.id),
+          staleTime: 10 * 60 * 1000
+        });
+      });
+    }
+  }, [latestPosts, user?.id, queryClient]);
+
   const searchQuery = new URLSearchParams(location.search).get('search')?.toLowerCase() || '';
 
   const filteredLatest = (activeCategory === 'All Feed'

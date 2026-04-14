@@ -7,12 +7,13 @@ import confetti from 'canvas-confetti';
 import { SEO } from '../components/SEO';
 import { ShareButton } from '../components/ShareButton';
 
-export const fetchArticleData = async (slug: string, userId?: string) => {
-  // Join posts with authored profile
+// FAST: Fetch only the core article data (title, content, image, author) — 1 network call
+export const fetchArticleCore = async (slug: string) => {
   const { data: pData } = await supabase
     .from('posts')
     .select(`
-      *,
+      id, title, slug, content, summary, excerpt, featured_image, reading_time_seconds, 
+      word_count, views, created_at, updated_at, category_id, author_user_id, status,
       category:categories(id, name, slug),
       author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
     `)
@@ -21,92 +22,66 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
     .single();
 
   if (!pData) return null;
+  return pData;
+};
 
+// FULL: Fetch everything in parallel — all secondary queries run concurrently
+export const fetchArticleData = async (slug: string, userId?: string) => {
+  const pData = await fetchArticleCore(slug);
+  if (!pData) return null;
+
+  // Run ALL secondary queries in PARALLEL instead of sequentially
+  const [subResult, commentsResult, relatedResult, trendResult, followResult, readResult] = await Promise.all([
+    // 1. Author subscription check
+    supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle(),
+    // 2. Comments
+    supabase.from('post_comments').select('id, content, created_at, user_id').eq('post_id', pData.id).order('created_at', { ascending: false }).limit(50),
+    // 3. Related posts
+    pData.category_id
+      ? supabase.from('posts').select('id, title, slug, featured_image, created_at, reading_time_seconds').eq('status', 'approved').eq('category_id', pData.category_id).neq('id', pData.id).order('created_at', { ascending: false }).limit(6)
+      : Promise.resolve({ data: [] }),
+    // 4. Trending "Read Also" posts
+    supabase.from('posts').select('id, title, slug, featured_image, created_at, category:categories(slug)').eq('status', 'approved').neq('id', pData.id).order('views', { ascending: false }).limit(4),
+    // 5. Follow status (only if logged in)
+    userId && pData.author?.user_id
+      ? supabase.from('followers').select('id').eq('follower_id', userId).eq('following_id', pData.author.user_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    // 6. Read status (only if logged in)
+    userId
+      ? supabase.from('post_reads').select('id').eq('post_id', pData.id).eq('user_id', userId).maybeSingle()
+      : Promise.resolve({ data: null })
+  ]);
+
+  // Apply author verification
   let isVerified = pData.author?.is_verified || false;
-  const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', pData.author?.user_id).maybeSingle();
-  if (subData && subData.plan_id !== 'free') {
-    isVerified = true;
-  }
-  pData.author.is_verified = isVerified;
-  
-  // Fetch Comments then enrich with profile data
-  const { data: rawComments } = await supabase
-    .from('post_comments')
-    .select('id, content, created_at, user_id')
-    .eq('post_id', pData.id)
-    .order('created_at', { ascending: false });
+  if (subResult.data && subResult.data.plan_id !== 'free') isVerified = true;
+  if (pData.author) pData.author.is_verified = isVerified;
 
+  // Enrich comments with profiles (one extra call if comments exist)
   let cData: any[] = [];
+  const rawComments = commentsResult.data;
   if (rawComments && rawComments.length > 0) {
-    const userIds = [...new Set(rawComments.map(c => c.user_id))];
+    const userIds = [...new Set(rawComments.map((c: any) => c.user_id))];
     const { data: commentProfiles } = await supabase
       .from('profiles')
       .select('user_id, name, username, avatar_url')
       .in('user_id', userIds);
     
     const profileMap: Record<string, any> = {};
-    (commentProfiles || []).forEach(p => { profileMap[p.user_id] = p; });
-
-    cData = rawComments.map(c => ({
+    (commentProfiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+    cData = rawComments.map((c: any) => ({
       ...c,
       profiles: profileMap[c.user_id] || { name: 'Unknown', username: 'user' }
     }));
   }
 
-  // Fetch Related Posts
-  let rData: any[] = [];
-  if (pData.category_id) {
-    const { data } = await supabase
-      .from('posts')
-      .select('id, title, slug, featured_image, created_at, reading_time_seconds')
-      .eq('status', 'approved')
-      .eq('category_id', pData.category_id)
-      .neq('id', pData.id)
-      .order('created_at', { ascending: false })
-      .limit(6);
-    if (data) rData = data;
-  }
-
-  // Fetch Read Also Posts (Trending / Mix)
-  let readAlsoData: any[] = [];
-  const { data: trendData } = await supabase
-    .from('posts')
-    .select('id, title, slug, featured_image, created_at, category:categories(slug)')
-    .eq('status', 'approved')
-    .neq('id', pData.id)
-    .order('views', { ascending: false })
-    .limit(4);
-  if (trendData) readAlsoData = trendData;
-
-  // Check follow status if logged in
-  let fData = false;
-  let hasRead = false;
-  if (userId && pData.author?.user_id) {
-    const { data } = await supabase
-      .from('followers')
-      .select('id')
-      .eq('follower_id', userId)
-      .eq('following_id', pData.author.user_id)
-      .maybeSingle();
-    fData = !!data;
-    
-    // Check if user has already read this post online
-    const { data: readData } = await supabase
-      .from('post_reads')
-      .select('id')
-      .eq('post_id', pData.id)
-      .eq('user_id', userId)
-      .maybeSingle();
-    hasRead = !!readData;
-  }
-
   return {
     post: pData,
-    comments: cData || [],
-    relatedPosts: rData,
-    readAlsoPosts: readAlsoData,
-    isFollowing: fData,
-    hasRead: hasRead
+    comments: cData,
+    relatedPosts: relatedResult.data || [],
+    readAlsoPosts: trendResult.data || [],
+    isFollowing: !!followResult.data,
+    hasRead: !!readResult.data
   };
 };
 
@@ -145,13 +120,23 @@ export function PublicArticle() {
     return undefined;
   };
 
+  // Phase 1: Fetch article IMMEDIATELY — don't wait for auth
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['article', slug, user?.id],
-    enabled: !!slug && !authLoading,
-    staleTime: 10 * 60 * 1000, // Boost stale content lifetime
+    enabled: !!slug,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     initialData: getInitialArticleData(),
+    placeholderData: (prev: any) => prev, // Keep old data visible during refetch
     queryFn: () => fetchArticleData(slug!, user?.id)
   });
+
+  // Phase 2: Refetch with userId when auth resolves (to get follow/read status)
+  useEffect(() => {
+    if (!authLoading && user?.id && slug) {
+      refetch();
+    }
+  }, [authLoading, user?.id]);
 
   const post = data?.post;
   const comments = data?.comments || [];
@@ -238,21 +223,8 @@ export function PublicArticle() {
     }
   };
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 animate-pulse space-y-6">
-        <div className="h-6 w-24 bg-surface-container-high rounded-full mb-4"></div>
-        <div className="h-10 md:h-14 w-3/4 bg-surface-container-high rounded-2xl mb-6"></div>
-        <div className="h-14 w-full bg-surface-container-high rounded-2xl mb-8"></div>
-        <div className="w-full h-[400px] bg-surface-container-high rounded-3xl mb-12"></div>
-        <div className="space-y-4">
-          <div className="h-5 w-full bg-surface-container-high rounded"></div>
-          <div className="h-5 w-full bg-surface-container-high rounded"></div>
-          <div className="h-5 w-5/6 bg-surface-container-high rounded"></div>
-          <div className="h-5 w-full bg-surface-container-high rounded"></div>
-        </div>
-      </div>
-    );
+  if (isLoading && !data) {
+    return <div className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 min-h-screen" />;
   }
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
