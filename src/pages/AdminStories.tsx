@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 export function AdminStories() {
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('content'));
   const { showAlert } = useDialog();
   const [stories, setStories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -13,8 +17,8 @@ export function AdminStories() {
   const [isReviewing, setIsReviewing] = useState(false);
 
   useEffect(() => {
-    fetchStories();
-  }, [activeTab]);
+    if (hasAccess) fetchStories();
+  }, [activeTab, hasAccess]);
 
   const fetchStories = async () => {
     setIsLoading(true);
@@ -68,6 +72,9 @@ export function AdminStories() {
      await supabase.rpc('increment_wallet_balance', { amount: 50, target_user: selectedStory.author_id });
      await handleUpdateStatus(selectedStory.id, 'published', 'story');
   };
+
+  if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

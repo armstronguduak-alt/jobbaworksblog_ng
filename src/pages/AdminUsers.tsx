@@ -12,6 +12,22 @@ export function AdminUsers() {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
+  // Role Management State
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('user');
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+
+  const availablePermissions = [
+    { id: 'content', label: 'Content (Stories, Articles, Categories)' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'promotions', label: 'Promotions' },
+    { id: 'tasks', label: 'Tasks & Bounties' },
+    { id: 'referrals', label: 'Referrals' },
+    { id: 'transactions', label: 'Transactions & Withdrawals' },
+  ];
+
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
@@ -39,6 +55,65 @@ export function AdminUsers() {
       setIsLoading(false);
     }
   }
+
+  const handleManageRole = async (user: any) => {
+    setSelectedUserForRole(user);
+    setIsRoleModalOpen(true);
+    setUserRole('user');
+    setUserPermissions([]);
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role, permissions')
+      .eq('user_id', user.user_id || user.id)
+      .maybeSingle();
+
+    if (data) {
+      setUserRole(data.role);
+      if (data.permissions) {
+        if (Array.isArray(data.permissions)) setUserPermissions(data.permissions);
+        else if (typeof data.permissions === 'string') {
+          try { setUserPermissions(JSON.parse(data.permissions)); } catch(e){}
+        }
+      }
+    }
+  };
+
+  const saveRoleSettings = async () => {
+    if (!selectedUserForRole) return;
+    setIsUpdatingRole(true);
+    const targetUserId = selectedUserForRole.user_id || selectedUserForRole.id;
+    
+    try {
+      if (userRole === 'user') {
+        const { error } = await supabase.from('user_roles').delete().eq('user_id', targetUserId);
+        if (error) throw error;
+      } else {
+        await supabase.from('user_roles').upsert({
+          user_id: targetUserId,
+          role: userRole,
+          permissions: userRole === 'moderator' ? userPermissions : []
+        }, { onConflict: 'user_id, role' });
+        
+        // Let's actually delete existing first if we are changing role type to prevent UNIQUE constraint on (user_id, role)
+        await supabase.from('user_roles').delete().eq('user_id', targetUserId);
+        
+        const { error } = await supabase.from('user_roles').insert({
+          user_id: targetUserId,
+          role: userRole,
+          permissions: userRole === 'moderator' ? userPermissions : []
+        });
+        if (error) throw error;
+      }
+      setIsRoleModalOpen(false);
+      alert('Role updated successfully.');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error updating role: ${err.message}`);
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
@@ -135,7 +210,7 @@ export function AdminUsers() {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button className="text-primary font-bold hover:underline text-xs">View/Edit</button>
+                      <button onClick={() => handleManageRole(u)} className="text-primary font-bold hover:underline text-xs">Manage Role</button>
                     </td>
                   </tr>
                 ))}
@@ -153,6 +228,78 @@ export function AdminUsers() {
           setSelectedUserIds(new Set());
         }}
       />
+
+      {isRoleModalOpen && selectedUserForRole && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="font-headline font-black text-xl mb-4 text-[#191c1d]">Manage User Role</h3>
+            <div className="flex items-center gap-3 mb-6">
+              <img src={selectedUserForRole.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${selectedUserForRole.name}`} alt="avatar" className="w-10 h-10 rounded-full" />
+              <div>
+                <p className="font-bold text-sm text-[#191c1d]">{selectedUserForRole.name}</p>
+                <p className="text-xs text-outline">{selectedUserForRole.email}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-outline">Assign Role</label>
+                <select 
+                  value={userRole} 
+                  onChange={(e) => {
+                    setUserRole(e.target.value);
+                    if (e.target.value !== 'moderator') setUserPermissions([]);
+                  }}
+                  className="w-full mt-2 p-3 bg-surface-container rounded-xl border-none focus:ring-2 focus:ring-primary font-bold"
+                >
+                  <option value="user">Normal User</option>
+                  <option value="moderator">Moderator</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+
+              {userRole === 'moderator' && (
+                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container">
+                  <label className="text-xs font-bold uppercase tracking-widest text-outline mb-2 block">Moderator Permissions</label>
+                  <p className="text-[10px] text-outline mb-3 italic">Select which pages the moderator can manage:</p>
+                  <div className="space-y-2">
+                    {availablePermissions.map(perm => {
+                      const hasPerm = userPermissions.includes(perm.id);
+                      return (
+                        <label key={perm.id} className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={hasPerm}
+                            onChange={() => {
+                              if (hasPerm) setUserPermissions(prev => prev.filter(p => p !== perm.id));
+                              else setUserPermissions(prev => [...prev, perm.id]);
+                            }}
+                            className="rounded text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm font-medium">{perm.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-8">
+              <button onClick={() => setIsRoleModalOpen(false)} className="px-5 py-2 hover:bg-surface-container rounded-xl font-bold text-sm text-on-surface-variant transition-colors">
+                Cancel
+              </button>
+              <button 
+                onClick={saveRoleSettings} 
+                disabled={isUpdatingRole}
+                className="px-5 py-2 bg-primary hover:bg-emerald-800 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50"
+              >
+                {isUpdatingRole ? 'Saving...' : 'Save Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 export function AdminWithdrawals() {
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert, showConfirm } = useDialog();
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected'>('pending');
 
   useEffect(() => {
-    fetchWithdrawals();
-  }, [activeTab]);
+    if (hasAccess) fetchWithdrawals();
+  }, [activeTab, hasAccess]);
 
   const fetchWithdrawals = async () => {
     setIsLoading(true);
@@ -87,7 +91,11 @@ export function AdminWithdrawals() {
       try { return JSON.parse(details); } catch { return null; }
     }
     return details;
+    return details;
   };
+
+  if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 
 export function AdminCategories() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('content'));
   const { showAlert, showConfirm } = useDialog();
 
   const [categories, setCategories] = useState<any[]>([]);
@@ -13,10 +14,10 @@ export function AdminCategories() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (hasAccess) {
       fetchCategories();
     }
-  }, [isAdmin]);
+  }, [hasAccess]);
 
   const fetchCategories = async () => {
     setIsLoading(true);
@@ -97,7 +98,7 @@ export function AdminCategories() {
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-6 pt-10 pb-32">

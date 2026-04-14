@@ -7,7 +7,7 @@ import { NotificationsDropdown } from '../components/NotificationsDropdown';
 export function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isAdmin, isModerator, permissions } = useAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -26,19 +26,29 @@ export function AdminLayout() {
   };
 
   const menuItems = [
-    { name: 'System Overview', path: '/admin', icon: 'admin_panel_settings' },
-    { name: 'Articles Management', path: '/admin/articles', icon: 'article' },
-    { name: 'User Management', path: '/admin/users', icon: 'group' },
-    { name: 'Categories', path: '/admin/categories', icon: 'sell' },
-    { name: 'Transactions', path: '/admin/transactions', icon: 'payments' },
-    { name: 'Withdrawals', path: '/admin/withdrawals', icon: 'account_balance' },
-    { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes' },
-    { name: 'Promotions', path: '/admin/promotions', icon: 'campaign' },
-    { name: 'Story Moderation', path: '/admin/stories', icon: 'local_library' },
-    { name: 'Referrals', path: '/admin/referrals', icon: 'hub' },
-    { name: 'Notifications', path: '/admin/notifications', icon: 'notifications' },
-    { name: 'Global Settings', path: '/admin/settings', icon: 'tune' },
+    { name: 'System Overview', path: '/admin', icon: 'admin_panel_settings', perm: 'all' },
+    { name: 'Articles Management', path: '/admin/articles', icon: 'article', perm: 'content' },
+    { name: 'User Management', path: '/admin/users', icon: 'group', perm: 'admin' },
+    { name: 'Categories', path: '/admin/categories', icon: 'sell', perm: 'content' },
+    { name: 'Transactions', path: '/admin/transactions', icon: 'payments', perm: 'transactions' },
+    { name: 'Withdrawals', path: '/admin/withdrawals', icon: 'account_balance', perm: 'transactions' },
+    { name: 'Tasks & Bounties', path: '/admin/tasks', icon: 'track_changes', perm: 'tasks' },
+    { name: 'Promotions', path: '/admin/promotions', icon: 'campaign', perm: 'promotions' },
+    { name: 'Story Moderation', path: '/admin/stories', icon: 'local_library', perm: 'content' },
+    { name: 'Referrals', path: '/admin/referrals', icon: 'hub', perm: 'referrals' },
+    { name: 'Notifications', path: '/admin/notifications', icon: 'notifications', perm: 'notifications' },
+    { name: 'Global Settings', path: '/admin/settings', icon: 'tune', perm: 'admin' },
   ];
+
+  const visibleMenuItems = menuItems.filter(item => {
+    if (isAdmin) return true;
+    if (isModerator) {
+      if (item.perm === 'all') return true;
+      if (item.perm === 'admin') return false;
+      return permissions.includes(item.perm);
+    }
+    return false;
+  });
 
   return (
     <div className="flex h-screen bg-surface font-body overflow-hidden">
@@ -94,7 +104,7 @@ export function AdminLayout() {
           <div>
             <p className="px-3 text-[10px] font-bold text-outline uppercase tracking-widest mb-3">COMMAND CENTER</p>
             <nav className="flex flex-col gap-1">
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
                 return (
                   <Link 
@@ -163,11 +173,11 @@ export function AdminLayout() {
                 <span className="text-sm font-bold text-on-surface leading-tight">
                   {profile?.name || profile?.full_name || profile?.username || 'Admin'}
                 </span>
-                <span className="text-[10px] font-bold text-error tracking-wider uppercase">
-                  Super Administrator
+                <span className={`text-[10px] font-bold tracking-wider uppercase ${isAdmin ? 'text-error' : 'text-primary'}`}>
+                  {isAdmin ? 'Super Administrator' : 'Platform Moderator'}
                 </span>
               </div>
-              <div className="w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 border-error/50">
+              <div className={`w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 ${isAdmin ? 'border-error/50' : 'border-primary/50'}`}>
                 <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Admin"} alt="Admin Avatar" className="w-full h-full object-cover" />
               </div>
             </div>

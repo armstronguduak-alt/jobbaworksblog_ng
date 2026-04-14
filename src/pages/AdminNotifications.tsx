@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 export function AdminNotifications() {
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('notifications'));
   const { showAlert } = useDialog();
   const [users, setUsers] = useState<any[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
@@ -15,9 +19,11 @@ export function AdminNotifications() {
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchUsers();
-    fetchRecentNotifications();
-  }, []);
+    if (hasAccess) {
+      fetchUsers();
+      fetchRecentNotifications();
+    }
+  }, [hasAccess]);
 
   useEffect(() => {
     if (!searchTerm) {
@@ -95,6 +101,9 @@ export function AdminNotifications() {
       setIsSubmitting(false);
     }
   };
+
+  if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 space-y-8">

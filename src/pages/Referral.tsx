@@ -26,6 +26,7 @@ export function Referral() {
 
       const earnings = walletRes.data?.referral_earnings || 0;
       const pendingBonus = (pendingTxRes.data || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+      const totalBonusEarned = (bonusTxRes.data || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
 
       // Per-user earnings map
       const perUserEarnings: Record<string, number> = {};
@@ -48,7 +49,7 @@ export function Referral() {
         referrals = (fallback || []).map((p: any) => ({ referred_user_id: p.user_id, created_at: new Date().toISOString(), profiles: p, plan_id: 'free' }));
       }
 
-      return { earnings, pendingBonus, perUserEarnings, referrals };
+      return { earnings, pendingBonus, totalBonusEarned, perUserEarnings, referrals };
     },
     enabled: !!user?.id,
     staleTime: 2 * 60 * 1000,
@@ -56,6 +57,7 @@ export function Referral() {
 
   const earnings = referralData?.earnings || 0;
   const pendingBonus = referralData?.pendingBonus || 0;
+  const totalBonusEarned = referralData?.totalBonusEarned || 0;
   const perUserEarnings = referralData?.perUserEarnings || {};
   const referrals = referralData?.referrals || [];
 
@@ -238,8 +240,8 @@ export function Referral() {
             )}
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Rewards</p>
             <div className="flex items-baseline gap-1 pt-1">
-              <span className={`text-2xl font-black font-headline ${pendingBonus > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>
-                ₦{pendingBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className={`text-2xl font-black font-headline ${totalBonusEarned > 0 ? 'text-emerald-800' : 'text-on-surface-variant'}`}>
+                ₦{totalBonusEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>

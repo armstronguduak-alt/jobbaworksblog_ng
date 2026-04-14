@@ -1,55 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function AdminTransactions() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert } = useDialog();
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchTransactions();
-
-      // Real-time listener — unique channel name prevents reconnect conflicts
-      const txListener = supabase.channel(`admin-tx-${Math.random().toString(36).substring(7)}`)
-        .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'wallet_transactions' },
-        () => {
-          fetchTransactions(true); // silent refresh — no loading spinner
-        }
-      )
-        .subscribe();
-      
-      return () => {
-        supabase.removeChannel(txListener);
-      };
-    }
-  }, [isAdmin]);
-
-  async function fetchTransactions(silent = false) {
-    if (!silent) setIsLoading(true);
-    try {
-      const { data } = await supabase
+  const { data: transactions = [], isLoading, isFetching } = useQuery({
+    queryKey: ['admin_transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('wallet_transactions')
-        .select(`
-          *,
-          profiles:user_id (name, email)
-        `)
+        .select(`*, profiles:user_id (name, email)`)
         .order('created_at', { ascending: false })
         .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!hasAccess,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      if (data) setTransactions(data);
-    } catch (err) {
-      console.error('Error fetching transactions:', err);
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  }
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const txListener = supabase.channel(`admin-tx-${Math.random().toString(36).substring(7)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallet_transactions' },
+        () => queryClient.invalidateQueries({ queryKey: ['admin_transactions'] })
+      )
+      .subscribe();
+    
+    return () => { supabase.removeChannel(txListener); };
+  }, [hasAccess, queryClient]);
+
+
 
   const handleUpdateStatus = async (id: string, newStatus: string, userId: string, txType: string, txAmount: number) => {
     try {
@@ -59,7 +50,7 @@ export function AdminTransactions() {
         .eq('id', id);
 
       if (!error) {
-        setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
+        queryClient.setQueryData(['admin_transactions'], (old: any[]) => old?.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
         showAlert('Transaction updated successfully.');
         
         if (newStatus === 'completed' && txType === 'withdrawal') {
@@ -90,7 +81,7 @@ export function AdminTransactions() {
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -114,7 +105,10 @@ export function AdminTransactions() {
       <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
         <h2 className="text-lg font-bold font-headline mb-4 border-b border-surface-container pb-4 flex justify-between items-center">
           Recent Transactions
-          <button onClick={() => fetchTransactions()} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline px-2 py-1">Refresh</button>
+          <button onClick={() => queryClient.invalidateQueries({ queryKey: ['admin_transactions'] })} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline px-2 py-1 flex items-center gap-1">
+            {isFetching && <span className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></span>}
+            Refresh
+          </button>
         </h2>
         
         {isLoading ? (

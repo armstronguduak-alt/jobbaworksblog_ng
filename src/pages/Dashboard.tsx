@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DailyLoginStreakModal } from '../components/DailyLoginStreakModal';
 
 export function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const [streakChecked, setStreakChecked] = useState(false);
 
   // TanStack Query — cached, retried, never infinite
   const { data: dashData, isLoading } = useQuery({
@@ -69,6 +72,24 @@ export function Dashboard() {
   const balance = walletData?.balance || 0;
   const totalEarnings = walletData?.total_earnings || 0;
   const referralEarnings = walletData?.referral_earnings || 0;
+
+  // Check login streak on mount — auto-open modal if not claimed today
+  useEffect(() => {
+    if (!user?.id || streakChecked) return;
+    (async () => {
+      try {
+        const { data } = await supabase.rpc('get_login_streak_status');
+        if (data && !data.claimed_today) {
+          setShowStreakModal(true);
+        }
+      } catch (err) {
+        // RPC may not exist yet if migration hasn't run — silently skip
+        console.log('Streak check skipped:', err);
+      } finally {
+        setStreakChecked(true);
+      }
+    })();
+  }, [user?.id, streakChecked]);
 
   if (isLoading) {
     return <div className="p-8 text-center text-on-surface-variant font-medium">Loading Overview...</div>;
@@ -199,6 +220,15 @@ export function Dashboard() {
             <p className="text-sm font-medium text-on-surface-variant">Tasks Completed</p>
             <h4 className="text-xl font-bold font-headline text-on-surface">{articlesRead}</h4>
           </div>
+          {/* Daily Login Streak Card */}
+          <button
+            onClick={() => setShowStreakModal(true)}
+            className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-[2rem] shadow-sm text-left hover:shadow-md transition-all active:scale-95 border border-amber-100/50 group"
+          >
+            <span className="text-2xl mb-1 block group-hover:scale-110 transition-transform">🔥</span>
+            <p className="text-sm font-medium text-amber-700">Daily Login Streak</p>
+            <h4 className="text-xl font-bold font-headline text-amber-900">Claim Reward</h4>
+          </button>
         </div>
       </section>
 
@@ -271,6 +301,12 @@ export function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* Daily Login Streak Modal */}
+      <DailyLoginStreakModal
+        isOpen={showStreakModal}
+        onClose={() => setShowStreakModal(false)}
+      />
     </main>
   );
 }

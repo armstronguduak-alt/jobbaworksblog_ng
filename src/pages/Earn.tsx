@@ -216,6 +216,43 @@ export function Earn() {
                 <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
                 <p className="text-on-surface-variant font-medium text-sm">Loading tasks...</p>
               </div>
+            ) : stats.dailyReadsLeft === 0 && availablePosts.length > 0 ? (
+              /* ── Daily limit exhausted — show "Continue Tomorrow" ── */
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center space-y-2">
+                  <span className="material-symbols-outlined text-3xl text-amber-500">schedule</span>
+                  <p className="text-amber-800 font-bold text-sm">Daily reading limit reached!</p>
+                  <p className="text-amber-600 text-xs">You've completed all your reads for today. Come back tomorrow to continue earning.</p>
+                </div>
+                {availablePosts.slice(0, 3).map((post) => (
+                  <div key={post.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4 opacity-70">
+                    <div className="flex justify-between items-start">
+                      <div className="flex gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-secondary-container overflow-hidden flex items-center justify-center shrink-0">
+                          {post.featured_image ? (
+                            <img src={post.featured_image} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="material-symbols-outlined text-on-secondary-container">description</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-on-surface line-clamp-1">{post.title}</h4>
+                          <p className="text-on-surface-variant text-sm line-clamp-1">
+                            {Math.ceil(post.reading_time_seconds / 60)} min read
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      disabled
+                      className="w-full py-3 font-bold rounded-xl bg-amber-100 text-amber-700 cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">schedule</span>
+                      Continue Tomorrow
+                    </button>
+                  </div>
+                ))}
+              </>
             ) : availablePosts.length > 0 ? (
               availablePosts.map((post) => (
                 <div key={post.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
@@ -243,16 +280,14 @@ export function Earn() {
                   {localStorage.getItem(`jobbaworks_read_${post.id}`) === 'true' ? (
                     <button
                       onClick={() => handleClaimRead(post.id)}
-                      disabled={claimingId === post.id || stats.dailyReadsLeft === 0}
+                      disabled={claimingId === post.id}
                       className={`w-full py-3 font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 ${
-                        stats.dailyReadsLeft === 0
-                          ? 'bg-surface-container-highest text-on-surface-variant cursor-not-allowed'
-                          : claimingId === post.id
+                        claimingId === post.id
                           ? 'bg-surface-variant text-on-surface-variant'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
                       }`}
                     >
-                      {claimingId === post.id ? 'Claiming...' : stats.dailyReadsLeft === 0 ? 'Daily Limit Reached' : (
+                      {claimingId === post.id ? 'Claiming...' : (
                         <>
                           <span className="material-symbols-outlined text-[18px]">payments</span> Claim Reward
                         </>

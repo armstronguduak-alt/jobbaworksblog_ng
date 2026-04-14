@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AdminReferrals() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('referrals'));
   const [referralsList, setReferralsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -15,10 +16,10 @@ export function AdminReferrals() {
   });
 
   useEffect(() => {
-    if (isAdmin) {
+    if (hasAccess) {
       fetchReferrals();
     }
-  }, [isAdmin, search]);
+  }, [hasAccess, search]);
 
   async function fetchReferrals() {
     setIsLoading(true);
@@ -100,7 +101,7 @@ export function AdminReferrals() {
   }
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">

@@ -42,7 +42,6 @@ export function BlogLayout() {
   }, [location.pathname]);
 
   // Truncate long category names for the nav bar
-  const truncateName = (name: string, max = 12) => name.length > max ? name.substring(0, max) + '…' : name;
 
   return (
     <div className="min-h-screen bg-surface text-on-surface antialiased flex flex-col font-body">
@@ -65,13 +64,13 @@ export function BlogLayout() {
             </Link>
           </div>
           
-          {/* Desktop nav — Plans removed, category names truncated */}
-          <nav className="hidden lg:flex items-center gap-2 xl:gap-3 flex-1 px-4 justify-center max-w-[500px] xl:max-w-none">
-            <Link to="/" className="text-emerald-700 font-bold font-headline text-xs shrink-0">Home</Link>
-            <Link to="/stories" className="text-primary font-bold font-headline text-xs shrink-0">Stories✨</Link>
+          {/* Desktop nav — Categories fit in one row without scrolling */}
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 flex-1 px-4 justify-center overflow-hidden whitespace-nowrap mask-edges">
+            <Link to="/" className="text-emerald-700 font-bold font-headline text-[11px] xl:text-xs shrink-0">Home</Link>
+            <Link to="/stories" className="text-primary font-bold font-headline text-[11px] xl:text-xs shrink-0">Stories✨</Link>
             {categories.map(cat => (
-              <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-xs shrink-0" title={cat.name}>
-                {truncateName(cat.name)}
+              <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-[10px] xl:text-[11px] shrink-0 truncate max-w-[80px] xl:max-w-[120px]" title={cat.name}>
+                {cat.name}
               </Link>
             ))}
           </nav>

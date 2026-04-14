@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AdminManagement() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isModerator, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || isModerator;
   
   const [totalUsers, setTotalUsers] = useState(0);
   const [pendingWithdrawalsSum, setPendingWithdrawalsSum] = useState(0);
@@ -16,14 +17,14 @@ export function AdminManagement() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (hasAccess) {
       fetchAdminStats();
     }
-  }, [isAdmin]);
+  }, [hasAccess]);
 
   // Real-time channels
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!hasAccess) return;
 
     const txChannel = supabase
       .channel(`admin-tx-channel-${Math.random().toString(36).substring(7)}`)
@@ -51,7 +52,7 @@ export function AdminManagement() {
       supabase.removeChannel(usersChannel);
       supabase.removeChannel(postsChannel);
     };
-  }, [isAdmin]);
+  }, [hasAccess]);
 
   async function fetchAdminStats() {
     setIsLoading(true);
@@ -107,7 +108,7 @@ export function AdminManagement() {
   }
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   const timeAgo = (dateStr: string) => {
     const s = Math.floor((Date.now() - new Date(dateStr).getTime())/1000);

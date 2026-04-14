@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +19,21 @@ export function StoryDetail() {
       return { story: s, chapters: c || [] };
     },
   });
+
+  // Track story view (once per session per story)
+  useEffect(() => {
+    if (!data?.story?.id) return;
+    const viewKey = `story_viewed_${data.story.id}`;
+    if (sessionStorage.getItem(viewKey)) return;
+    
+    sessionStorage.setItem(viewKey, 'true');
+    supabase
+      .from('stories')
+      .update({ total_reads: (data.story.total_reads || 0) + 1 })
+      .eq('id', data.story.id)
+      .then(() => {});
+  }, [data?.story?.id]);
+
 
   const story = data?.story;
   const chapters = data?.chapters || [];

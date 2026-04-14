@@ -41,8 +41,15 @@ export function Transactions() {
       case 'swap': return { icon: 'swap_horiz', color: 'text-blue-600', bg: 'bg-blue-50' };
       case 'withdrawal': return { icon: 'account_balance', color: 'text-rose-600', bg: 'bg-rose-50' };
       case 'comment_bonus': return { icon: 'chat', color: 'text-purple-600', bg: 'bg-purple-50' };
+      case 'comment_reward': return { icon: 'chat', color: 'text-purple-600', bg: 'bg-purple-50' };
       case 'referral': return { icon: 'group_add', color: 'text-amber-600', bg: 'bg-amber-50' };
+      case 'referral_bonus': return { icon: 'group_add', color: 'text-amber-600', bg: 'bg-amber-50' };
       case 'reading_reward': return { icon: 'menu_book', color: 'text-emerald-600', bg: 'bg-emerald-50' };
+      case 'reading_bonus': return { icon: 'auto_stories', color: 'text-indigo-600', bg: 'bg-indigo-50' };
+      case 'post_approval_reward': return { icon: 'article', color: 'text-teal-600', bg: 'bg-teal-50' };
+      case 'login_reward': return { icon: 'local_fire_department', color: 'text-orange-600', bg: 'bg-orange-50' };
+      case 'task_reward': return { icon: 'task_alt', color: 'text-cyan-600', bg: 'bg-cyan-50' };
+      case 'subscription_fee': return { icon: 'rocket_launch', color: 'text-violet-600', bg: 'bg-violet-50' };
       default: return { icon: 'payments', color: 'text-emerald-600', bg: 'bg-emerald-50' };
     }
   };
@@ -52,8 +59,15 @@ export function Transactions() {
       case 'swap': return 'Currency Swap';
       case 'withdrawal': return 'Withdrawal';
       case 'comment_bonus': return 'Comment Reward';
+      case 'comment_reward': return 'Comment Reward';
       case 'referral': return 'Referral Bonus';
+      case 'referral_bonus': return 'Referral Bonus';
       case 'reading_reward': return 'Reading Reward';
+      case 'reading_bonus': return 'Story Reading Bonus';
+      case 'post_approval_reward': return 'Article Author Reward';
+      case 'login_reward': return 'Daily Login Streak';
+      case 'task_reward': return 'Task Reward';
+      case 'subscription_fee': return 'Plan Subscription';
       case 'earning': return 'Earning';
       default: return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }

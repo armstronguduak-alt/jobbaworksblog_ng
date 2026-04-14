@@ -15,7 +15,8 @@ interface Promotion {
 }
 
 export function AdminPromotions() {
-  const { isAdmin, isLoading: authLoading, profile } = useAuth();
+  const { isAdmin, isModerator, permissions, isLoading: authLoading, profile } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('promotions'));
   const { showAlert, showConfirm } = useDialog();
   
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -34,8 +35,8 @@ export function AdminPromotions() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) fetchPromotions();
-  }, [isAdmin]);
+    if (hasAccess) fetchPromotions();
+  }, [hasAccess]);
 
   const fetchPromotions = async () => {
     setIsLoading(true);
@@ -131,7 +132,7 @@ export function AdminPromotions() {
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-6 pt-10 pb-32">
@@ -197,8 +198,8 @@ export function AdminPromotions() {
                 className="w-full px-4 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low text-sm font-bold" required
               />
               <input 
-                type="url" placeholder="CTA Action URL" value={formData.ctaUrl} onChange={(e) => setFormData({...formData, ctaUrl: e.target.value})}
-                className="w-full px-4 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low text-sm font-bold" required
+                type="url" placeholder="CTA Action URL (Optional)" value={formData.ctaUrl} onChange={(e) => setFormData({...formData, ctaUrl: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl bg-[#f8f9fa] border border-surface-container-low text-sm font-bold"
               />
             </div>
 

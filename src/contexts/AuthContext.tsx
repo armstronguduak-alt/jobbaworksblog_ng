@@ -7,6 +7,8 @@ type AuthContextType = {
   user: User | null;
   profile: any | null;
   isAdmin: boolean;
+  isModerator: boolean;
+  permissions: string[];
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => void;
@@ -19,6 +21,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isModerator, setIsModerator] = useState<boolean>(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,6 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         setIsAdmin(false);
+        setIsModerator(false);
+        setPermissions([]);
         setIsLoading(false);
       }
     });
@@ -90,15 +96,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profileData);
       }
 
-      // Check admin role
+      // Check admin / moderator role
       const { data: roleData } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, permissions')
         .eq('user_id', userId)
-        .eq('role', 'admin')
+        .in('role', ['admin', 'moderator'])
         .maybeSingle();
 
-      setIsAdmin(!!roleData);
+      setIsAdmin(roleData?.role === 'admin');
+      setIsModerator(roleData?.role === 'moderator');
+      
+      // Handle jsonb array properly (whether it's stored as array or string)
+      let parsedPerms: string[] = [];
+      if (roleData?.permissions) {
+        if (Array.isArray(roleData.permissions)) {
+          parsedPerms = roleData.permissions;
+        } else if (typeof roleData.permissions === 'string') {
+          try { parsedPerms = JSON.parse(roleData.permissions); } catch (e) {}
+        }
+      }
+      setPermissions(parsedPerms);
+      
     } catch (error) {
       console.error('Error in fetchProfile:', error);
     } finally {
@@ -115,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, isLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isModerator, permissions, isLoading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

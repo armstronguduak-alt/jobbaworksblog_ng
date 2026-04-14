@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
 export function AdminTasks() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
+  const hasAccess = isAdmin || (isModerator && permissions.includes('tasks'));
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
 
@@ -28,7 +29,8 @@ export function AdminTasks() {
       const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: !!hasAccess
   });
 
   const { data: communityTasks, isLoading: communityTasksLoading } = useQuery({
@@ -44,7 +46,8 @@ export function AdminTasks() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: !!hasAccess
   });
 
   const createTaskMutation = useMutation({
@@ -101,8 +104,24 @@ export function AdminTasks() {
     }
   };
 
+  const approveAllCommunityTasks = async () => {
+    try {
+      const pendingIds = communityTasks?.map((t: any) => t.id) || [];
+      if (pendingIds.length === 0) return showAlert('No pending tasks to approve.', 'Info');
+      
+      // Update in bulk safely
+      const { error } = await supabase.from('community_tasks').update({ status: 'approved' }).in('id', pendingIds);
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['admin_community_tasks'] });
+      showAlert(`Successfully approved ${pendingIds.length} tasks!`, 'Success');
+    } catch (error: any) {
+      showAlert(`Error batch approving tasks: ${error.message}`, 'Error');
+    }
+  };
+
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-6 pt-10 pb-32">
@@ -193,9 +212,20 @@ export function AdminTasks() {
 
       {/* Community Tasks Verification Section */}
       <div className="mt-16">
-        <h2 className="text-xl md:text-2xl font-black text-[#0f172a] tracking-tight mb-6 font-headline">
-          Community Verification Requests
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl md:text-2xl font-black text-[#0f172a] tracking-tight font-headline">
+            Community Verification Requests
+          </h2>
+          {communityTasks && communityTasks.length > 0 && (
+            <button 
+              onClick={approveAllCommunityTasks}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-sm text-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">done_all</span>
+              Approve All
+            </button>
+          )}
+        </div>
         <div className="bg-transparent overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
