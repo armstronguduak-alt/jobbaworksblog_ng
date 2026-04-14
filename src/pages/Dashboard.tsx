@@ -219,6 +219,7 @@ export function Dashboard() {
             <span className="material-symbols-outlined text-primary mb-2">article</span>
             <p className="text-sm font-medium text-on-surface-variant">Tasks Completed</p>
             <h4 className="text-xl font-bold font-headline text-on-surface">{articlesRead}</h4>
+          </div>
         </div>
       </section>
 
