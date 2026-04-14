@@ -303,37 +303,64 @@ export function AdminSettings() {
             </form>
           </div>
 
-          {/* Feature Toggles */}
-          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low relative">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined">toggle_on</span>
-                </div>
-                <h2 className="text-2xl font-extrabold font-headline text-on-surface">Page Visibility Toggles</h2>
+          {/* Page Visibility Toggles */}
+          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined">toggle_on</span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold font-headline text-on-surface">Page Visibility Controls</h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">Toggle any page on or off across the entire platform instantly.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {Object.entries(toggles).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
-                  <span className="font-bold text-on-surface capitalize">{key} Page</span>
-                  <button 
-                    onClick={() => setToggles({...toggles, [key]: !value})}
-                    className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 ${value ? 'bg-emerald-500' : 'bg-surface-variant'}`}
-                  >
-                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                  </button>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+              {([
+                { key: 'blogEnabled', label: 'Blog / Articles', desc: 'Public article pages & home feed', icon: 'article', danger: true },
+                { key: 'storiesEnabled', label: 'Stories Hub', desc: 'Community fiction & story pages', icon: 'auto_stories', danger: false },
+                { key: 'walletEnabled', label: 'Wallet', desc: 'User withdrawals & balance page', icon: 'account_balance_wallet', danger: true },
+                { key: 'swapEnabled', label: 'Swap / Convert', desc: 'Currency swap & conversion page', icon: 'swap_horiz', danger: false },
+                { key: 'leaderboardEnabled', label: 'Leaderboard (Dashboard)', desc: 'Rankings visible in user dashboard', icon: 'emoji_events', danger: false },
+                { key: 'leaderboardPublicEnabled', label: 'Leaderboard (Public)', desc: 'Rankings visible to non-logged-in users', icon: 'leaderboard', danger: false },
+                { key: 'earningsEnabled', label: 'Tasks / Earn', desc: 'Daily earning tasks for users', icon: 'task_alt', danger: false },
+                { key: 'referralsEnabled', label: 'Referrals', desc: 'Referral program & invite tracking', icon: 'group_add', danger: false },
+                { key: 'promotionsEnabled', label: 'Promotions', desc: 'Promotional offers & campaigns page', icon: 'campaign', danger: false },
+              ] as const).map(({ key, label, desc, icon, danger }) => {
+                const isOn = (toggles as any)[key] !== false;
+                return (
+                  <div key={key} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isOn ? 'bg-surface-container-low border-surface-container' : danger ? 'bg-red-50 border-red-100' : 'bg-amber-50/40 border-amber-100/50'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isOn ? 'bg-primary/10 text-primary' : danger ? 'bg-red-100 text-red-500' : 'bg-amber-100 text-amber-600'}`}>
+                        <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">{label}</p>
+                        <p className="text-[11px] text-on-surface-variant leading-tight">{desc}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setToggles({ ...toggles, [key]: !isOn })}
+                      className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 ml-3 ${isOn ? 'bg-emerald-500 shadow-inner' : 'bg-slate-200'}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isOn ? 'translate-x-6' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end">
-              <button onClick={handleTogglesSave} className="bg-primary hover:bg-primary/90 text-on-primary px-8 py-3.5 rounded-2xl font-bold shadow-md active:scale-95 transition-all">
-                Save Toggles
+              <button
+                onClick={handleTogglesSave}
+                disabled={updateTogglesMutation.isPending}
+                className="bg-primary hover:bg-primary/90 disabled:opacity-60 text-on-primary px-8 py-3.5 rounded-2xl font-bold shadow-md active:scale-95 transition-all flex items-center gap-2"
+              >
+                {updateTogglesMutation.isPending ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><span className="material-symbols-outlined text-[18px]">save</span>Save All Toggles</>}
               </button>
             </div>
           </div>
+
 
           {/* Monetization Settings */}
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative">

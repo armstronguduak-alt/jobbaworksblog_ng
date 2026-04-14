@@ -59,6 +59,7 @@ const AdminStories = lazy(() => import('./pages/AdminStories').then(module => ({
 const AdminWithdrawals = lazy(() => import('./pages/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
 const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation').then(module => ({ default: module.EmailConfirmation })));
 const EmailVerified = lazy(() => import('./pages/EmailVerified').then(module => ({ default: module.EmailVerified })));
+const AdminLogin = lazy(() => import('./pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
 
 function App() {
   return (
@@ -68,6 +69,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/email-confirmation" element={<EmailConfirmation />} />
         <Route path="/email-verified" element={<EmailVerified />} />
         

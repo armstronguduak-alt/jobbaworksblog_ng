@@ -11,7 +11,7 @@ export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
   const location = useLocation();
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, isModerator, signOut } = useAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -143,25 +143,27 @@ export function DashboardLayout() {
             </button>
           </div>
 
-          {/* Admin Mode Switch */}
-          {isAdmin && (
+          {/* Admin / Moderator Mode Switch */}
+          {(isAdmin || isModerator) && (
             <div className="mt-8">
-              <p className="px-3 text-[10px] font-bold text-error uppercase tracking-widest mb-3">Security & Operations</p>
+              <p className={`px-3 text-[10px] font-bold uppercase tracking-widest mb-3 ${isAdmin ? 'text-error' : 'text-amber-600'}`}>
+                {isAdmin ? 'Security & Operations' : 'Moderator Access'}
+              </p>
               <nav className="flex flex-col gap-1">
                 <Link 
                   to="/admin" 
                   onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all duration-200
-                    ${location.pathname.includes('/admin') 
-                      ? 'bg-error text-white shadow-md shadow-error/30' 
-                      : 'text-error hover:bg-error/10 hover:text-error'
+                    ${location.pathname.startsWith('/admin') 
+                      ? isAdmin ? 'bg-error text-white shadow-md shadow-error/30' : 'bg-amber-500 text-white shadow-md shadow-amber-400/30'
+                      : isAdmin ? 'text-error hover:bg-error/10' : 'text-amber-600 hover:bg-amber-50'
                     }
                   `}
                 >
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: location.pathname.includes('/admin') ? "'FILL' 1" : "'FILL' 0" }}>
-                    shield_person
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: location.pathname.startsWith('/admin') ? "'FILL' 1" : "'FILL' 0" }}>
+                    {isAdmin ? 'shield_person' : 'manage_accounts'}
                   </span>
-                  <span className="text-[14px]">Admin Mode</span>
+                  <span className="text-[14px]">{isAdmin ? 'Admin Mode' : 'Moderator Panel'}</span>
                 </Link>
               </nav>
             </div>

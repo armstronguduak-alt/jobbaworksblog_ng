@@ -8,6 +8,9 @@ export interface PageToggles {
   earningsEnabled: boolean; // aka tasks / earn
   walletEnabled: boolean;
   promotionsEnabled: boolean;
+  blogEnabled: boolean;
+  storiesEnabled: boolean;
+  leaderboardPublicEnabled: boolean;
 }
 
 const defaultToggles: PageToggles = {
@@ -17,6 +20,9 @@ const defaultToggles: PageToggles = {
   earningsEnabled: true,
   walletEnabled: true,
   promotionsEnabled: true,
+  blogEnabled: true,
+  storiesEnabled: true,
+  leaderboardPublicEnabled: true,
 };
 
 export interface ExchangeRates {

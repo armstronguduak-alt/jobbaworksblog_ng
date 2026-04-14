@@ -5,6 +5,7 @@ import { Menu, X, Search } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { supabase } from '../lib/supabase';
 import { NotificationBell } from '../components/NotificationBell';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function BlogLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +13,7 @@ export function BlogLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
   const { user, profile, signOut } = useAuth();
+  const { pageToggles, isLoadingToggles } = useAppSettings();
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -271,10 +273,27 @@ export function BlogLayout() {
         </div>
       </aside>
 
-      {/* Main page content goes here */}
-      <div className="flex-grow flex flex-col w-full bg-[#f8faf9]">
-        <Outlet />
-      </div>
+      {/* Blog Maintenance Gate */}
+      {!isLoadingToggles && pageToggles.blogEnabled === false ? (
+        <div className="flex-grow flex flex-col items-center justify-center min-h-[60vh] px-4 text-center bg-[#f8faf9]">
+          <div className="w-20 h-20 rounded-3xl bg-amber-100 flex items-center justify-center mb-6 mx-auto">
+            <span className="material-symbols-outlined text-amber-500 text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>construction</span>
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-3">Blog Under Maintenance</h2>
+          <p className="text-slate-500 max-w-md leading-relaxed text-sm mb-6">
+            Our blog is temporarily unavailable while we make improvements. Please check back soon!
+          </p>
+          <div className="flex gap-3">
+            <Link to="/login" className="px-6 py-3 bg-primary text-white font-bold rounded-2xl text-sm shadow-md hover:bg-emerald-800 transition-colors">
+              Go to Dashboard
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-grow flex flex-col w-full bg-[#f8faf9]">
+          <Outlet />
+        </div>
+      )}
 
       <Footer />
     </div>

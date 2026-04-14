@@ -12,8 +12,7 @@ export const fetchArticleCore = async (slug: string) => {
   const { data: pData } = await supabase
     .from('posts')
     .select(`
-      id, title, slug, content, summary, excerpt, featured_image, reading_time_seconds, 
-      word_count, views, created_at, updated_at, category_id, author_user_id, status,
+      *,
       category:categories(id, name, slug),
       author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
     `)
