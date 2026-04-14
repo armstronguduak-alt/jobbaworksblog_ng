@@ -85,8 +85,10 @@ export function StoryDetail() {
 
              <div className="flex gap-8">
                <div className="flex flex-col">
-                 <span className="font-black text-slate-900 text-lg">{(story.total_reads || 0).toLocaleString()}</span>
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Read</span>
+                 <span className="font-black text-slate-900 text-lg flex items-center gap-2">
+                   {(story.total_reads || 0).toLocaleString()} <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span></span>
+                 </span>
+                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Views</span>
                </div>
                <div className="flex flex-col">
                  <span className="font-black text-slate-900 text-lg">{chapters.length}</span>

@@ -15,6 +15,7 @@ export function Wallet() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [referralCount, setReferralCount] = useState(0);
   const { exchangeRates, pageToggles } = useAppSettings();
   const PAYOUT_THRESHOLD = 10.00;
   
@@ -68,10 +69,11 @@ export function Wallet() {
     try {
       if (transactions.length === 0) setIsLoading(true);
 
-      const [balanceRes, txRes, methodsRes] = await Promise.all([
+      const [balanceRes, txRes, methodsRes, referralRes] = await Promise.all([
         supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', userId).maybeSingle(),
         supabase.from('wallet_transactions').select('*').eq('user_id', userId).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
-        supabase.from('payout_methods').select('*').eq('user_id', userId)
+        supabase.from('payout_methods').select('*').eq('user_id', userId),
+        supabase.from('referrals').select('id', { count: 'exact' }).eq('referrer_id', userId)
       ]);
         
       if (balanceRes.data) {
@@ -89,6 +91,10 @@ export function Wallet() {
         }
       }
       
+      if (referralRes.count !== null && referralRes.count !== undefined) {
+        setReferralCount(referralRes.count);
+      }
+      
     } catch (err) {
       console.error("Error fetching wallet data:", err);
     } finally {
@@ -103,6 +109,10 @@ export function Wallet() {
   const handleWithdraw = async () => {
     if (!pageToggles.walletEnabled) {
       setMessage('Withdrawal feature is temporarily disabled for maintenance.');
+      return;
+    }
+    if (referralCount < 2) {
+      setMessage('You need at least 2 referrers to perform a withdrawal.');
       return;
     }
     if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 10) {
@@ -178,7 +188,15 @@ export function Wallet() {
         </div>
 
         <section className="space-y-6">
-          {/* AdSense Style Earnings Card */}
+          {!pageToggles.walletEnabled ? (
+            <div className="bg-amber-50 p-8 rounded-xl border border-amber-200 shadow-sm text-center">
+              <span className="material-symbols-outlined text-amber-500 text-5xl mb-4">construction</span>
+              <h2 className="text-2xl font-extrabold text-amber-900 mb-2">Withdrawals are Currently Under Maintenance</h2>
+              <p className="text-amber-800 text-sm">We are performing scheduled maintenance on the wallet integration system. Withdrawals will be enabled shortly.</p>
+            </div>
+          ) : (
+            <>
+              {/* AdSense Style Earnings Card */}
           <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm">
             <div className="text-center mb-8">
               <h3 className="text-[22px] font-body text-[#3c4043] mb-2 font-medium">Your earnings</h3>
@@ -299,6 +317,15 @@ export function Wallet() {
               )}
             </div>
           </div>
+          
+          {referralCount < 2 && (
+            <div className="bg-rose-50 text-rose-800 p-4 rounded-xl border border-rose-200">
+              <div className="flex items-center gap-2 font-bold mb-1">
+                <span className="material-symbols-outlined">warning</span> Referral Requirement
+              </div>
+              <p className="text-sm">You need at least 2 active downlines (referrals) to process your withdrawal. You currently have {referralCount}.</p>
+            </div>
+          )}
 
           {/* Submit Button */}
           <div className="pt-2">
@@ -312,6 +339,8 @@ export function Wallet() {
               {isSubmitting ? 'Processing...' : 'Submit Request'}
             </button>
           </div>
+          </>
+          )}
 
           {/* AdSense Style Transactions Card */}
           {transactions.length > 0 && (

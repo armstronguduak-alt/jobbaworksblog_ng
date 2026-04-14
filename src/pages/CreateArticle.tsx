@@ -445,6 +445,7 @@ export function CreateArticle() {
                 <span className="material-symbols-outlined text-sm md:text-base text-on-surface-variant group-hover:text-primary">format_quote</span>
               </button>
               <div className="ml-auto flex items-center gap-2 pr-2">
+                <span className="text-[10px] text-primary font-bold hidden sm:inline-block mr-2">Min. 800 words</span>
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-outline">Rich Text Editor</span>
               </div>
             </div>

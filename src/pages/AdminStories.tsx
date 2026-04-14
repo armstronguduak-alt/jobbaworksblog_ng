@@ -41,12 +41,26 @@ export function AdminStories() {
     if (data) setSelectedStoryChapters(data);
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: string, type: 'story' | 'chapter', extraPayload?: any) => {
+  const handleUpdateStatus = async (item: any, newStatus: string, type: 'story' | 'chapter', extraPayload?: any) => {
     try {
       const table = type === 'story' ? 'stories' : 'story_chapters';
-      const { error } = await supabase.from(table).update({ status: newStatus, ...extraPayload }).eq('id', id);
+      const { error } = await supabase.from(table).update({ status: newStatus, ...extraPayload }).eq('id', item.id);
       if (error) throw error;
       
+      // Award 200 per chapter approval
+      if (type === 'chapter' && newStatus === 'published') {
+        const amount = 200;
+        await supabase.from('wallet_transactions').insert({ 
+          user_id: selectedStory.author_id, 
+          amount: amount, 
+          type: 'earning', 
+          status: 'completed', 
+          description: `Chapter ${item.chapter_number} publishing reward`, 
+          meta: { chapter_id: item.id }
+        });
+        await supabase.rpc('increment_wallet_balance', { amount: amount, target_user: selectedStory.author_id });
+      }
+
       showAlert(`Updated successfully to ${newStatus}`);
       if (type === 'story') {
         fetchStories();
@@ -64,13 +78,11 @@ export function AdminStories() {
   const handleRejectStory = async () => {
      const reason = window.prompt("Rejection Reason:");
      if (reason === null) return;
-     await handleUpdateStatus(selectedStory.id, 'rejected', 'story', { admin_feedback: reason });
+     await handleUpdateStatus(selectedStory, 'rejected', 'story', { admin_feedback: reason });
   };
 
   const handleApproveStory = async () => {
-     // Give author 50 points
-     await supabase.rpc('increment_wallet_balance', { amount: 50, target_user: selectedStory.author_id });
-     await handleUpdateStatus(selectedStory.id, 'published', 'story');
+     await handleUpdateStatus(selectedStory, 'published', 'story');
   };
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
@@ -114,8 +126,8 @@ export function AdminStories() {
                    <div className="p-6 bg-white border-t border-slate-100">
                      <div dangerouslySetInnerHTML={{ __html: ch.content }} className="prose prose-sm max-w-none text-slate-600 mb-6" />
                      <div className="flex gap-2 pt-4 border-t border-slate-100">
-                        {ch.status !== 'published' && <button onClick={() => handleUpdateStatus(ch.id, 'published', 'chapter')} className="bg-emerald-100 text-emerald-700 px-4 py-2 flex items-center gap-1 font-bold text-xs rounded hover:bg-emerald-200"><span className="material-symbols-outlined text-[16px]">check</span> Approve</button>}
-                        {ch.status !== 'rejected' && <button onClick={() => handleUpdateStatus(ch.id, 'rejected', 'chapter')} className="bg-rose-100 text-rose-700 px-4 py-2 flex items-center gap-1 font-bold text-xs rounded hover:bg-rose-200"><span className="material-symbols-outlined text-[16px]">close</span> Reject</button>}
+                        {ch.status !== 'published' && <button onClick={() => handleUpdateStatus(ch, 'published', 'chapter')} className="bg-emerald-100 text-emerald-700 px-4 py-2 flex items-center gap-1 font-bold text-xs rounded hover:bg-emerald-200"><span className="material-symbols-outlined text-[16px]">check</span> Approve (₦200 to author)</button>}
+                        {ch.status !== 'rejected' && <button onClick={() => handleUpdateStatus(ch, 'rejected', 'chapter')} className="bg-rose-100 text-rose-700 px-4 py-2 flex items-center gap-1 font-bold text-xs rounded hover:bg-rose-200"><span className="material-symbols-outlined text-[16px]">close</span> Reject</button>}
                      </div>
                    </div>
                 </details>

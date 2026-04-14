@@ -112,13 +112,23 @@ export function StoryReader() {
        setCommentBody('');
 
        // Simple manual logic to award 10pts - ideally a DB trigger but we do it manually safely
-       // Check if they already commented to prevent spam (we can query if they have a comment prior to this insert, but we assume the RPC handles unique constraints or we just give it once)
        const { data: pastTx } = await supabase.from('wallet_transactions').select('id').eq('user_id', user.id).eq('meta->>chapter_id', chapter.id).eq('type', 'comment_bonus');
+       
        if (!pastTx || pastTx.length === 0) {
-         await supabase.from('wallet_transactions').insert({ user_id: user.id, amount: 10, type: 'comment_bonus', status: 'completed', description: 'Story comment reward', meta: { chapter_id: chapter.id }});
-         await supabase.rpc('increment_wallet_balance', { amount: 10, target_user: user.id }); // fall back if exists, else trigger
-         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-         showAlert('You earned 10 points for your comment!', 'Comment Reward');
+         // Fetch user's plan and comment reward
+         const { data: userSub } = await supabase.from('user_subscriptions').select('plan_id').eq('user_id', user.id).maybeSingle();
+         const planId = userSub?.plan_id || 'free';
+         const { data: planData } = await supabase.from('subscription_plans').select('comment_reward').eq('id', planId).maybeSingle();
+         const rewardAmt = Number(planData?.comment_reward || 0);
+
+         if (rewardAmt > 0) {
+           await supabase.from('wallet_transactions').insert({ user_id: user.id, amount: rewardAmt, type: 'comment_bonus', status: 'completed', description: 'Story comment reward', meta: { chapter_id: chapter.id }});
+           await supabase.rpc('increment_wallet_balance', { amount: rewardAmt, target_user: user.id });
+           confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+           showAlert(`You earned ₦${rewardAmt} for your comment!`, 'Comment Reward');
+         } else {
+           showAlert('Comment posted successfully.');
+         }
        } else {
          showAlert('Comment posted successfully.');
        }

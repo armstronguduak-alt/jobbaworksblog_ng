@@ -135,10 +135,21 @@ export function PublicArticle() {
     }
   }, [slug]);
 
+  const getInitialArticleData = () => {
+    if (typeof window !== 'undefined' && '__INITIAL_ARTICLE_DATA__' in window) {
+      const initial = (window as any).__INITIAL_ARTICLE_DATA__;
+      if (initial?.post?.slug === slug) {
+        return initial;
+      }
+    }
+    return undefined;
+  };
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['article', slug, user?.id],
     enabled: !!slug && !authLoading,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // Boost stale content lifetime
+    initialData: getInitialArticleData(),
     queryFn: () => fetchArticleData(slug!, user?.id)
   });
 
@@ -344,6 +355,8 @@ export function PublicArticle() {
             <img 
               src={post.author?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${post.author?.name}`}
               className="w-12 h-12 rounded-full object-cover shadow-sm group-hover:ring-2 ring-primary transition-all"
+              loading="lazy"
+              alt={post.author?.name}
             />
             <div>
               <p className="font-bold text-slate-900 flex items-center gap-1 group-hover:text-primary transition-colors">
@@ -417,7 +430,7 @@ export function PublicArticle() {
                 {readAlsoPosts.map((item: any, idx: number) => (
                   <a key={idx} href={`/${item.category?.slug || 'post'}/${item.slug}`} className="flex items-center gap-4 group cursor-pointer no-underline block hover:bg-white p-2.5 rounded-xl transition-all border border-transparent hover:border-surface-container-low shadow-sm hover:shadow-md shrink-0">
                     {item.image || item.featured_image ? (
-                      <img src={item.image || item.featured_image} className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover shrink-0 bg-surface-container" alt={item.title} />
+                      <img src={item.image || item.featured_image} loading="lazy" className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover shrink-0 bg-surface-container" alt={item.title} />
                     ) : (
                       <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-400 shrink-0"><span className="material-symbols-outlined text-3xl">article</span></div>
                     )}
@@ -502,6 +515,7 @@ export function PublicArticle() {
                 <img 
                   src={comment.profiles?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${comment.profiles?.name}`} 
                   alt={comment.profiles?.name}
+                  loading="lazy"
                   className="w-8 h-8 rounded-full object-cover shrink-0 bg-surface-container"
                 />
                 <div className="flex-1 bg-surface-container-lowest rounded-2xl px-4 py-3 border border-surface-container-low">
@@ -524,15 +538,15 @@ export function PublicArticle() {
           <h3 className="text-xl md:text-2xl font-black font-headline text-[#0f172a] mb-6">Related Articles</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {relatedPosts.map((rp: any) => (
-              <Link key={rp.slug} to={`/${post.category?.slug || 'post'}/${rp.slug}`} className="group flex flex-col">
-                <div className="aspect-[4/3] rounded-xl overflow-hidden bg-surface-container-low mb-3 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] relative border border-surface-container-low/50">
+              <Link key={rp.slug} to={`/${post.category?.slug || 'post'}/${rp.slug}`} className="group flex flex-row sm:flex-col gap-3 sm:gap-0 bg-surface-container-lowest sm:bg-transparent p-2 sm:p-0 rounded-2xl sm:rounded-none border border-surface-container-low sm:border-transparent h-[100px] sm:h-auto">
+                <div className="w-[100px] sm:w-full h-full sm:h-auto sm:aspect-[4/3] shrink-0 rounded-xl overflow-hidden bg-surface-container-low sm:mb-3 shadow-sm relative border border-surface-container-low/50">
                   {rp.featured_image || rp.image ? (
-                    <img src={rp.featured_image || rp.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={rp.title} />
+                    <img src={rp.featured_image || rp.image} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={rp.title} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center material-symbols-outlined text-4xl text-outline opacity-20">article</div>
                   )}
                 </div>
-                <h4 className="font-bold text-sm md:text-base text-on-surface group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-grow">{rp.title}</h4>
+                <h4 className="font-bold text-sm md:text-base text-on-surface group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-grow sm:mt-0 mt-1 pr-2">{rp.title}</h4>
               </Link>
             ))}
           </div>

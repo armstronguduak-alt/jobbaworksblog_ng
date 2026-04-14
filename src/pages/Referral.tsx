@@ -222,27 +222,11 @@ export function Referral() {
               </div>
             </div>
           </div>
-          <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
+          <div className="col-span-2 bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Referrers</p>
             <div className="flex items-baseline gap-1 pt-1">
               <span className="text-2xl font-black text-emerald-900 font-headline">{referrals.length}</span>
               <span className="text-xs text-on-surface-variant font-medium">people referred</span>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20 relative overflow-hidden">
-            {pendingBonus > 0 && (
-              <div className="absolute top-2 right-3">
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  Processing
-                </span>
-              </div>
-            )}
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Rewards</p>
-            <div className="flex items-baseline gap-1 pt-1">
-              <span className={`text-2xl font-black font-headline ${totalBonusEarned > 0 ? 'text-emerald-800' : 'text-on-surface-variant'}`}>
-                ₦{totalBonusEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
             </div>
           </div>
         </section>
@@ -329,7 +313,7 @@ export function Referral() {
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
                           <span className="text-[11px] md:text-xs font-bold text-on-surface-variant uppercase tracking-widest flex items-center gap-1">
-                             {planId} <span className="opacity-50">•</span> 0 JOBS DONE
+                             {planId} <span className="opacity-50">•</span> DOWNLINE
                           </span>
                         </div>
                       </div>

@@ -261,7 +261,7 @@ export function Home() {
             {filteredLatest.map((post) => (
               <div 
                 key={post.id} 
-                className="bg-white rounded-3xl flex flex-col shadow-sm border border-surface-container-low hover:shadow-xl hover:-translate-y-1 transition-all group overflow-hidden"
+                className="bg-white rounded-2xl sm:rounded-3xl flex flex-row sm:flex-col shadow-sm border border-surface-container-low hover:shadow-xl sm:hover:-translate-y-1 transition-all group overflow-hidden h-[120px] sm:h-auto"
                 onMouseEnter={() => {
                   queryClient.prefetchQuery({
                     queryKey: ['article', post.slug, user?.id],
@@ -271,7 +271,7 @@ export function Home() {
                 }}
               >
                 {/* Image */}
-                <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="w-full aspect-[4/3] flex-shrink-0 relative overflow-hidden block">
+                <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="w-[120px] sm:w-full h-full sm:h-auto sm:aspect-[4/3] flex-shrink-0 relative overflow-hidden block">
                   {post.featured_image ? (
                     <img 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
@@ -292,16 +292,17 @@ export function Home() {
                 </Link>
 
                 {/* Content */}
-                <div className="flex flex-col flex-1 p-5">
+                <div className="flex flex-col flex-1 p-3 sm:p-5 overflow-hidden">
                   <Link to={`/${post.category?.slug || 'post'}/${post.slug}`} className="block mb-3 flex-1">
                     <h3 className="text-base font-bold text-[#0f172a] group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                       {post.title}
                     </h3>
                   </Link>
-                  <div className="flex items-center gap-2 text-xs border-t border-surface-container pt-3 mt-auto">
-                    <span className="text-slate-500 font-medium">{timeAgo(post.created_at)}</span>
-                    <span className="w-1 h-1 rounded-full bg-slate-300" />
-                    <span className="text-[#006b3f] font-bold">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs border-t border-surface-container pt-2 sm:pt-3 mt-auto">
+                    <span className="text-slate-500 font-medium whitespace-nowrap hidden sm:inline-block">{timeAgo(post.created_at)}</span>
+                    <span className="text-slate-500 font-medium whitespace-nowrap sm:hidden">{new Date(post.created_at).toLocaleDateString()}</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block" />
+                    <span className="text-[#006b3f] font-bold whitespace-nowrap">{Math.ceil(post.reading_time_seconds / 60)}m read</span>
                   </div>
                 </div>
               </div>

@@ -320,7 +320,10 @@ export function CreateStory() {
             </div>
 
             <div className="space-y-1 pt-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-[#0f172a] block">Chapter Content (Rich Text)</label>
+              <div className="flex justify-between items-end mb-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">Chapter Content (Rich Text)</label>
+                <span className="text-[10px] text-primary font-bold">Min. 800 words per chapter</span>
+              </div>
               
               {/* Rich Text Toolbar */}
               <div className="flex flex-wrap items-center gap-1 p-2 bg-surface-container rounded-2xl overflow-x-auto">
