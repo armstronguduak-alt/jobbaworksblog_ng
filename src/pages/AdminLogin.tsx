@@ -33,8 +33,9 @@ export function AdminLogin() {
           setError('Access denied. You do not have admin or moderator privileges.');
           return;
         }
-
-        navigate('/admin');
+        // Force a hard reload to ensure AuthContext flawlessly boots up with the admin's session
+        // and guarantees route bypasses don't happen.
+        window.location.href = '/admin';
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
