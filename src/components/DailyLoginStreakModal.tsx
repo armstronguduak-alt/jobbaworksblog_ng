@@ -98,7 +98,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all"
+          className="absolute top-4 right-4 z-[100] w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all"
         >
           <span className="material-symbols-outlined text-[18px]">close</span>
         </button>
