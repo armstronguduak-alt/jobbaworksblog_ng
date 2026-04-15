@@ -5,7 +5,8 @@
 -- It also lists them so you can verify.
 -- =========================================================
 
--- 0. Ensure the permissions and updated_at columns exist
+-- STEP 1: Ensure columns exist. 
+-- RUN THIS BLOCK BY ITSELF FIRST (Highlight and Run)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_roles' AND column_name='permissions') THEN
@@ -16,14 +17,14 @@ BEGIN
     END IF;
 END $$;
 
-
--- 1. Ensure existing admins have ALL permissions
+-- STEP 2: Update admin permissions
+-- RUN THIS AFTER STEP 1 IS COMPLETED
 UPDATE public.user_roles 
 SET permissions = '["all", "content", "admin", "transactions", "tasks", "promotions", "referrals", "notifications"]'::jsonb,
     updated_at = now()
 WHERE role = 'admin';
 
--- 2. Ensure existing moderators have at least basic permissions if empty
+-- STEP 3: Ensure moderators have basic permissions
 UPDATE public.user_roles
 SET permissions = CASE 
     WHEN permissions IS NULL OR permissions = '[]'::jsonb OR permissions = 'null'::jsonb
@@ -33,7 +34,7 @@ SET permissions = CASE
   updated_at = now()
 WHERE role = 'moderator';
 
--- 3. Show all admin/moderator users for verification
+-- STEP 4: Show verify results
 SELECT 
   ur.user_id,
   ur.role,
