@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import confetti from 'canvas-confetti';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function Wallet() {
   const { user } = useAuth();
@@ -17,7 +18,10 @@ export function Wallet() {
   const [message, setMessage] = useState('');
   const [referralCount, setReferralCount] = useState(0);
   const { exchangeRates, pageToggles } = useAppSettings();
-  const PAYOUT_THRESHOLD = 10.00;
+  const { isGlobal, symbol } = useCurrency();
+  
+  const PAYOUT_THRESHOLD = isGlobal ? 10.00 : 15000;
+  const displayBalance = isGlobal ? usdtBalance : balance;
   
   const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
   const numAmount = Number(withdrawAmount) || 0;
@@ -103,7 +107,7 @@ export function Wallet() {
   };
 
   const handleMaxClick = () => {
-    setWithdrawAmount(balance.toString());
+    setWithdrawAmount(displayBalance.toString());
   };
 
   const handleWithdraw = async () => {
@@ -115,12 +119,12 @@ export function Wallet() {
       setMessage('You need at least 2 referrers to perform a withdrawal.');
       return;
     }
-    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 10) {
-      setMessage('Please enter a valid amount (Minimum $10).');
+    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < PAYOUT_THRESHOLD) {
+      setMessage(`Please enter a valid amount (Minimum ${symbol}${PAYOUT_THRESHOLD.toLocaleString()}).`);
       return;
     }
-    if (Number(withdrawAmount) > usdtBalance) {
-      setMessage('Insufficient USD balance.');
+    if (Number(withdrawAmount) > displayBalance) {
+      setMessage(`Insufficient ${isGlobal ? 'USD' : 'Naira'} balance.`);
       return;
     }
     if (!selectedMethodId) {
@@ -201,10 +205,10 @@ export function Wallet() {
             <div className="text-center mb-8">
               <h3 className="text-[22px] font-body text-[#3c4043] mb-2 font-medium">Your earnings</h3>
               <p className="text-[15px] font-body text-[#5f6368]">
-                Paid weekly if the total is at least $10.00 (your payout threshold)
+                Paid weekly if the total is at least {symbol}{PAYOUT_THRESHOLD.toLocaleString(undefined, {minimumFractionDigits: 2})} (your payout threshold)
               </p>
               <div className="text-[56px] font-body mt-4 text-[#202124] tracking-tight">
-                ${usdtBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                {symbol}{displayBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
               </div>
             </div>
             
@@ -212,12 +216,12 @@ export function Wallet() {
               <div className="h-6 bg-[#f1f3f4] w-full relative">
                 <div 
                   className="h-full bg-gradient-to-r from-[#006b3f] to-[#008751] transition-all duration-1000" 
-                  style={{ width: `${Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((displayBalance / PAYOUT_THRESHOLD) * 100, 100)}%` }}
                 ></div>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between text-[13px] text-[#5f6368] gap-1">
-                <span>You've reached {Math.min((usdtBalance / PAYOUT_THRESHOLD) * 100, 100).toFixed(0)}% of your payment threshold</span>
-                <span>Payment threshold: $10.00</span>
+                <span>You've reached {Math.min((displayBalance / PAYOUT_THRESHOLD) * 100, 100).toFixed(0)}% of your payment threshold</span>
+                <span>Payment threshold: {symbol}{PAYOUT_THRESHOLD.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
               </div>
             </div>
           </div>
@@ -226,7 +230,7 @@ export function Wallet() {
           <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm relative overflow-hidden">
             <label className="block text-sm font-bold text-on-surface-variant mb-6 uppercase tracking-widest">Withdrawal Amount</label>
             <div className="relative">
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-on-surface-variant/30">$</span>
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-on-surface-variant/30">{symbol}</span>
               <input
                 className="w-full bg-transparent border-none focus:ring-0 text-5xl font-black text-on-surface p-0 pl-10 placeholder:text-surface-container-highest outline-none"
                 placeholder="0.00"
@@ -237,26 +241,26 @@ export function Wallet() {
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <button className="px-4 py-2 rounded-full bg-surface-container-high/50 text-xs font-bold text-[#5f6368] hover:bg-surface-container-high transition-colors"
-                onClick={() => setWithdrawAmount('10')}
+                onClick={() => setWithdrawAmount(PAYOUT_THRESHOLD.toString())}
               >
-                MIN $10
+                MIN {symbol}{PAYOUT_THRESHOLD.toLocaleString()}
               </button>
               <button className="px-4 py-2 rounded-full bg-surface-container-high/50 text-xs font-bold text-[#5f6368] hover:bg-surface-container-high transition-colors"
                 onClick={handleMaxClick}
               >
-                MAX ${isLoading ? '...' : usdtBalance.toLocaleString()}
+                MAX {symbol}{isLoading ? '...' : displayBalance.toLocaleString(undefined, {maximumFractionDigits: 2})}
               </button>
             </div>
             
-            {numAmount > 0 && numAmount >= 10 && (
+            {numAmount > 0 && numAmount >= PAYOUT_THRESHOLD && (
               <div className="mt-6 space-y-3 pt-4 border-t border-surface-container-highest">
                 <div className="flex justify-between text-sm">
                   <span className="text-on-surface-variant">Withdrawal Fee ({exchangeRates.withdrawalFee}%)</span>
-                  <span className="font-semibold text-error">-${fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="font-semibold text-error">-{symbol}{(fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold">
                   <span className="text-on-surface">You will receive:</span>
-                  <span className="text-primary">${youGet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="text-primary">{symbol}{(youGet).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             )}
@@ -353,7 +357,7 @@ export function Wallet() {
                        <a href="#" className="font-body text-[#1a73e8] hover:underline cursor-pointer">
                          {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} – {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
                        </a>
-                       <span className="text-[#3c4043] font-body">${Number(tx.amount).toFixed(2)}</span>
+                       <span className="text-[#3c4043] font-body">{symbol}{Number(tx.amount).toFixed(2)}</span>
                      </div>
                   ))}
                 </div>

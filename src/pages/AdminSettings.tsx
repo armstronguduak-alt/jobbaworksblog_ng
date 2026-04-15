@@ -10,7 +10,18 @@ export function AdminSettings() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
-  const { pageToggles, monetizationRate: fetchedMonetizationRate, exchangeRates: fetchedExchangeRates, refetchToggles, refetchMonetizationRate, refetchExchangeRates } = useAppSettings();
+  const { 
+    pageToggles, 
+    monetizationRate: fetchedMonetizationRate, 
+    exchangeRates: fetchedExchangeRates, 
+    usdtAddresses: fetchedUsdtAddresses,
+    nonNigerianPlans: fetchedNonNigerianPlans,
+    refetchToggles, 
+    refetchMonetizationRate, 
+    refetchExchangeRates,
+    refetchUsdtAddresses,
+    refetchNonNigerianPlans
+  } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
   
@@ -20,7 +31,8 @@ export function AdminSettings() {
     readReward: '10',
     commentReward: '5',
     dailyReadingLimit: '5',
-    dailyCommentLimit: '4'
+    dailyCommentLimit: '4',
+    globalPrice: '0'
   });
 
   const [toggles, setToggles] = useState(pageToggles);
@@ -31,10 +43,16 @@ export function AdminSettings() {
     withdrawalFee: fetchedExchangeRates.withdrawalFee.toString()
   });
 
+  const [usdtAddrs, setUsdtAddrs] = useState<string[]>(fetchedUsdtAddresses || []);
+
   // Sync internal state when pageToggles load
   useEffect(() => {
     setToggles(pageToggles);
   }, [pageToggles]);
+
+  useEffect(() => {
+    setUsdtAddrs(fetchedUsdtAddresses || []);
+  }, [fetchedUsdtAddresses]);
 
   useEffect(() => {
     setMonetizationRate(fetchedMonetizationRate.toString());
@@ -68,10 +86,11 @@ export function AdminSettings() {
         readReward: selectedTier.read_reward.toString(),
         commentReward: selectedTier.comment_reward.toString(),
         dailyReadingLimit: selectedTier.daily_read_limit.toString(),
-        dailyCommentLimit: selectedTier.daily_comment_limit.toString()
+        dailyCommentLimit: selectedTier.daily_comment_limit.toString(),
+        globalPrice: fetchedNonNigerianPlans?.[selectedTier.id]?.price?.toString() || '0'
       });
     }
-  }, [selectedTierId, selectedTier]);
+  }, [selectedTierId, selectedTier, fetchedNonNigerianPlans]);
 
   const updateTierMutation = useMutation({
     mutationFn: async () => {
@@ -84,9 +103,14 @@ export function AdminSettings() {
         daily_comment_limit: Number(tierSettings.dailyCommentLimit)
       }).eq('id', selectedTierId);
       if (error) throw error;
+
+      const updatedGlobalPlans = { ...fetchedNonNigerianPlans, [selectedTierId]: { id: selectedTierId, price: Number(tierSettings.globalPrice) } };
+      const { error: sysError } = await supabase.from('system_settings').upsert({ key: 'non_nigerian_plans', value: updatedGlobalPlans });
+      if (sysError) throw sysError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_subscription_plans'] });
+      refetchNonNigerianPlans();
       showAlert(`Successfully updated settings for ${selectedTier?.name}.`);
     },
     onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
@@ -154,6 +178,19 @@ export function AdminSettings() {
   const handleExchangeRatesSave = () => {
     updateExchangeRatesMutation.mutate();
   };
+
+  const updateUsdtAddressesMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('system_settings')
+        .upsert({ key: 'usdt_addresses', value: usdtAddrs.filter(a => a.trim() !== '') });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchUsdtAddresses();
+      showAlert(`USDT Addresses saved successfully.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
@@ -227,7 +264,20 @@ export function AdminSettings() {
                   </div>
                 </div>
 
-                <div className="flex items-center h-full pt-6">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Price (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-[18px]">$</span>
+                    <input 
+                      type="number" 
+                      value={tierSettings.globalPrice}
+                      onChange={(e) => setTierSettings({...tierSettings, globalPrice: e.target.value})}
+                      className="w-full pl-11 pr-4 py-4 rounded-2xl bg-surface-container-low border-transparent focus:bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-on-surface font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center h-full pt-6 md:col-span-2">
                   <label className="flex items-center gap-3 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
                       <input 
@@ -466,6 +516,53 @@ export function AdminSettings() {
                 </button>
               </div>
 
+            </div>
+          </div>
+
+          {/* Global Payment Addresses */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative mb-8">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                <span className="material-symbols-outlined">account_balance_wallet</span>
+              </div>
+              <h2 className="text-2xl font-extrabold font-headline text-[#111928]">Global Payment USDT Addresses</h2>
+            </div>
+            
+            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-4">
+              <p className="text-[13px] text-[#6b7280] leading-relaxed mb-4">
+                These addresses will be shown to non-Nigerian users when they try to purchase a plan. The system will rotate between them.
+              </p>
+              
+              <div className="space-y-4">
+                {[0, 1, 2, 3, 4].map((index) => (
+                  <div key={index}>
+                    <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-1">
+                      USDT Address {index + 1}
+                    </label>
+                    <input 
+                      type="text" 
+                      value={usdtAddrs[index] || ''}
+                      onChange={(e) => {
+                        const newAddrs = [...usdtAddrs];
+                        newAddrs[index] = e.target.value;
+                        setUsdtAddrs(newAddrs);
+                      }}
+                      className="w-full px-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-amber-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-mono text-sm"
+                      placeholder="e.g. TRxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end pt-6 mt-6 border-t border-gray-200">
+                <button 
+                  onClick={() => updateUsdtAddressesMutation.mutate()}
+                  disabled={updateUsdtAddressesMutation.isPending}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex items-center gap-2"
+                >
+                  {updateUsdtAddressesMutation.isPending ? 'Saving...' : 'Save USDT Addresses'}
+                </button>
+              </div>
             </div>
           </div>
 

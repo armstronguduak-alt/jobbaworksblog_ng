@@ -4,10 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DailyLoginStreakModal } from '../components/DailyLoginStreakModal';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isGlobal, symbol, formatAmount } = useCurrency();
   
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
   const [showStreakModal, setShowStreakModal] = useState(false);
@@ -72,6 +74,9 @@ export function Dashboard() {
   const balance = walletData?.balance || 0;
   const totalEarnings = walletData?.total_earnings || 0;
   const referralEarnings = walletData?.referral_earnings || 0;
+  const usdtBalance = walletData?.usdt_balance || 0;
+  
+  const displayBalance = isGlobal ? usdtBalance : balance;
 
   // Check login streak on mount — auto-open modal if not claimed today
   useEffect(() => {
@@ -107,11 +112,11 @@ export function Dashboard() {
                 Available Balance
               </p>
               <h2 className="text-3xl md:text-4xl font-extrabold font-headline tracking-tight mb-2">
-                ₦{balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {symbol}{displayBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <div className="flex items-center gap-2 opacity-90">
                 <span className="material-symbols-outlined text-sm">currency_exchange</span>
-                <span className="font-medium">≈ ${(balance / 1500).toFixed(2)} USDT</span>
+                <span className="font-medium">≈ {isGlobal ? '₦' : '$'}{(isGlobal ? (usdtBalance * 1500) : (balance / 1500)).toFixed(2)} {isGlobal ? 'NGN' : 'USDT'}</span>
               </div>
             </div>
             <div className="bg-white/20 backdrop-blur-md rounded-2xl p-3">
@@ -123,10 +128,17 @@ export function Dashboard() {
               <span className="material-symbols-outlined">payments</span>
               Withdraw
             </Link>
-            <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
-              <span className="material-symbols-outlined">swap_horiz</span>
-              Swap
-            </Link>
+            {isGlobal ? (
+              <Link to="/plans" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
+                <span className="material-symbols-outlined">rocket_launch</span>
+                Plans
+              </Link>
+            ) : (
+              <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
+                <span className="material-symbols-outlined">swap_horiz</span>
+                Swap
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -187,7 +199,7 @@ export function Dashboard() {
             </span>
             <div className="mt-4">
               <h4 className="text-3xl font-black font-headline text-on-surface">
-                ₦{totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatAmount(totalEarnings)}
               </h4>
               <p className="text-sm text-on-surface-variant mt-1">Consistency brings growth.</p>
             </div>
@@ -212,7 +224,7 @@ export function Dashboard() {
             <span className="material-symbols-outlined text-tertiary mb-2">share</span>
             <p className="text-sm font-medium text-on-surface-variant">Referral Earnings</p>
             <h4 className="text-xl font-bold font-headline text-on-surface truncate">
-              ₦{referralEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatAmount(referralEarnings)}
             </h4>
           </div>
           <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm">

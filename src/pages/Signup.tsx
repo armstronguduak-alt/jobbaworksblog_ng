@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { COUNTRIES } from '../lib/countries';
 
 export function Signup() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,8 @@ export function Signup() {
   const [referrerUsername, setReferrerUsername] = useState<string | null>(null);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+
+
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -22,7 +25,8 @@ export function Signup() {
     gender: '',
     password: '',
     referral: refCode,
-    agreeTerms: false
+    agreeTerms: false,
+    countryCode: 'NG'
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -78,14 +82,18 @@ export function Signup() {
       setErrorMsg('You must agree to the Terms of Service.');
       return;
     }
-    if (usernameStatus === 'taken') {
-      setErrorMsg('That username is already taken. Please choose another.');
-      return;
-    }
-
+    
     setIsLoading(true);
     
     try {
+      if (usernameStatus !== 'available') {
+        setErrorMsg('Please wait for username validation or choose a different one.');
+        setIsLoading(false);
+        return;
+      }
+
+      const selectedCountryObj = COUNTRIES.find(c => c.code === formData.countryCode) || COUNTRIES[0];
+
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -94,7 +102,10 @@ export function Signup() {
           data: {
             full_name: formData.fullName,
             username: formData.username,
-            phone_number: formData.phone,
+            phone_number: `${selectedCountryObj.dial_code}${formData.phone}`,
+            country: selectedCountryObj.name,
+            country_code: selectedCountryObj.code,
+            is_global: selectedCountryObj.code !== 'NG',
             gender: formData.gender,
             referral_code_used: formData.referral
           }
@@ -105,25 +116,31 @@ export function Signup() {
       
       // If auto-login happens and session exists, initialize account
       if (data.session) {
-        // Generate gender-specific avatar
         const genderSeed = formData.username || formData.fullName || 'user';
         const avatarStyle = formData.gender === 'female' ? 'lorelei' : 'notionists';
         const avatarUrl = `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(genderSeed)}`;
 
-        // Initialize user profile and wallet via the predefined RPC
+        const selectedCountry = COUNTRIES.find(c => c.code === formData.countryCode) || COUNTRIES[0];
+        const isNigerian = selectedCountry.code === 'NG';
+        const currency = isNigerian ? 'NGN' : 'USD';
+        const fullPhone = formData.phone.startsWith('+') ? formData.phone : `${selectedCountry.dial_code}${formData.phone.replace(/^0+/, '')}`;
+
         const { error: initError } = await supabase.rpc('initialize_my_account', {
           _name: formData.fullName,
           _email: formData.email,
-          _phone: formData.phone,
+          _phone: fullPhone,
           _username: formData.username,
           _gender: formData.gender,
           _avatar_url: avatarUrl,
-          _referred_by_code: formData.referral || null
+          _referred_by_code: formData.referral || null,
+          _country: selectedCountry.name,
+          _country_code: selectedCountry.code,
+          _is_nigerian: isNigerian,
+          _currency: currency
         });
 
         if (initError) {
           console.error("Account Initialization Error:", initError);
-          // Still proceed to dashboard, maybe it partly succeeded or was a duplicate
         }
         
         navigate('/dashboard');
@@ -140,7 +157,6 @@ export function Signup() {
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
-      {/* Top Navigation Anchor */}
       <header className="w-full top-0 sticky z-50 bg-[#f8f9fa] dark:bg-[#191c1d]">
         <div className="flex items-center justify-between px-6 h-16 w-full max-w-screen-xl mx-auto">
           <Link to="/" className="flex items-center gap-2">
@@ -160,7 +176,6 @@ export function Signup() {
       
       <main className="flex-grow flex items-center justify-center px-4 py-8 md:py-12">
         <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-          {/* Branding/Value Proposition Section */}
           <div className="hidden md:block md:col-span-6 lg:col-span-7 pr-4 lg:pr-12">
             <h1 className="font-headline text-4xl lg:text-7xl font-extrabold text-on-primary-fixed-variant tracking-tight leading-[1.1] mb-6">
               Start your <span className="text-primary-container">reading journey</span> today.
@@ -177,7 +192,6 @@ export function Signup() {
             </div>
           </div>
           
-          {/* Signup Card */}
           <div className="md:col-span-6 lg:col-span-5 w-full max-w-md mx-auto md:max-w-none">
             <div className="bg-surface-container-lowest p-6 md:p-10 lg:p-12 rounded-[1.5rem] shadow-[0px_20px_40px_rgba(0,33,16,0.04)] relative overflow-hidden">
               <div className="mb-8">
@@ -193,7 +207,6 @@ export function Signup() {
               
               <form className="space-y-4 md:space-y-6" onSubmit={handleSignup}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Full Name Input */}
                   <div className="space-y-1 pt-2">
                     <label className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Full Name</label>
                     <div className="group relative">
@@ -209,7 +222,6 @@ export function Signup() {
                     </div>
                   </div>
 
-                  {/* Username Input */}
                   <div className="space-y-1 pt-2">
                     <label className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Username</label>
                     <div className="group relative">
@@ -242,23 +254,46 @@ export function Signup() {
                   </div>
                 </div>
 
-                {/* Phone Number Input */}
-                <div className="space-y-1">
-                  <label className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Phone Number</label>
-                  <div className="group relative flex items-center">
-                    <div className="h-12 md:h-14 px-4 flex items-center bg-surface-container-low border-none rounded-l-xl focus-within:ring-2 focus-within:ring-primary-fixed-dim focus-within:bg-surface-container-lowest transition-all">
-                      <span className="font-bold text-on-surface-variant">+234</span>
+                {/* Country and Phone Number Input */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Country</label>
+                    <div className="group relative">
+                      <select
+                        name="countryCode"
+                        value={formData.countryCode}
+                        onChange={handleChange}
+                        className="w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all text-sm md:text-base font-medium text-slate-800"
+                      >
+                        {COUNTRIES.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.name} ({c.dial_code})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <input
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-r-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
-                      placeholder="801 234 5678" 
-                      type="tel" 
-                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1">Phone Number</label>
+                    <div className="group relative flex items-center">
+                      <div className="h-12 md:h-14 px-4 flex items-center justify-center bg-surface-container-low border-none rounded-l-xl focus-within:ring-2 focus-within:ring-primary-fixed-dim focus-within:bg-surface-container-lowest transition-all min-w-[70px]">
+                        <span className="font-bold text-on-surface-variant text-sm md:text-base">
+                          {COUNTRIES.find(c => c.code === formData.countryCode)?.dial_code || '+234'}
+                        </span>
+                      </div>
+                      <input
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        className="w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-r-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all placeholder:text-outline/50 border-l border-surface-container-highest"
+                        placeholder="801 234 5678" 
+                        type="tel" 
+                      />
+                    </div>
                   </div>
                 </div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Email Input */}

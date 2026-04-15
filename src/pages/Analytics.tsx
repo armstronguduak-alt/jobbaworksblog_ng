@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface PostData {
   id: string;
@@ -15,6 +16,7 @@ interface PostData {
 export function Analytics() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { formatAmount } = useCurrency();
 
   // Unified Query Hook for Lean Backend Payloads and Isolated Caching
   const { data, isLoading, isFetching } = useQuery({
@@ -106,10 +108,10 @@ export function Analytics() {
         {/* High-level KPIs */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Total Earnings', icon: 'payments', val: stats.totalEarnings, prefix: '₦' },
-            { label: 'Balance', icon: 'account_balance_wallet', val: stats.earnings, prefix: '₦' },
-            { label: 'Articles Read', icon: 'book', val: stats.reads, formatted: formatNum(stats.reads) },
-            { label: 'Referral Earnings', icon: 'group_add', val: stats.referralEarnings, prefix: '₦' },
+            { label: 'Total Earnings', icon: 'payments', val: stats.totalEarnings, isCurrency: true },
+            { label: 'Balance', icon: 'account_balance_wallet', val: stats.earnings, isCurrency: true },
+            { label: 'Articles Read', icon: 'book', val: stats.reads, formatted: formatNum(stats.reads), isCurrency: false },
+            { label: 'Referral Earnings', icon: 'group_add', val: stats.referralEarnings, isCurrency: true },
           ].map((kpi, idx) => (
             <div key={idx} className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
               <div className="flex items-center gap-2 mb-2 text-on-surface-variant">
@@ -120,7 +122,7 @@ export function Analytics() {
                 <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg mt-1"></div>
               ) : (
                 <p className="text-3xl font-headline font-black text-on-surface">
-                  {kpi.prefix}{kpi.formatted || kpi.val.toLocaleString()}
+                  {kpi.isCurrency ? formatAmount(kpi.val) : (kpi.formatted || kpi.val.toLocaleString())}
                 </p>
               )}
             </div>
@@ -164,19 +166,19 @@ export function Analytics() {
             </div>
             <p className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">Post Earnings</p>
             {isLoading ? <div className="h-8 w-24 bg-white/20 animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline">₦{stats.postEarnings.toLocaleString()}</p>
+              <p className="text-2xl font-black font-headline">{formatAmount(stats.postEarnings)}</p>
             )}
           </div>
           <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-on-surface-variant text-xs font-bold uppercase tracking-wider mb-2">Referral Income</p>
             {isLoading ? <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline text-on-surface">₦{stats.referralEarnings.toLocaleString()}</p>
+              <p className="text-2xl font-black font-headline text-on-surface">{formatAmount(stats.referralEarnings)}</p>
             )}
           </div>
           <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-on-surface-variant text-xs font-bold uppercase tracking-wider mb-2">Available Balance</p>
             {isLoading ? <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline text-primary">₦{stats.earnings.toLocaleString()}</p>
+              <p className="text-2xl font-black font-headline text-primary">{formatAmount(stats.earnings)}</p>
             )}
           </div>
         </section>
@@ -212,7 +214,7 @@ export function Analytics() {
                       <td className="p-4 font-semibold text-on-surface group-hover:text-primary transition-colors whitespace-nowrap">{post.title}</td>
                       <td className="p-4 text-right font-medium">{post.views.toLocaleString()}</td>
                       <td className="p-4 text-right font-medium">{post.views > 0 ? Math.round((post.reads / post.views) * 100) : 0}%</td>
-                      <td className="p-4 text-right font-bold text-primary whitespace-nowrap">₦{post.earnings?.toLocaleString()}</td>
+                      <td className="p-4 text-right font-bold text-primary whitespace-nowrap">{formatAmount(post.earnings || 0)}</td>
                     </tr>
                   ))
                 ) : (

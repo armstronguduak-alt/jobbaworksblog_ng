@@ -104,19 +104,19 @@ export function AdminTasks() {
     }
   };
 
-  const approveAllCommunityTasks = async () => {
+  const verifyAllCommunityTasks = async () => {
     try {
       const pendingIds = communityTasks?.map((t: any) => t.id) || [];
-      if (pendingIds.length === 0) return showAlert('No pending tasks to approve.', 'Info');
+      if (pendingIds.length === 0) return showAlert('No pending tasks to verify.', 'Info');
       
-      // Update in bulk safely
-      const { error } = await supabase.from('community_tasks').update({ status: 'approved' }).in('id', pendingIds);
+      // Bulk verify
+      const { error } = await supabase.from('community_tasks').update({ status: 'verified' }).in('id', pendingIds);
       if (error) throw error;
       
       queryClient.invalidateQueries({ queryKey: ['admin_community_tasks'] });
-      showAlert(`Successfully approved ${pendingIds.length} tasks!`, 'Success');
+      showAlert(`Successfully verified ${pendingIds.length} tasks!`, 'Success');
     } catch (error: any) {
-      showAlert(`Error batch approving tasks: ${error.message}`, 'Error');
+      showAlert(`Error batch verifying tasks: ${error.message}`, 'Error');
     }
   };
 
@@ -218,11 +218,10 @@ export function AdminTasks() {
           </h2>
           {communityTasks && communityTasks.length > 0 && (
             <button 
-              onClick={approveAllCommunityTasks}
+              onClick={verifyAllCommunityTasks}
               className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-sm text-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">done_all</span>
-              Approve All
+              Verify
             </button>
           )}
         </div>
@@ -269,10 +268,10 @@ export function AdminTasks() {
                           Reject
                         </button>
                         <button 
-                          onClick={() => updateCommunityTask(req.id, 'approved')}
+                          onClick={() => updateCommunityTask(req.id, 'verified')}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
                         >
-                          Approve
+                          Verify
                         </button>
                       </td>
                     </tr>

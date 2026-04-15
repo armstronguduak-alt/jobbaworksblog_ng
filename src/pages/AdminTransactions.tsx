@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function AdminTransactions() {
   const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
   const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
+  const { formatAmount } = useCurrency();
 
   const { data: transactions = [], isLoading, isFetching } = useQuery({
     queryKey: ['admin_transactions'],
@@ -17,8 +19,7 @@ export function AdminTransactions() {
       const { data, error } = await supabase
         .from('wallet_transactions')
         .select(`*, profiles:user_id (name, email)`)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -57,7 +58,7 @@ export function AdminTransactions() {
            await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Withdrawal Approved & Sent',
-             message: `Your withdrawal request for ₦${txAmount.toLocaleString()} has been successfully processed. The funds are on their way to your account!`,
+             message: `Your withdrawal request for ${formatAmount(txAmount)} has been successfully processed. The funds are on their way to your account!`,
              type: 'system',
              is_read: false
            });
@@ -66,7 +67,25 @@ export function AdminTransactions() {
              await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Withdrawal Failed',
-             message: `Your withdrawal request for ₦${txAmount.toLocaleString()} was rejected due to incorrect details or violations. Please contact support.`,
+             message: `Your withdrawal request for ${formatAmount(txAmount)} was rejected due to incorrect details or violations. Please contact support.`,
+             type: 'alert',
+             is_read: false
+           });
+        }
+        if (newStatus === 'completed' && txType === 'deposit') {
+           await supabase.from('notifications').insert({
+             user_id: userId,
+             title: 'Deposit Confirmed',
+             message: `Your manual deposit of ${formatAmount(txAmount)} has been verified and credited to your account.`,
+             type: 'system',
+             is_read: false
+           });
+        }
+        if (newStatus === 'failed' && txType === 'deposit') {
+           await supabase.from('notifications').insert({
+             user_id: userId,
+             title: 'Deposit Rejected',
+             message: `Your manual deposit of ${formatAmount(txAmount)} could not be verified. Please contact support if you believe this is an error.`,
              type: 'alert',
              is_read: false
            });
@@ -100,6 +119,39 @@ export function AdminTransactions() {
           <p className="text-on-surface-variant font-medium">Manage pending withdrawals, deposits, and platform treasury.</p>
         </div>
         <Link to="/admin" className="text-primary font-bold hover:underline">Back to Overview</Link>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container/50">
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Volume</p>
+          <h3 className="text-2xl font-black text-on-surface">
+            {formatAmount(transactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+          </h3>
+        </div>
+        <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-emerald-500/20">
+          <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Total Earnings</p>
+          <h3 className="text-2xl font-black text-emerald-800">
+            {formatAmount(transactions.filter(t => t.type.includes('reward')).reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+          </h3>
+        </div>
+        <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-blue-500/20">
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Total Deposits</p>
+          <h3 className="text-2xl font-black text-blue-800">
+            {formatAmount(transactions.filter(t => t.type === 'plan_purchase' || t.type === 'deposit').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+          </h3>
+        </div>
+        <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-rose-500/20">
+          <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Total Withdrawals</p>
+          <h3 className="text-2xl font-black text-rose-800">
+            {formatAmount(transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+          </h3>
+        </div>
+        <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-amber-500/20">
+          <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">Referral Comm.</p>
+          <h3 className="text-2xl font-black text-amber-800">
+            {formatAmount(transactions.filter(t => t.type === 'referral_bonus').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+          </h3>
+        </div>
       </div>
 
       <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm overflow-hidden">
@@ -161,7 +213,7 @@ export function AdminTransactions() {
                     </td>
                     <td className="p-4 font-black flex flex-col justify-center h-full">
                        <span className={tx.type === 'withdrawal' && tx.status === 'completed' ? 'text-rose-600' : tx.type === 'deposit' || tx.type === 'referral_bonus' ? 'text-emerald-600' : 'text-on-surface'}>
-                         {tx.type === 'withdrawal' && tx.status === 'completed' ? '-' : '+'}₦{Number(tx.amount).toLocaleString()}
+                         {tx.type === 'withdrawal' && tx.status === 'completed' ? '-' : '+'}{formatAmount(Number(tx.amount))}
                        </span>
                     </td>
                     <td className="p-4 text-on-surface-variant text-[11px]">
@@ -173,7 +225,7 @@ export function AdminTransactions() {
                       </span>
                     </td>
                     <td className="p-4 flex gap-2 justify-end">
-                      {tx.type === 'withdrawal' && tx.status === 'pending' ? (
+                      {(tx.type === 'withdrawal' || tx.type === 'deposit') && tx.status === 'pending' ? (
                         <>
                           <button 
                             onClick={() => handleUpdateStatus(tx.id, 'completed', tx.user_id, tx.type, tx.amount)}

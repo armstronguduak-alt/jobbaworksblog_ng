@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
+export interface NonNigerianPlan {
+  id: string;
+  price: number;
+}
+
+
 export interface PageToggles {
   leaderboardEnabled: boolean;
   swapEnabled: boolean;
@@ -53,6 +59,36 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
+  const { data: usdtAddresses, refetch: refetchUsdtAddresses } = useQuery({
+    queryKey: ['systemSettings', 'usdt_addresses'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'usdt_addresses')
+        .maybeSingle();
+      
+      if (error || !data) return ["TRxxxxxxxxx1"];
+      return data.value as string[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: nonNigerianPlans, refetch: refetchNonNigerianPlans } = useQuery({
+    queryKey: ['systemSettings', 'non_nigerian_plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'non_nigerian_plans')
+        .maybeSingle();
+      
+      if (error || !data) return {};
+      return data.value as Record<string, NonNigerianPlan>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: monetizationRate, refetch: refetchMonetizationRate } = useQuery({
     queryKey: ['systemSettings', 'monetization_rate'],
     queryFn: async () => {
@@ -85,10 +121,14 @@ export function useAppSettings() {
 
   return {
     pageToggles: pageToggles || defaultToggles,
+    usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
+    nonNigerianPlans: nonNigerianPlans || {},
     monetizationRate: monetizationRate ?? 100,
     exchangeRates: exchangeRates || defaultExchangeRates,
     isLoadingToggles,
     refetchToggles,
+    refetchUsdtAddresses,
+    refetchNonNigerianPlans,
     refetchMonetizationRate,
     refetchExchangeRates
   };

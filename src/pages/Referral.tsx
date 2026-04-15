@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function Referral() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
+  const { formatAmount } = useCurrency();
   const [copied, setCopied] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
 
@@ -217,7 +219,7 @@ export function Referral() {
               <div>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Total Referral Earnings</p>
                 <h3 className="text-xl font-black text-emerald-900 font-headline">
-                  ₦{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatAmount(earnings)}
                 </h3>
               </div>
             </div>
@@ -320,7 +322,7 @@ export function Referral() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-1 leading-tight">REWARD</p>
-                      <p className="font-black text-emerald-800 text-lg md:text-xl font-headline leading-tight">₦{rewardVal.toLocaleString()}</p>
+                      <p className="font-black text-emerald-800 text-lg md:text-xl font-headline leading-tight">{formatAmount(rewardVal)}</p>
                     </div>
                   </div>
                 );

@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppSettings } from '../hooks/useAppSettings';
 import confetti from 'canvas-confetti';
 
 export function Swap() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+
+  // Block global (non-Nigerian) users from accessing swap
+  if (profile?.is_nigerian === false) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const [balance, setBalance] = useState<number>(0);
   const [usdtBalance, setUsdtBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);

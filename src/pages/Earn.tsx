@@ -5,10 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CommunityTaskCard } from '../components/CommunityTaskCard';
 import confetti from 'canvas-confetti';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function Earn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { formatAmount } = useCurrency();
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
@@ -362,7 +364,7 @@ export function Earn() {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="block text-primary font-black">₦{task.reward_amount?.toLocaleString() || 0}</span>
+                    <span className="block text-primary font-black">{formatAmount(task.reward_amount || 0)}</span>
                     <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Reward</span>
                   </div>
                 </div>
@@ -393,7 +395,7 @@ export function Earn() {
             <span className="material-symbols-outlined text-tertiary">payments</span>
             <div>
               <p className="text-tertiary font-bold text-2xl font-headline">
-                {isLoading ? '...' : `₦${stats.totalEarned.toLocaleString()}`}
+                {isLoading ? '...' : formatAmount(stats.totalEarned)}
               </p>
               <p className="text-on-tertiary-fixed-variant text-xs font-semibold">Total Earned</p>
             </div>

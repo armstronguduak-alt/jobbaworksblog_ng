@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 type TxFilter = 'all' | 'swap' | 'withdrawal' | 'earning' | 'comment_bonus' | 'referral';
 
 export function Transactions() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<TxFilter>('all');
+  const { formatAmount } = useCurrency();
 
   const { data, isLoading } = useQuery({
     queryKey: ['transactions', user?.id, filter],
@@ -92,9 +94,9 @@ export function Transactions() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Earned', value: `₦${stats.totalEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: 'trending_up', color: 'text-emerald-600', bg: 'from-emerald-50 to-green-50' },
-          { label: 'Total Swapped', value: `₦${stats.totalSwapped.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: 'swap_horiz', color: 'text-blue-600', bg: 'from-blue-50 to-indigo-50' },
-          { label: 'Total Withdrawn', value: `₦${stats.totalWithdrawn.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: 'account_balance', color: 'text-rose-600', bg: 'from-rose-50 to-pink-50' },
+          { label: 'Total Earned', value: formatAmount(stats.totalEarned), icon: 'trending_up', color: 'text-emerald-600', bg: 'from-emerald-50 to-green-50' },
+          { label: 'Total Swapped', value: formatAmount(stats.totalSwapped), icon: 'swap_horiz', color: 'text-blue-600', bg: 'from-blue-50 to-indigo-50' },
+          { label: 'Total Withdrawn', value: formatAmount(stats.totalWithdrawn), icon: 'account_balance', color: 'text-rose-600', bg: 'from-rose-50 to-pink-50' },
           { label: 'Transactions', value: stats.totalTx.toString(), icon: 'receipt_long', color: 'text-slate-600', bg: 'from-slate-50 to-gray-50' },
         ].map(card => (
           <div key={card.label} className={`bg-gradient-to-br ${card.bg} rounded-2xl p-4 border border-white shadow-sm`}>
@@ -158,7 +160,7 @@ export function Transactions() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`font-black text-sm ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {isPositive ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {isPositive ? '+' : ''}{formatAmount(Math.abs(tx.amount))}
                     </p>
                     <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
                       tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
