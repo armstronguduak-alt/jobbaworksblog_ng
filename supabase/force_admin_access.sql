@@ -5,11 +5,14 @@
 -- It also lists them so you can verify.
 -- =========================================================
 
--- 0. Ensure the permissions column exists
+-- 0. Ensure the permissions and updated_at columns exist
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_roles' AND column_name='permissions') THEN
         ALTER TABLE public.user_roles ADD COLUMN permissions jsonb DEFAULT '[]'::jsonb;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_roles' AND column_name='updated_at') THEN
+        ALTER TABLE public.user_roles ADD COLUMN updated_at timestamptz DEFAULT now();
     END IF;
 END $$;
 
