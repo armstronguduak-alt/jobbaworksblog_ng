@@ -5,6 +5,15 @@
 -- It also lists them so you can verify.
 -- =========================================================
 
+-- 0. Ensure the permissions column exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_roles' AND column_name='permissions') THEN
+        ALTER TABLE public.user_roles ADD COLUMN permissions jsonb DEFAULT '[]'::jsonb;
+    END IF;
+END $$;
+
+
 -- 1. Ensure existing admins have ALL permissions
 UPDATE public.user_roles 
 SET permissions = '["all", "content", "admin", "transactions", "tasks", "promotions", "referrals", "notifications"]'::jsonb,
