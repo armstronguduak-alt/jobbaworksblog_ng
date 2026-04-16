@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function Leaderboard() {
   const { user } = useAuth();
+  const { isGlobal, formatAmount } = useCurrency();
   const [topEarners, setTopEarners] = useState<any[]>([]);
   const [referralKings, setReferralKings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +39,7 @@ export function Leaderboard() {
     try {
       setIsLoading(true);
       // We use the RPC to securely bypass RLS and fetch the un-obscured global leaderboard!
-      const { data, error } = await supabase.rpc('get_leaderboard', { _limit: 100 });
+      const { data, error } = await supabase.rpc('get_leaderboard', { _limit: 100, _is_global: isGlobal });
 
       if (!error && data) {
         setTopEarners(data);
@@ -61,9 +63,7 @@ export function Leaderboard() {
 
   // Helper formatting
   const formatMoney = (val: number) => {
-    if (val >= 1000000) return `₦${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `₦${Math.floor(val / 1000)}k`;
-    return `₦${val.toLocaleString()}`;
+    return formatAmount(val);
   };
 
   return (

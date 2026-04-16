@@ -5,11 +5,14 @@ import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DailyLoginStreakModal } from '../components/DailyLoginStreakModal';
 import { useCurrency } from '../hooks/useCurrency';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { isGlobal, symbol, formatAmount } = useCurrency();
+  const { referralSettings } = useAppSettings();
+  const showSwap = !isGlobal && referralSettings.swapEnabledForNigerians !== false;
   
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
   const [showStreakModal, setShowStreakModal] = useState(false);
@@ -124,16 +127,11 @@ export function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mt-8">
-            <Link to="/wallet" className="flex items-center justify-center gap-2 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
+            <Link to="/wallet" className={`flex items-center justify-center gap-2 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base ${!showSwap ? 'col-span-2' : ''}`}>
               <span className="material-symbols-outlined">payments</span>
               Withdraw
             </Link>
-            {isGlobal ? (
-              <Link to="/plans" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
-                <span className="material-symbols-outlined">rocket_launch</span>
-                Plans
-              </Link>
-            ) : (
+            {showSwap && (
               <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
                 <span className="material-symbols-outlined">swap_horiz</span>
                 Swap

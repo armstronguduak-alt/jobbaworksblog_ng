@@ -2,9 +2,30 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 import confetti from 'canvas-confetti';
 
-const STREAK_REWARDS = [100, 150, 200, 300, 400, 600, 1000];
+// Plan-based reward ranges (min, max) — used only for UI display
+const NGN_REWARDS: Record<string, [number, number]> = {
+  free:      [10, 500],
+  starter:   [100, 500],
+  pro:       [160, 1000],
+  elite:     [200, 14500],
+  vip:       [300, 22500],
+  executive: [500, 13500],
+  platinum:  [1000, 5000],
+};
+
+const USD_REWARDS: Record<string, [number, number]> = {
+  free:      [0.20, 0.50],
+  starter:   [0.50, 1.00],
+  pro:       [1.00, 3.00],
+  elite:     [1.00, 5.00],
+  vip:       [2.00, 8.00],
+  executive: [3.00, 15.00],
+  platinum:  [10.00, 30.00],
+};
+
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface DailyLoginStreakModalProps {
@@ -15,12 +36,14 @@ interface DailyLoginStreakModalProps {
 export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isGlobal, formatAmount } = useCurrency();
   const [currentStreak, setCurrentStreak] = useState(0);
   const [claimedToday, setClaimedToday] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimResult, setClaimResult] = useState<{ reward: number; streak: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [planId, setPlanId] = useState('free');
 
   useEffect(() => {
     if (isOpen && user?.id) {
@@ -36,6 +59,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
         setCurrentStreak(data.current_streak || 0);
         setClaimedToday(data.claimed_today || false);
         setTotalEarnings(data.total_streak_earnings || 0);
+        setPlanId(data.plan_id || 'free');
       }
     } catch (err) {
       console.error('Error fetching streak:', err);
@@ -81,6 +105,30 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
 
   const displayStreak = claimResult ? claimResult.streak : currentStreak;
 
+  // Get reward ranges for the current plan
+  const rewardTable = isGlobal ? USD_REWARDS : NGN_REWARDS;
+  const [minReward, maxReward] = rewardTable[planId] || rewardTable['free'];
+  const symbol = isGlobal ? '$' : '₦';
+
+  // Format reward for display in grid tiles
+  const formatRewardDisplay = (amount: number) => {
+    if (isGlobal) {
+      return `$${amount.toFixed(amount < 1 ? 2 : 0)}`;
+    }
+    return `₦${amount >= 1000 ? (amount / 1000).toFixed(1) + 'k' : amount.toLocaleString()}`;
+  };
+
+  // Generate 7 display amounts spread across the range for visual effect
+  const dayRewards = Array.from({ length: 7 }, (_, i) => {
+    const t = i / 6; // 0 to 1
+    return Math.round((minReward + t * (maxReward - minReward)) * 100) / 100;
+  });
+
+  // Format the claimed reward for display
+  const formatClaimReward = (amount: number) => {
+    return formatAmount(amount);
+  };
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -115,7 +163,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
             {isLoading ? (
               'Loading...'
             ) : claimedToday && claimResult ? (
-              <>You earned ₦{claimResult.reward.toLocaleString()}!</>
+              <>You earned {formatClaimReward(claimResult.reward)}!</>
             ) : claimedToday ? (
               <>Come back tomorrow!</>
             ) : (
@@ -127,14 +175,14 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
               ? 'Checking your streak...'
               : claimedToday
               ? `Day ${displayStreak} complete • Keep the streak going!`
-              : `Login every day to earn up to ₦1,000`}
+              : `Login every day to earn up to ${symbol}${maxReward.toLocaleString()}`}
           </p>
         </div>
 
         {/* 7-Day Streak Grid */}
         <div className="relative z-10 px-5 pb-4">
           <div className="grid grid-cols-7 gap-2">
-            {STREAK_REWARDS.map((reward, index) => {
+            {dayRewards.map((reward, index) => {
               const dayNum = index + 1;
               const isCompleted = dayNum <= displayStreak && claimedToday;
               const isCurrent = dayNum === (claimedToday ? displayStreak : displayStreak + 1);
@@ -183,7 +231,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
                   <span className={`text-[10px] font-black ${
                     isCompleted || isPast ? 'text-emerald-400' : isCurrent ? 'text-amber-400' : 'text-white/20'
                   }`}>
-                    ₦{reward.toLocaleString()}
+                    {formatRewardDisplay(reward)}
                   </span>
                 </div>
               );
@@ -210,7 +258,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
             </span>
           </div>
           <span className="text-emerald-300 font-black font-headline text-lg">
-            ₦{totalEarnings.toLocaleString()}
+            {formatAmount(totalEarnings)}
           </span>
         </div>
 
@@ -244,7 +292,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
               ) : (
                 <>
                   <span className="text-xl">🎁</span>
-                  Claim ₦{STREAK_REWARDS[Math.min(displayStreak, 6)].toLocaleString()} Reward
+                  Claim {symbol}{minReward.toLocaleString()} — {symbol}{maxReward.toLocaleString()} Reward
                 </>
               )}
             </button>

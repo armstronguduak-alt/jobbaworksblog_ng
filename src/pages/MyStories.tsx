@@ -4,12 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 export function MyStories() {
   const { user } = useAuth();
   const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { formatAmount } = useCurrency();
 
   const { data: stories = [], isLoading } = useQuery<any[]>({
     queryKey: ['my-stories', user?.id],
@@ -61,6 +63,9 @@ export function MyStories() {
     }
   }
 
+  const totalReads = stories.reduce((sum: number, s: any) => sum + (s.total_reads || 0), 0);
+  const totalStories = stories.length;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -76,6 +81,39 @@ export function MyStories() {
           Create New Story
         </Link>
       </div>
+
+      {/* Analytics Cards */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-primary p-6 md:p-8 rounded-3xl relative overflow-hidden shadow-lg group">
+          <div className="absolute -right-4 -bottom-4 opacity-10 transition-transform group-hover:scale-110 duration-500">
+            <span className="material-symbols-outlined text-[80px] md:text-[120px]">auto_stories</span>
+          </div>
+          <p className="text-primary-fixed text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">My Stories</p>
+          <h2 className="text-white text-3xl md:text-4xl font-black font-headline">{totalStories}</h2>
+          <div className="mt-4 flex items-center gap-2 text-tertiary-fixed text-xs md:text-sm">
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            <span>{stories.filter((s: any) => s.status === 'published').length} Published</span>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-lowest p-6 md:p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-emerald-100">
+          <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Reads</p>
+          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">{totalReads.toLocaleString()}</h2>
+          <div className="mt-4 flex items-center gap-2 text-primary font-medium text-xs md:text-sm">
+            <span className="material-symbols-outlined text-sm">visibility</span>
+            <span>Across all stories</span>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-lowest p-6 md:p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-emerald-100">
+          <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Earned</p>
+          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">{formatAmount(totalReads * 5)}</h2>
+          <div className="mt-4 flex items-center gap-2 text-tertiary font-medium text-xs md:text-sm">
+            <span className="material-symbols-outlined text-sm">payments</span>
+            <span>From story reads</span>
+          </div>
+        </div>
+      </section>
 
       {isLoading ? (
         <div className="bg-surface-container py-12 rounded-3xl text-center text-on-surface-variant animate-pulse">Loading studio data...</div>

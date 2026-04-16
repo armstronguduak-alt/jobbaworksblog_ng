@@ -119,17 +119,38 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: referralSettings, refetch: refetchReferralSettings } = useQuery({
+    queryKey: ['systemSettings', 'referral_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'referral_settings')
+        .maybeSingle();
+      
+      if (error || !data) return { nigerianReferralPercent: 25, crossReferralRewards: {
+        free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
+      }, swapEnabledForNigerians: true };
+      return data.value as any;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
     nonNigerianPlans: nonNigerianPlans || {},
     monetizationRate: monetizationRate ?? 100,
     exchangeRates: exchangeRates || defaultExchangeRates,
+    referralSettings: referralSettings || { nigerianReferralPercent: 25, crossReferralRewards: {
+      free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
+    }, swapEnabledForNigerians: true },
     isLoadingToggles,
     refetchToggles,
     refetchUsdtAddresses,
     refetchNonNigerianPlans,
     refetchMonetizationRate,
-    refetchExchangeRates
+    refetchExchangeRates,
+    refetchReferralSettings
   };
 }

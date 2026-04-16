@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface Article {
   id: string;
@@ -27,6 +28,7 @@ export function Articles() {
   const [activeTab, setActiveTab] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const { showConfirm, showAlert } = useDialog();
+  const { formatAmount } = useCurrency();
 
   const tabs = ['All Articles', 'Published', 'Drafts'];
 
@@ -150,7 +152,7 @@ export function Articles() {
 
         <div className="bg-surface-container-lowest p-6 md:p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.04)] border-b-4 border-emerald-100">
           <p className="text-outline text-xs md:text-sm font-semibold tracking-wider uppercase mb-2">Total Earned</p>
-          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">₦{totalEarnings.toLocaleString()}</h2>
+          <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">{formatAmount(totalEarnings)}</h2>
           <div className="mt-4 flex items-center gap-2 text-tertiary font-medium text-xs md:text-sm">
             <span className="material-symbols-outlined text-sm">payments</span>
             <span>From article reads</span>
@@ -260,7 +262,7 @@ export function Articles() {
                         </td>
                         <td className="px-4 md:px-6 py-4 md:py-6">
                           <span className={`font-bold text-sm md:text-base ${(article.earnings || 0) > 0 ? 'text-tertiary' : 'text-outline'}`}>
-                            ₦{(article.earnings || 0).toLocaleString()}
+                            {formatAmount(article.earnings || 0)}
                           </span>
                         </td>
                         <td className="px-4 md:px-6 py-4 md:py-6">

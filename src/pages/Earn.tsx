@@ -10,7 +10,7 @@ import { useCurrency } from '../hooks/useCurrency';
 export function Earn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, isGlobal } = useCurrency();
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
@@ -192,6 +192,17 @@ export function Earn() {
             <div className="flex items-center gap-2 text-white/90 text-sm bg-black/10 self-start px-4 py-2 rounded-full backdrop-blur-sm">
               <span className="material-symbols-outlined text-[18px]">bolt</span>
               <span>Complete reads to maximize daily earnings</span>
+            </div>
+            {/* Total Reads & Total Earned inside Daily Progress */}
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-wider">Total Reads</p>
+                <p className="text-white text-2xl font-black font-headline mt-1">{isLoading ? '...' : stats.tasksCompleted}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-wider">Total Earned</p>
+                <p className="text-white text-2xl font-black font-headline mt-1">{isLoading ? '...' : formatAmount(stats.totalEarned)}</p>
+              </div>
             </div>
           </div>
         </Link>
@@ -380,27 +391,7 @@ export function Earn() {
           </div>
         </section>
 
-        {/* Bento Grid Insights */}
-        <section className="grid grid-cols-2 gap-4">
-          <div className="col-span-1 bg-secondary-container/30 p-5 rounded-[1.5rem] flex flex-col justify-between h-40 border border-secondary/10">
-            <span className="material-symbols-outlined text-secondary">trending_up</span>
-            <div>
-              <p className="text-secondary font-bold text-2xl font-headline">
-                {isLoading ? '...' : stats.tasksCompleted}
-              </p>
-              <p className="text-on-secondary-fixed-variant text-xs font-semibold">Total Reads</p>
-            </div>
-          </div>
-          <div className="col-span-1 bg-tertiary-container/10 p-5 rounded-[1.5rem] flex flex-col justify-between h-40 border border-tertiary-fixed/30">
-            <span className="material-symbols-outlined text-tertiary">payments</span>
-            <div>
-              <p className="text-tertiary font-bold text-2xl font-headline">
-                {isLoading ? '...' : formatAmount(stats.totalEarned)}
-              </p>
-              <p className="text-on-tertiary-fixed-variant text-xs font-semibold">Total Earned</p>
-            </div>
-          </div>
-        </section>
+
       </main>
     </div>
   );

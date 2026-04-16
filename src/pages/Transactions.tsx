@@ -9,7 +9,7 @@ type TxFilter = 'all' | 'swap' | 'withdrawal' | 'earning' | 'comment_bonus' | 'r
 export function Transactions() {
   const { user } = useAuth();
   const [filter, setFilter] = useState<TxFilter>('all');
-  const { formatAmount } = useCurrency();
+  const { formatAmount, isGlobal } = useCurrency();
 
   const { data, isLoading } = useQuery({
     queryKey: ['transactions', user?.id, filter],
@@ -78,7 +78,7 @@ export function Transactions() {
   const filters: { key: TxFilter; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'earning', label: 'Earnings' },
-    { key: 'swap', label: 'Swaps' },
+    ...(!isGlobal ? [{ key: 'swap' as TxFilter, label: 'Swaps' }] : []),
     { key: 'withdrawal', label: 'Withdrawals' },
     { key: 'comment_bonus', label: 'Comments' },
     { key: 'referral', label: 'Referrals' },
@@ -95,7 +95,7 @@ export function Transactions() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Total Earned', value: formatAmount(stats.totalEarned), icon: 'trending_up', color: 'text-emerald-600', bg: 'from-emerald-50 to-green-50' },
-          { label: 'Total Swapped', value: formatAmount(stats.totalSwapped), icon: 'swap_horiz', color: 'text-blue-600', bg: 'from-blue-50 to-indigo-50' },
+          ...(!isGlobal ? [{ label: 'Total Swapped', value: formatAmount(stats.totalSwapped), icon: 'swap_horiz', color: 'text-blue-600', bg: 'from-blue-50 to-indigo-50' }] : []),
           { label: 'Total Withdrawn', value: formatAmount(stats.totalWithdrawn), icon: 'account_balance', color: 'text-rose-600', bg: 'from-rose-50 to-pink-50' },
           { label: 'Transactions', value: stats.totalTx.toString(), icon: 'receipt_long', color: 'text-slate-600', bg: 'from-slate-50 to-gray-50' },
         ].map(card => (

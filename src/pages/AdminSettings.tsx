@@ -16,11 +16,13 @@ export function AdminSettings() {
     exchangeRates: fetchedExchangeRates, 
     usdtAddresses: fetchedUsdtAddresses,
     nonNigerianPlans: fetchedNonNigerianPlans,
+    referralSettings: fetchedReferralSettings,
     refetchToggles, 
     refetchMonetizationRate, 
     refetchExchangeRates,
     refetchUsdtAddresses,
-    refetchNonNigerianPlans
+    refetchNonNigerianPlans,
+    refetchReferralSettings
   } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
@@ -45,6 +47,13 @@ export function AdminSettings() {
 
   const [usdtAddrs, setUsdtAddrs] = useState<string[]>(fetchedUsdtAddresses || []);
 
+  // Referral settings state
+  const [refPercent, setRefPercent] = useState(fetchedReferralSettings.nigerianReferralPercent?.toString() || '25');
+  const [crossRewards, setCrossRewards] = useState<Record<string, number>>(fetchedReferralSettings.crossReferralRewards || {
+    free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
+  });
+  const [swapEnabledForNigerians, setSwapEnabledForNigerians] = useState(fetchedReferralSettings.swapEnabledForNigerians !== false);
+
   // Sync internal state when pageToggles load
   useEffect(() => {
     setToggles(pageToggles);
@@ -65,6 +74,14 @@ export function AdminSettings() {
       withdrawalFee: fetchedExchangeRates.withdrawalFee.toString()
     });
   }, [fetchedExchangeRates]);
+
+  useEffect(() => {
+    setRefPercent(fetchedReferralSettings.nigerianReferralPercent?.toString() || '25');
+    setCrossRewards(fetchedReferralSettings.crossReferralRewards || {
+      free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
+    });
+    setSwapEnabledForNigerians(fetchedReferralSettings.swapEnabledForNigerians !== false);
+  }, [fetchedReferralSettings]);
 
   const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
     queryKey: ['admin_subscription_plans'],
@@ -561,6 +578,107 @@ export function AdminSettings() {
                   className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex items-center gap-2"
                 >
                   {updateUsdtAddressesMutation.isPending ? 'Saving...' : 'Save USDT Addresses'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Referral & Cross-Referral Settings */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                <span className="material-symbols-outlined">group_add</span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold font-headline text-[#111928]">Referral & Cross-Referral Settings</h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">Adjust referral percentages and cross-referral rewards per plan.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-6 space-y-6">
+              {/* Nigerian-to-Nigerian Referral % */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                  Nigerian-to-Nigerian Referral Percentage (%)
+                </label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">%</span>
+                  <input 
+                    type="number" 
+                    value={refPercent}
+                    onChange={(e) => setRefPercent(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                  />
+                </div>
+                <p className="text-[13px] text-[#6b7280] mt-2">Percentage of the referred Nigerian user&apos;s plan purchase paid to the referrer.</p>
+              </div>
+
+              {/* Swap Toggle for Nigerians */}
+              <div className="flex items-center justify-between p-4 rounded-2xl border bg-surface-container-low border-surface-container">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-100 text-blue-600">
+                    <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-on-surface">Swap Button (Nigerians)</p>
+                    <p className="text-[11px] text-on-surface-variant">Enable or disable the NGN → USD swap feature for Nigerian users.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSwapEnabledForNigerians(!swapEnabledForNigerians)}
+                  className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 ml-3 ${swapEnabledForNigerians ? 'bg-emerald-500 shadow-inner' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${swapEnabledForNigerians ? 'translate-x-6' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Cross-Referral Rewards (Non-Nigerian refers Nigerian) */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-3">
+                  Cross-Referral Rewards (Non-Nigerian → Nigerian, in USD)
+                </label>
+                <p className="text-[13px] text-[#6b7280] mb-4">When a non-Nigerian refers a Nigerian, the non-Nigerian earns USD based on the referred user&apos;s subscription plan.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {['free', 'starter', 'pro', 'elite', 'vip', 'executive', 'platinum'].map(planKey => (
+                    <div key={planKey}>
+                      <label className="block text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-1">{planKey}</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af] font-bold text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={crossRewards[planKey] ?? 0}
+                          onChange={(e) => setCrossRewards({ ...crossRewards, [planKey]: Number(e.target.value) })}
+                          className="w-full pl-8 pr-3 py-2.5 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase.from('system_settings').upsert({
+                        key: 'referral_settings',
+                        value: {
+                          nigerianReferralPercent: Number(refPercent),
+                          crossReferralRewards: crossRewards,
+                          swapEnabledForNigerians
+                        }
+                      });
+                      if (error) throw error;
+                      refetchReferralSettings();
+                      showAlert('Referral settings saved successfully.');
+                    } catch (err: any) {
+                      showAlert(`Error: ${err.message}`, 'Error');
+                    }
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all"
+                >
+                  Save Referral Settings
                 </button>
               </div>
             </div>
