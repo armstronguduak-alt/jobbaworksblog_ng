@@ -91,6 +91,18 @@ export function Signup() {
         setIsLoading(false);
         return;
       }
+      
+      const { data: existingEmail } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', formData.email.trim())
+        .maybeSingle();
+
+      if (existingEmail) {
+        setErrorMsg('An account with this email address already exists.');
+        setIsLoading(false);
+        return;
+      }
 
       const selectedCountryObj = COUNTRIES.find(c => c.code === formData.countryCode) || COUNTRIES[0];
 
@@ -121,13 +133,12 @@ export function Signup() {
         const avatarUrl = `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(genderSeed)}`;
 
         const selectedCountry = COUNTRIES.find(c => c.code === formData.countryCode) || COUNTRIES[0];
-        const isNigerian = selectedCountry.code === 'NG';
-        const currency = isNigerian ? 'NGN' : 'USD';
+        const isGlobal = selectedCountry.code !== 'NG';
         const fullPhone = formData.phone.startsWith('+') ? formData.phone : `${selectedCountry.dial_code}${formData.phone.replace(/^0+/, '')}`;
 
         const { error: initError } = await supabase.rpc('initialize_my_account', {
           _name: formData.fullName,
-          _email: formData.email,
+          _email: formData.email.trim(),
           _phone: fullPhone,
           _username: formData.username,
           _gender: formData.gender,
@@ -135,8 +146,7 @@ export function Signup() {
           _referred_by_code: formData.referral || null,
           _country: selectedCountry.name,
           _country_code: selectedCountry.code,
-          _is_nigerian: isNigerian,
-          _currency: currency
+          _is_global: isGlobal
         });
 
         if (initError) {

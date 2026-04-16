@@ -80,6 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           _gender: meta.gender || '',
           _avatar_url: '',
           _referred_by_code: meta.referral_code_used || null,
+          _country: meta.country || 'Nigeria',
+          _country_code: meta.country_code || '+234',
+          _is_global: meta.is_global || false
         });
 
         if (!initError) {

@@ -18,10 +18,10 @@ export function Wallet() {
   const [message, setMessage] = useState('');
   const [referralCount, setReferralCount] = useState(0);
   const { exchangeRates, pageToggles } = useAppSettings();
-  const { isGlobal, symbol } = useCurrency();
+  const { isGlobal, symbol, exchangeRate } = useCurrency();
   
   const PAYOUT_THRESHOLD = 10.00;
-  const displayBalance = usdtBalance;
+  const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
   const walletSymbol = '$';
   
   const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
