@@ -97,10 +97,7 @@ export function Leaderboard() {
         </section>
 
         {isLoading ? (
-          <div className="p-12 text-center w-full">
-            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-on-surface-variant font-medium">Fetching Rankings...</p>
-          </div>
+          <div className="p-12 min-h-[400px] w-full"></div>
         ) : topEarners.length > 0 ? (
           <>
             {/* Top 3 Asymmetric Card Podium */}

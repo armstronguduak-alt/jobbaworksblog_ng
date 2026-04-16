@@ -6,13 +6,9 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Branded loading skeleton shown during lazy chunk loads
+// Minimal branded placeholder — no spinners, no animation, instant feel
 const PageLoader = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-surface gap-4">
-    <img src="/logo.png" alt="Loading" className="w-12 h-12 rounded-xl animate-pulse" />
-    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-    <p className="text-sm text-on-surface-variant font-medium">Loading...</p>
-  </div>
+  <div className="min-h-screen bg-[#f8faf9]" />
 );
 
 // Lazy loaded pages to optimize bundle size and TTI

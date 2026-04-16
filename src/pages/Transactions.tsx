@@ -129,7 +129,7 @@ export function Transactions() {
       {/* Transaction List */}
       <div className="bg-surface-container-lowest rounded-[2rem] border border-surface-container-highest/20 shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-12 text-center text-on-surface-variant animate-pulse">Loading transactions...</div>
+          <div className="p-12 min-h-[300px]"></div>
         ) : transactions.length === 0 ? (
           <div className="p-12 text-center">
             <span className="material-symbols-outlined text-4xl text-slate-300 mb-2 block">receipt_long</span>

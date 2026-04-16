@@ -35,8 +35,8 @@ export function StoriesHub() {
     ? allStories 
     : allStories.filter(s => (s.genres || []).includes(selectedGenre));
 
-  if (isLoading) {
-    return <div className="py-20 text-center animate-pulse"><div className="w-12 h-12 border-4 border-dotted border-primary rounded-full animate-spin mx-auto"></div></div>;
+  if (isLoading && !storiesData) {
+    return <div className="min-h-screen bg-surface" />;
   }
 
   return (

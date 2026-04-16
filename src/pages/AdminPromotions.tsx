@@ -224,7 +224,7 @@ export function AdminPromotions() {
           <h2 className="text-xl font-black font-headline text-[#191c1d] mb-4">Existing Promotions</h2>
           
           {isLoading ? (
-            <div className="text-center py-10 bg-white rounded-[1.5rem]">Loading...</div>
+            <div className="text-center py-10"></div>
           ) : promotions.length === 0 ? (
             <div className="text-center py-20 bg-white border border-surface-container-high rounded-[1.5rem] opacity-50">
               <span className="material-symbols-outlined text-4xl mb-2">inbox</span>

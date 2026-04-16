@@ -140,7 +140,7 @@ export function StoryReader() {
   const prevChapter = currentIndex > 0 ? allChapters[currentIndex - 1] : null;
   const nextChapter = currentIndex < allChapters.length - 1 ? allChapters[currentIndex + 1] : null;
 
-  if (isLoading) return <div className="py-32 text-center animate-pulse font-headline font-bold text-slate-400">Loading Chapter...</div>;
+  if (isLoading) return <div className="py-32 min-h-[60vh]" />;
   if (!chapter) return <div className="py-32 text-center font-headline">Chapter could not be loaded.</div>;
 
   return (

@@ -115,8 +115,8 @@ export function MyStories() {
         </div>
       </section>
 
-      {isLoading ? (
-        <div className="bg-surface-container py-12 rounded-3xl text-center text-on-surface-variant animate-pulse">Loading studio data...</div>
+      {isLoading && !data ? (
+        <div className="bg-surface-container py-12 rounded-3xl min-h-[400px]"></div>
       ) : stories.length === 0 ? (
         <div className="bg-surface-container-lowest border border-dashed border-outline-variant/40 rounded-[2rem] p-12 text-center text-on-surface-variant">
           <span className="material-symbols-outlined text-5xl mb-4 opacity-50">auto_stories</span>

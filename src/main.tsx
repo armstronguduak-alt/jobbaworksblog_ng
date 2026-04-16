@@ -10,11 +10,13 @@ import { HelmetProvider } from 'react-helmet-async'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,       // 5 min — cached data is "fresh" for 5 min
-      gcTime: 15 * 60 * 1000,          // 15 min — keep unused cache for 15 min
-      refetchOnWindowFocus: false,      // Don't refetch when user switches tabs
-      retry: 2,                         // Retry failed queries twice
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000), // Exponential backoff: 1s, 2s, 4s, max 8s
+      staleTime: 10 * 60 * 1000,       // 10 min — cached data stays fresh much longer
+      gcTime: 30 * 60 * 1000,           // 30 min — keep unused cache for 30 min
+      refetchOnWindowFocus: false,       // Don't refetch when user switches tabs
+      refetchOnReconnect: false,         // Don't refetch on network reconnect
+      refetchOnMount: false,             // Don't refetch when component remounts (SPA navigation)
+      retry: 2,                          // Retry failed queries twice
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     },
   },
 })

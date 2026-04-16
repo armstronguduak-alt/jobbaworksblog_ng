@@ -224,11 +224,8 @@ export function Earn() {
           </div>
 
           <div className="grid gap-5">
-            {isLoading ? (
-              <div className="py-10 text-center">
-                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-on-surface-variant font-medium text-sm">Loading tasks...</p>
-              </div>
+            {isLoading && !data ? (
+              <div className="py-10" />
             ) : stats.dailyReadsLeft === 0 && availablePosts.length > 0 ? (
               /* ── Daily limit exhausted — show "Continue Tomorrow" ── */
               <>

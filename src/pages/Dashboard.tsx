@@ -19,7 +19,7 @@ export function Dashboard() {
   const [streakChecked, setStreakChecked] = useState(false);
 
   // TanStack Query — cached, retried, never infinite
-  const { data: dashData, isLoading } = useQuery({
+  const { data: dashData } = useQuery({
     queryKey: ['dashboard', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
@@ -38,7 +38,8 @@ export function Dashboard() {
       };
     },
     enabled: !!user?.id,
-    staleTime: 2 * 60 * 1000, // 2 min stale
+    staleTime: 2 * 60 * 1000,
+    placeholderData: (prev: any) => prev, // Keep old data visible during refetch
   });
 
   // Real-time subscription for wallet balance — updates the query cache
@@ -99,41 +100,43 @@ export function Dashboard() {
     })();
   }, [user?.id, streakChecked]);
 
-  if (isLoading) {
-    return <div className="p-8 text-center text-on-surface-variant font-medium">Loading Overview...</div>;
-  }
+  // No loading gate — show content immediately with fallback zeros
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-12 space-y-8 w-full">
+    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full">
       {/* Value Shield (Wallet Section) */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary to-primary-container p-6 md:p-8 text-on-primary-container shadow-[0px_20px_40px_rgba(0,33,16,0.1)]">
+      <section className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-primary to-primary-container p-5 md:p-7 text-on-primary-container shadow-[0px_16px_32px_rgba(0,33,16,0.08)]">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10">
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex justify-between items-start mb-5">
             <div>
-              <p className="text-on-primary-container/80 font-medium tracking-wide uppercase text-xs mb-1">
+              <p className="text-on-primary-container/80 font-medium tracking-wide uppercase text-[10px] mb-1">
                 Available Balance
               </p>
-              <h2 className="text-3xl md:text-4xl font-extrabold font-headline tracking-tight mb-2">
+              <h2 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight mb-1.5">
                 {symbol}{displayBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
-              <div className="flex items-center gap-2 opacity-90">
-                <span className="material-symbols-outlined text-sm">currency_exchange</span>
-                <span className="font-medium">≈ {isGlobal ? '₦' : '$'}{(isGlobal ? (usdtBalance * 1500) : (balance / 1500)).toFixed(2)} {isGlobal ? 'NGN' : 'USDT'}</span>
-              </div>
+              {/* USD Balance from swap wallet — exact value, not converted */}
+              {!isGlobal && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-1.5 inline-flex items-center gap-2 mt-1">
+                  <span className="w-5 h-5 bg-blue-700 rounded-full flex items-center justify-center text-[8px] text-white font-bold">USD</span>
+                  <span className="font-bold text-sm text-white">${usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-white/50 text-[10px] font-medium">USDT</span>
+                </div>
+              )}
             </div>
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-3">
-              <span className="material-symbols-outlined text-3xl">account_balance_wallet</span>
+            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-2.5">
+              <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mt-8">
-            <Link to="/wallet" className={`flex items-center justify-center gap-2 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base ${!showSwap ? 'col-span-2' : ''}`}>
-              <span className="material-symbols-outlined">payments</span>
+          <div className="grid grid-cols-2 gap-3 mt-6">
+            <Link to="/wallet" className={`flex items-center justify-center gap-2 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-2.5 md:py-3 rounded-xl active:scale-95 transition-transform text-sm ${!showSwap ? 'col-span-2' : ''}`}>
+              <span className="material-symbols-outlined text-[20px]">payments</span>
               Withdraw
             </Link>
             {showSwap && (
-              <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 md:py-4 rounded-xl active:scale-95 transition-transform text-sm md:text-base">
-                <span className="material-symbols-outlined">swap_horiz</span>
+              <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2.5 md:py-3 rounded-xl active:scale-95 transition-transform text-sm">
+                <span className="material-symbols-outlined text-[20px]">swap_horiz</span>
                 Swap
               </Link>
             )}
@@ -142,141 +145,149 @@ export function Dashboard() {
       </section>
 
       {/* Category Filter */}
-      <nav className="flex flex-nowrap items-center gap-3 mb-8 overflow-x-auto pb-4 scrollbar-hide px-2">
-        <button className="flex-shrink-0 px-6 py-2.5 rounded-full bg-primary text-white font-semibold text-sm shadow-md">Overview</button>
-        <Link to="/analytics" className="flex-shrink-0 px-6 py-2.5 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-sm hover:bg-primary-fixed-dim transition-colors">Analytics</Link>
-        <Link to="/earn" className="flex-shrink-0 px-6 py-2.5 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-sm hover:bg-primary-fixed-dim transition-colors">Earnings</Link>
-        <Link to="/referral" className="flex-shrink-0 px-6 py-2.5 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-sm hover:bg-primary-fixed-dim transition-colors">Referrals</Link>
+      <nav className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-3 scrollbar-hide px-1">
+        <button className="flex-shrink-0 px-5 py-2 rounded-full bg-primary text-white font-semibold text-xs shadow-md">Overview</button>
+        <Link to="/analytics" className="flex-shrink-0 px-5 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-xs hover:bg-primary-fixed-dim transition-colors">Analytics</Link>
+        <Link to="/earn" className="flex-shrink-0 px-5 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-xs hover:bg-primary-fixed-dim transition-colors">Earnings</Link>
+        <Link to="/referral" className="flex-shrink-0 px-5 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-semibold text-xs hover:bg-primary-fixed-dim transition-colors">Referrals</Link>
       </nav>
 
-      {/* Quick Actions Grid */}
+      {/* Quick Actions Grid — Updated */}
       <section>
-        <div className="flex justify-between items-end mb-4 px-2">
-          <h3 className="text-lg font-bold font-headline text-on-surface">Quick Actions</h3>
+        <div className="flex justify-between items-end mb-3 px-1">
+          <h3 className="text-sm font-bold font-headline text-on-surface">Quick Actions</h3>
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-5 gap-4">
-          <Link to="/" className="flex flex-col items-center gap-2 group cursor-pointer">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
-              <span className="material-symbols-outlined text-3xl">menu_book</span>
+        <div className="grid grid-cols-5 gap-3">
+          <Link to="/" className="flex flex-col items-center gap-1.5 group cursor-pointer">
+            <div className="w-12 h-12 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
+              <span className="material-symbols-outlined text-2xl">menu_book</span>
             </div>
-            <span className="text-xs font-semibold text-center text-on-surface-variant">Read & Earn</span>
+            <span className="text-[10px] font-semibold text-center text-on-surface-variant leading-tight">Read & Earn</span>
           </Link>
-          <Link to="/referral" className="flex flex-col items-center gap-2 group cursor-pointer">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
-              <span className="material-symbols-outlined text-3xl">group_add</span>
+          <Link to="/referral" className="flex flex-col items-center gap-1.5 group cursor-pointer">
+            <div className="w-12 h-12 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
+              <span className="material-symbols-outlined text-2xl">group_add</span>
             </div>
-            <span className="text-xs font-semibold text-center text-on-surface-variant">Referral</span>
+            <span className="text-[10px] font-semibold text-center text-on-surface-variant leading-tight">Refer to Earn</span>
           </Link>
-          <Link to="/plans" className="flex flex-col items-center gap-2 group cursor-pointer">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
-              <span className="material-symbols-outlined text-3xl">rocket_launch</span>
+          <Link to="/create-article" className="flex flex-col items-center gap-1.5 group cursor-pointer">
+            <div className="w-12 h-12 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
+              <span className="material-symbols-outlined text-2xl">edit_note</span>
             </div>
-            <span className="text-xs font-semibold text-center text-on-surface-variant">Plans</span>
+            <span className="text-[10px] font-semibold text-center text-on-surface-variant leading-tight">Write Articles</span>
           </Link>
-          <Link to="/transactions" className="flex flex-col items-center gap-2 group cursor-pointer">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
-              <span className="material-symbols-outlined text-3xl">history</span>
+          <Link to="/stories/create" className="flex flex-col items-center gap-1.5 group cursor-pointer">
+            <div className="w-12 h-12 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
+              <span className="material-symbols-outlined text-2xl">auto_stories</span>
             </div>
-            <span className="text-xs font-semibold text-center text-on-surface-variant">History</span>
+            <span className="text-[10px] font-semibold text-center text-on-surface-variant leading-tight">Write Story</span>
           </Link>
-          <Link to="/settings" className="hidden md:flex flex-col items-center gap-2 group cursor-pointer">
-            <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all">
-              <span className="material-symbols-outlined text-3xl">support_agent</span>
+          <Link to="/plans" className="flex flex-col items-center gap-1.5 group cursor-pointer">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-amber-600 shadow-sm group-active:scale-90 transition-all border border-amber-200/50">
+              <span className="material-symbols-outlined text-2xl">bolt</span>
             </div>
-            <span className="text-xs font-semibold text-center text-on-surface-variant">Support</span>
+            <span className="text-[10px] font-semibold text-center text-amber-700 leading-tight">Boost Earnings</span>
           </Link>
         </div>
       </section>
 
       {/* Bento Stats Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="col-span-1 md:col-span-2 bg-surface-container-lowest p-6 rounded-[2rem] flex flex-col justify-between shadow-sm">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="col-span-1 md:col-span-2 bg-surface-container-lowest p-5 rounded-[1.5rem] flex flex-col justify-between shadow-sm">
           <div>
-            <span className="text-xs font-bold text-primary uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-emerald-50 px-2.5 py-0.5 rounded-full">
               Total Earnings
             </span>
-            <div className="mt-4">
-              <h4 className="text-3xl font-black font-headline text-on-surface">
+            <div className="mt-3">
+              <h4 className="text-2xl font-black font-headline text-on-surface">
                 {formatAmount(totalEarnings)}
               </h4>
-              <p className="text-sm text-on-surface-variant mt-1">Consistency brings growth.</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">Consistency brings growth.</p>
             </div>
           </div>
-          <div className="mt-6 flex gap-2">
-            <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+          <div className="mt-4 flex gap-2">
+            <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
               <div 
-                className="h-full bg-primary rounded-full"
+                className="h-full bg-primary rounded-full transition-all duration-700"
                 style={{ width: `${Math.min((balance / (totalEarnings || 1)) * 100, 100)}%` }}
               ></div>
             </div>
           </div>
         </div>
-        <div className="space-y-6">
-          <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm relative overflow-hidden">
-            <div className="absolute top-3 right-3">
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-widest">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+        <div className="space-y-4">
+          <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm relative overflow-hidden">
+            <div className="absolute top-2.5 right-2.5">
+              <span className="inline-flex items-center gap-1 text-[8px] font-bold text-primary uppercase tracking-widest">
+                <span className="w-1 h-1 rounded-full bg-primary animate-pulse"></span>
                 Live
               </span>
             </div>
-            <span className="material-symbols-outlined text-tertiary mb-2">share</span>
-            <p className="text-sm font-medium text-on-surface-variant">Referral Earnings</p>
-            <h4 className="text-xl font-bold font-headline text-on-surface truncate">
+            <span className="material-symbols-outlined text-tertiary text-[20px] mb-1.5">share</span>
+            <p className="text-xs font-medium text-on-surface-variant">Referral Earnings</p>
+            <h4 className="text-lg font-bold font-headline text-on-surface truncate">
               {formatAmount(referralEarnings)}
             </h4>
           </div>
-          <div className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm">
-            <span className="material-symbols-outlined text-primary mb-2">article</span>
-            <p className="text-sm font-medium text-on-surface-variant">Tasks Completed</p>
-            <h4 className="text-xl font-bold font-headline text-on-surface">{articlesRead}</h4>
+          <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm">
+            <span className="material-symbols-outlined text-primary text-[20px] mb-1.5">article</span>
+            <p className="text-xs font-medium text-on-surface-variant">Tasks Completed</p>
+            <h4 className="text-lg font-bold font-headline text-on-surface">{articlesRead}</h4>
           </div>
         </div>
       </section>
 
-      {/* Promotional Card Carousel */}
-      <section className="relative rounded-[2rem] overflow-hidden aspect-[16/7] md:aspect-[21/6] group mt-6 bg-emerald-950">
+      {/* Promotional Card Carousel — Redesigned */}
+      <section className="relative rounded-[1.5rem] overflow-hidden aspect-[16/7] md:aspect-[21/6] group mt-4">
         {promotions.length > 0 ? (
           <>
-            {promotions.map((promo, idx) => (
-              <div 
-                key={promo.id} 
-                className={`absolute inset-0 transition-opacity duration-1000 ${
-                  idx === currentPromoIndex ? 'opacity-100 relative' : 'opacity-0'
-                }`}
-              >
-                <img 
-                  alt={promo.title} 
-                  className="w-full h-full object-cover"
-                  src={promo.image_url} 
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/80 to-transparent p-6 md:p-8 flex flex-col justify-center">
-                  <span className="text-emerald-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Build Your Value</span>
-                  <h4 className="text-white text-xl md:text-2xl font-black font-headline max-w-[200px] md:max-w-[350px] leading-tight line-clamp-2">
-                    {promo.title}
-                  </h4>
-                  {(promo.description) && (
-                     <p className="text-white/80 text-xs md:text-sm max-w-[200px] md:max-w-[300px] mt-2 line-clamp-2 block hidden sm:block">
-                       {promo.description}
-                     </p>
-                  )}
-                  {promo.cta_url && promo.cta_text && (
-                    <a href={promo.cta_url} target="_blank" rel="noopener noreferrer" className="mt-4 bg-white text-emerald-900 font-bold px-4 md:px-6 py-2 rounded-full w-fit hover:bg-emerald-50 transition-colors text-sm shadow-sm hover:scale-105">
-                      {promo.cta_text}
-                    </a>
-                  )}
+            <div className="relative w-full h-full">
+              {promotions.map((promo, idx) => (
+                <div 
+                  key={promo.id} 
+                  className={`absolute inset-0 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                    idx === currentPromoIndex 
+                      ? 'opacity-100 scale-100 translate-x-0' 
+                      : idx < currentPromoIndex 
+                        ? 'opacity-0 scale-95 -translate-x-4' 
+                        : 'opacity-0 scale-95 translate-x-4'
+                  }`}
+                >
+                  <img 
+                    alt={promo.title} 
+                    className="w-full h-full object-cover"
+                    src={promo.image_url}
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/40 to-transparent" />
+                  <div className="absolute inset-0 p-5 md:p-7 flex flex-col justify-center">
+                    <span className="text-emerald-400 font-bold text-[9px] md:text-[10px] uppercase tracking-[0.2em] mb-1.5">Featured</span>
+                    <h4 className="text-white text-lg md:text-xl font-black font-headline max-w-[200px] md:max-w-[320px] leading-tight line-clamp-2">
+                      {promo.title}
+                    </h4>
+                    {(promo.description) && (
+                       <p className="text-white/70 text-[11px] md:text-xs max-w-[200px] md:max-w-[280px] mt-1.5 line-clamp-2 hidden sm:block leading-relaxed">
+                         {promo.description}
+                       </p>
+                    )}
+                    {promo.cta_url && promo.cta_text && (
+                      <a href={promo.cta_url} target="_blank" rel="noopener noreferrer" className="mt-3 bg-white text-slate-900 font-bold px-4 md:px-5 py-1.5 rounded-full w-fit hover:bg-emerald-50 transition-all text-xs shadow-sm hover:scale-105 hover:shadow-md">
+                        {promo.cta_text}
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
             
-            {/* Carousel navigation controls */}
+            {/* Carousel dots */}
             {promotions.length > 1 && (
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
+              <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20">
                 {promotions.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setCurrentPromoIndex(idx)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      idx === currentPromoIndex ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'
+                    className={`rounded-full transition-all duration-300 ${
+                      idx === currentPromoIndex ? 'bg-white w-5 h-1.5' : 'bg-white/40 hover:bg-white/60 w-1.5 h-1.5'
                     }`}
                   />
                 ))}
@@ -289,13 +300,14 @@ export function Dashboard() {
               alt="Promotional Banner" 
               className="w-full h-full object-cover"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVzN6StLGsJSOuIdPHO2AG7KeSTjQNL7njCa5ELJU3LPosoYFhTSRmDY-1fvsBbNupPcgUH1XUyR2F-6SAFiyS-OVyrONuo87mQZTphF9wYUaG5Lr5ODv60vVyQTLxGYVFhbcpA9lCwiEApKIWD6x63Kq0OQ3JPegaieU_H-yEx0xQnQlq8whbQcSa9dkNysfdmvcgNATfCNzLQBNYE7C36W3E7L5oSEoLY-n0hcD9IT-wR9nv_WSnH96c2nrsf8iJo29ntG34Ti0" 
+              loading="lazy"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/80 to-transparent p-6 md:p-8 flex flex-col justify-center">
-              <span className="text-emerald-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2">Build Your Value</span>
-              <h4 className="text-white text-xl md:text-2xl font-black font-headline max-w-[200px] md:max-w-[250px] leading-tight">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/40 to-transparent p-5 md:p-7 flex flex-col justify-center">
+              <span className="text-emerald-400 font-bold text-[9px] md:text-[10px] uppercase tracking-[0.2em] mb-1.5">Featured</span>
+              <h4 className="text-white text-lg md:text-xl font-black font-headline max-w-[200px] md:max-w-[250px] leading-tight">
                 Read Premium Articles Exclusively.
               </h4>
-              <Link to="/plans" className="mt-4 bg-white text-emerald-900 font-bold px-4 md:px-6 py-2 rounded-full w-fit hover:bg-emerald-50 transition-colors text-sm">
+              <Link to="/plans" className="mt-3 bg-white text-slate-900 font-bold px-4 md:px-5 py-1.5 rounded-full w-fit hover:bg-emerald-50 transition-all text-xs shadow-sm">
                 View Articles
               </Link>
             </div>

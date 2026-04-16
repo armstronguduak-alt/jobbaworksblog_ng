@@ -201,10 +201,7 @@ export function Articles() {
       {/* Articles List/Table */}
       <div className="bg-surface-container-lowest rounded-3xl overflow-hidden shadow-[0px_20px_40px_rgba(0,33,16,0.04)]">
         {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-on-surface-variant font-medium">Loading your articles...</p>
-          </div>
+          <div className="py-20 min-h-[400px]"></div>
         ) : filteredArticles.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">article</span>

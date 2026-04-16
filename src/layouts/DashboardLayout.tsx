@@ -1,17 +1,44 @@
-import { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Menu, X } from 'lucide-react';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { SupportChatbot } from '../components/SupportChatbot';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { CommunityModal } from '../components/CommunityModal';
+import { supabase } from '../lib/supabase';
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
+  const [communityChecked, setCommunityChecked] = useState(false);
   const location = useLocation();
-  const { profile, isAdmin, isModerator, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, isAdmin, isModerator, signOut } = useAuth();
+
+  // Auto-show community modal for new users who haven't started the community task
+  useEffect(() => {
+    if (!user?.id || communityChecked) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('community_tasks')
+          .select('status, reward_claimed')
+          .eq('user_id', user.id)
+          .eq('task_name', 'Join Our Community')
+          .maybeSingle();
+
+        // Show modal if user has never started the community task
+        if (!data) {
+          setIsCommunityModalOpen(true);
+        }
+      } catch (err) {
+        console.log('Community check skipped:', err);
+      } finally {
+        setCommunityChecked(true);
+      }
+    })();
+  }, [user?.id, communityChecked]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -41,7 +68,7 @@ export function DashboardLayout() {
     { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled && profile?.is_nigerian !== false },
     { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events', show: pageToggles.leaderboardEnabled },
     { name: 'My Articles', path: '/articles', icon: 'article', show: true },
-    { name: 'My Stories', path: '/dashboard/mystories', icon: 'auto_stories', show: true },
+    { name: 'My Stories', path: '/dashboard/mystories', icon: 'auto_stories', show: pageToggles.storiesEnabled },
     { name: 'Tasks', path: '/earn', icon: 'task_alt', show: pageToggles.earningsEnabled },
     { name: 'Plans', path: '/plans', icon: 'rocket_launch', show: true },
     { name: 'Referrals', path: '/referral', icon: 'group_add', show: pageToggles.referralsEnabled },
@@ -218,7 +245,14 @@ export function DashboardLayout() {
           <Outlet />
         </div>
         <SupportChatbot />
-        <CommunityModal isOpen={isCommunityModalOpen} onClose={() => setIsCommunityModalOpen(false)} />
+        <CommunityModal
+          isOpen={isCommunityModalOpen}
+          onClose={() => setIsCommunityModalOpen(false)}
+          onJoined={() => {
+            setIsCommunityModalOpen(false);
+            navigate('/earn');
+          }}
+        />
       </div>
     </div>
   );

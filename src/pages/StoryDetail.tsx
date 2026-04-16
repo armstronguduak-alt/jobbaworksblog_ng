@@ -38,7 +38,7 @@ export function StoryDetail() {
   const story = data?.story;
   const chapters = data?.chapters || [];
 
-  if (isLoading) return <div className="py-20 text-center animate-pulse"><div className="w-12 h-12 border-4 border-dotted border-primary rounded-full animate-spin mx-auto"></div></div>;
+  if (isLoading) return <div className="py-20 min-h-[60vh]" />;
   if (!story) return <div className="py-20 text-center">Story not found.</div>;
 
   return (

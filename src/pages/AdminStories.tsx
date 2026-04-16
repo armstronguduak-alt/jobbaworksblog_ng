@@ -161,7 +161,7 @@ export function AdminStories() {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                 {isLoading ? <tr><td colSpan={4} className="p-8 text-center text-slate-400">Loading...</td></tr> : 
+                 {isLoading ? <tr><td colSpan={4} className="p-8"></td></tr> : 
                   stories.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400">No stories found.</td></tr> :
                   stories.map(s => (
                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">

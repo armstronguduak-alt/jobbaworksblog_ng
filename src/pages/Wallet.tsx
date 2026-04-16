@@ -20,7 +20,7 @@ export function Wallet() {
   const { exchangeRates, pageToggles } = useAppSettings();
   const { isGlobal, symbol, exchangeRate } = useCurrency();
   
-  const PAYOUT_THRESHOLD = 10.00;
+  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 10.00;
   const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
   const walletSymbol = '$';
   

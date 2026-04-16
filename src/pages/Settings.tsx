@@ -251,10 +251,10 @@ export function Settings() {
 
       {/* Support & Legal */}
       <div className="space-y-3 pb-8">
-        <button className="w-full text-left p-4 rounded-2xl hover:bg-surface-container transition-colors flex items-center gap-3">
+        <a href="mailto:support@jobbaworks.com" className="w-full text-left p-4 rounded-2xl hover:bg-surface-container transition-colors flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">headset_mic</span>
           <span className="font-semibold text-sm md:text-base">Contact Support</span>
-        </button>
+        </a>
         <Link to="/privacy-policy" className="w-full text-left p-4 rounded-2xl hover:bg-surface-container transition-colors flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">policy</span>
           <span className="font-semibold text-sm md:text-base">Privacy Policy</span>

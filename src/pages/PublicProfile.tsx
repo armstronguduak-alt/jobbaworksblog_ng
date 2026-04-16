@@ -59,7 +59,7 @@ export function PublicProfile() {
     setIsFollowLoading(false);
   };
 
-  if (isLoading || isPending) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (isLoading || isPending) return <div className="min-h-screen" />;
   if (!profile) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Profile not found.</div>;
 
   return (
