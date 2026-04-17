@@ -1,36 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-export function Login() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
+export function ResetPassword() {
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // If the user arrives here with a hash fragment containing type=recovery 
+    // Supabase will automatically log them in and establish a session.
+    // If they change their password via updateUser, it modifies that session's user.
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // They are allowed to reset
+      }
+    });
+  }, []);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+    
     setErrorMsg('');
+    setMessage('');
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-
-      // Verify session was established before navigating
-      if (data.session) {
-        navigate('/dashboard');
-      } else {
-        setErrorMsg('Login successful but session not established. Please try again.');
-      }
+      
+      setMessage("Password updated successfully!");
+      // Automatically navigate to login or dashboard after successfully updating
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid login credentials.');
+      setErrorMsg(err.message || 'Failed to update password.');
     } finally {
       setIsLoading(false);
     }
@@ -50,17 +63,15 @@ export function Login() {
 
       <main className="flex-grow flex items-center justify-center px-4 py-12 md:py-20 relative z-10 w-full">
         <div className="w-full max-w-md space-y-8">
-          {/* Asymmetric Header Layout */}
           <div className="relative pl-4 border-l-4 border-primary-container">
             <h1 className="font-headline text-4xl font-extrabold text-on-primary-fixed-variant tracking-tight leading-tight">
-              Welcome <br /> <span className="text-primary-container">Back to Earning</span>
+              Create <br /> <span className="text-primary-container">New Password</span>
             </h1>
             <p className="mt-4 text-on-surface-variant text-base max-w-[280px]">
-              Dive back into a world of knowledge and keep earning as you read.
+              Enter your new secure password below to regain access to your account.
             </p>
           </div>
 
-          {/* Login Card */}
           <div className="bg-surface-container-lowest rounded-xl p-8 shadow-[0px_20px_40px_rgba(0,33,16,0.06)] relative z-20">
             {errorMsg && (
               <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/20 text-error text-sm font-semibold">
@@ -68,31 +79,16 @@ export function Login() {
               </div>
             )}
             
-            <form className="space-y-6" onSubmit={handleLogin}>
-              {/* Email Field */}
-              <div className="space-y-2">
-                <label className="font-label text-sm font-semibold text-on-surface-variant ml-1">Email Address</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-outline text-xl group-focus-within:text-primary transition-colors">mail</span>
-                  </div>
-                  <input
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-11 pr-4 py-3.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim/40 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline/60"
-                    placeholder="name@company.com"
-                    type="email"
-                  />
-                </div>
+            {message && (
+              <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
+                {message}
               </div>
-
+            )}
+            
+            <form className="space-y-6" onSubmit={handleUpdatePassword}>
               {/* Password Field */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center ml-1">
-                  <label className="font-label text-sm font-semibold text-on-surface-variant">Password</label>
-                  <Link className="text-xs font-bold text-primary hover:text-primary-container transition-colors" to="/forgot-password">Forgot Password?</Link>
-                </div>
+                <label className="font-label text-sm font-semibold text-on-surface-variant ml-1">New Password</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <span className="material-symbols-outlined text-outline text-xl group-focus-within:text-primary transition-colors">lock</span>
@@ -117,32 +113,40 @@ export function Login() {
                 </div>
               </div>
 
-              {/* Login Button */}
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <label className="font-label text-sm font-semibold text-on-surface-variant ml-1">Confirm New Password</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-outline text-xl group-focus-within:text-primary transition-colors">lock_reset</span>
+                  </div>
+                  <input
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="block w-full pl-11 pr-12 py-3.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim/40 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline/60"
+                    placeholder="••••••••"
+                    type={showPassword ? "text" : "password"}
+                  />
+                </div>
+              </div>
+
               <button
                 disabled={isLoading}
                 className="w-full bg-gradient-to-br from-[#006b3f] to-[#008751] text-on-primary-container font-headline font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70"
                 type="submit"
               >
-                {isLoading ? 'Logging In...' : 'Login'}
-                {!isLoading && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
+                {isLoading ? 'Updating...' : 'Update Password'}
+                {!isLoading && <span className="material-symbols-outlined text-xl">check_circle</span>}
               </button>
             </form>
           </div>
-
-          {/* Sign Up Prompt */}
-          <p className="text-center text-on-surface-variant font-medium relative z-20">
-            Don't have an account?
-            <Link to="/signup" className="text-primary font-bold hover:underline underline-offset-4 decoration-2 decoration-primary-fixed-dim ml-1">
-              Sign Up
-            </Link>
-          </p>
         </div>
       </main>
 
-      {/* Contextual Visual Element (Asymmetric "Value Shield" decoration) */}
       <div className="absolute bottom-[-100px] right-[-100px] w-[500px] h-[500px] opacity-[0.03] pointer-events-none overflow-hidden select-none z-0">
         <span className="material-symbols-outlined text-[30rem] text-primary rotate-12" style={{ fontVariationSettings: "'FILL' 1" }}>
-          shield
+          password
         </span>
       </div>
     </div>

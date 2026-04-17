@@ -16,6 +16,8 @@ const Home = lazy(() => import('./pages/Home').then(module => ({ default: module
 const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
 const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(module => ({ default: module.ForgotPassword })));
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then(module => ({ default: module.ResetPassword })));
 const Articles = lazy(() => import('./pages/Articles').then(module => ({ default: module.Articles })));
 const Plans = lazy(() => import('./pages/Plans').then(module => ({ default: module.Plans })));
 const Leaderboard = lazy(() => import('./pages/Leaderboard').then(module => ({ default: module.Leaderboard })));
@@ -65,6 +67,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/email-confirmation" element={<EmailConfirmation />} />
         <Route path="/email-verified" element={<EmailVerified />} />
