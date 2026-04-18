@@ -116,8 +116,16 @@ export function Wallet() {
       setMessage('Withdrawal feature is temporarily disabled for maintenance.');
       return;
     }
-    if (referralCount < 2) {
-      setMessage(`You need at least 2 active referrals to withdraw. You currently have ${referralCount}. Invite friends from the Referral page to unlock withdrawals.`);
+    // Re-fetch referral count live at withdrawal time to ensure accuracy
+    const { count: freshReferralCount } = await supabase
+      .from('referrals')
+      .select('id', { count: 'exact', head: true })
+      .eq('referrer_id', user!.id);
+    const currentReferrals = freshReferralCount ?? referralCount;
+    setReferralCount(currentReferrals);
+
+    if (currentReferrals < 2) {
+      setMessage(`You need at least 2 active referrals to withdraw. You currently have ${currentReferrals}. Invite friends from the Referral page to unlock withdrawals.`);
       return;
     }
     if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < PAYOUT_THRESHOLD) {

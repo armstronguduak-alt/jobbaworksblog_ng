@@ -20,7 +20,13 @@ export function AdminTasks() {
     task_type: 'custom',
     required_plan: 'all',
     affiliate_url: '',
-    duration_hours: 24
+    duration_hours: 24,
+    max_participants: 0,
+    start_date: '',
+    end_date: '',
+    priority: 'normal',
+    verification_type: 'auto',
+    instructions: ''
   });
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
@@ -52,7 +58,7 @@ export function AdminTasks() {
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('tasks').insert([{
+      const payload: any = {
         title: formData.title,
         description: formData.description,
         reward_amount: Number(formData.reward_amount),
@@ -61,8 +67,17 @@ export function AdminTasks() {
         required_plan: formData.required_plan,
         affiliate_url: formData.affiliate_url,
         duration_hours: Number(formData.duration_hours),
-        status: 'active'
-      }]);
+        status: 'active',
+        meta: {
+          max_participants: Number(formData.max_participants) || null,
+          start_date: formData.start_date || null,
+          end_date: formData.end_date || null,
+          priority: formData.priority,
+          verification_type: formData.verification_type,
+          instructions: formData.instructions || null,
+        }
+      };
+      const { error } = await supabase.from('tasks').insert([payload]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -71,7 +86,9 @@ export function AdminTasks() {
       showAlert('Task created successfully!', 'Success');
       setFormData({
         title: '', description: '', reward_amount: 500, target_count: 1, 
-        task_type: 'custom', required_plan: 'all', affiliate_url: '', duration_hours: 24
+        task_type: 'custom', required_plan: 'all', affiliate_url: '', duration_hours: 24,
+        max_participants: 0, start_date: '', end_date: '', priority: 'normal',
+        verification_type: 'auto', instructions: ''
       });
     },
     onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
@@ -170,24 +187,49 @@ export function AdminTasks() {
                   </td>
                 </tr>
               ) : (
-                tasks?.map((task: any) => (
+                tasks?.map((task: any) => {
+                  const meta = task.meta || {};
+                  const priorityColors: Record<string, string> = {
+                    low: 'bg-green-50 text-green-700',
+                    normal: 'bg-blue-50 text-blue-700',
+                    high: 'bg-orange-50 text-orange-700',
+                    urgent: 'bg-red-50 text-red-700',
+                  };
+                  return (
                   <tr key={task.id} className="border-b border-surface-container-low hover:bg-surface-container-low/30 transition-colors bg-white group">
                     <td className="py-6 px-6 first:rounded-l-2xl">
                       <p className="font-bold text-slate-900">{task.title}</p>
                       <p className="text-xs text-slate-500 max-w-xs truncate">{task.description}</p>
+                      {meta.priority && meta.priority !== 'normal' && (
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${priorityColors[meta.priority] || 'bg-slate-50 text-slate-500'}`}>
+                          {meta.priority}
+                        </span>
+                      )}
                     </td>
                     <td className="py-6 px-6">
                       <span className="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs uppercase tracking-widest rounded-lg">
                         {task.task_type}
                       </span>
                       <p className="text-xs text-slate-500 mt-2 font-medium">Target: {task.target_count}</p>
+                      {meta.max_participants > 0 && (
+                        <p className="text-xs text-slate-400 mt-0.5 font-medium">Max: {meta.max_participants} people</p>
+                      )}
                     </td>
                     <td className="py-6 px-6">
                       <p className="font-black text-emerald-700">₦{Number(task.reward_amount).toLocaleString()}</p>
+                      {meta.verification_type && meta.verification_type !== 'auto' && (
+                        <span className="text-[10px] text-slate-400 font-medium capitalize">{meta.verification_type.replace('_', ' ')}</span>
+                      )}
                     </td>
                     <td className="py-6 px-6">
                       <p className="text-sm font-bold text-slate-700 uppercase">{task.required_plan}</p>
                       <p className="text-xs text-slate-500 mt-1">{task.duration_hours}h limit</p>
+                      {meta.start_date && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">From: {new Date(meta.start_date).toLocaleDateString()}</p>
+                      )}
+                      {meta.end_date && (
+                        <p className="text-[10px] text-slate-400">To: {new Date(meta.end_date).toLocaleDateString()}</p>
+                      )}
                     </td>
                     <td className="py-6 px-6">
                       <span className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${task.status === 'active' ? 'bg-[#dcfce7] text-[#006b3f]' : 'bg-slate-100 text-slate-500'}`}>
@@ -203,7 +245,8 @@ export function AdminTasks() {
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -295,7 +338,7 @@ export function AdminTasks() {
             </div>
             
             <form onSubmit={handleCreateTask} className="p-6 overflow-y-auto space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Task Title</label>
                   <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium" placeholder="e.g. Follow JobbaWorks on Twitter"/>
@@ -323,6 +366,10 @@ export function AdminTasks() {
                     <option value="social">Social Media</option>
                     <option value="referrals">Referrals</option>
                     <option value="reads">Reading</option>
+                    <option value="signup">Sign Up</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="survey">Survey</option>
+                    <option value="bounty">Bounty</option>
                   </select>
                 </div>
 
@@ -333,6 +380,8 @@ export function AdminTasks() {
                     <option value="starter">Starter+</option>
                     <option value="pro">Pro+</option>
                     <option value="elite">Elite+</option>
+                    <option value="vip">VIP+</option>
+                    <option value="executive">Executive+</option>
                   </select>
                 </div>
 
@@ -340,7 +389,62 @@ export function AdminTasks() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Affiliate URL <span className="normal-case font-normal text-slate-400">(Optional)</span></label>
                   <input type="url" value={formData.affiliate_url} onChange={e => setFormData({...formData, affiliate_url: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium" placeholder="https://... (optional)"/>
                 </div>
+              </div>
 
+              {/* Advanced Settings Separator */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-4 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Advanced Settings</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Duration (Hours)</label>
+                  <input type="number" min={1} value={formData.duration_hours} onChange={e => setFormData({...formData, duration_hours: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold"/>
+                  <p className="text-[10px] text-slate-400 mt-1">How long users have to complete</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Max Participants</label>
+                  <input type="number" min={0} value={formData.max_participants} onChange={e => setFormData({...formData, max_participants: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold"/>
+                  <p className="text-[10px] text-slate-400 mt-1">0 = unlimited participants</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Priority</label>
+                  <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold">
+                    <option value="low">🟢 Low</option>
+                    <option value="normal">🔵 Normal</option>
+                    <option value="high">🟠 High</option>
+                    <option value="urgent">🔴 Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Start Date <span className="normal-case font-normal text-slate-400">(Optional)</span></label>
+                  <input type="datetime-local" value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium text-sm"/>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">End Date <span className="normal-case font-normal text-slate-400">(Optional)</span></label>
+                  <input type="datetime-local" value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium text-sm"/>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Verification</label>
+                  <select value={formData.verification_type} onChange={e => setFormData({...formData, verification_type: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold">
+                    <option value="auto">Auto (System verifies)</option>
+                    <option value="manual">Manual (User submits proof)</option>
+                    <option value="admin_review">Admin Review (Admin approves)</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Step-by-Step Instructions <span className="normal-case font-normal text-slate-400">(Optional)</span></label>
+                  <textarea rows={3} value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-medium resize-none" placeholder="Step 1: Go to...&#10;Step 2: Click on...&#10;Step 3: Submit screenshot"></textarea>
+                </div>
               </div>
 
               <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
