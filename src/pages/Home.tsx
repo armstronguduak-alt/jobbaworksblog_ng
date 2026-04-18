@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchArticleData } from './PublicArticle';
 import { SEO } from '../components/SEO';
+import { DisplayAd } from '../components/AdSense';
 
 
 
@@ -251,6 +252,9 @@ export function Home() {
       </>
     )}
 
+      {/* Ad: After Featured Section */}
+      {!slug && <DisplayAd className="my-10" />}
+
       {/* Latest Posts Feed */}
       <section className="mb-20">
         <div className="flex items-center justify-between mb-8">
@@ -323,6 +327,9 @@ export function Home() {
             ))}
           </div>
         )}
+
+        {/* Ad: After Latest Posts */}
+        <DisplayAd className="mt-10" />
       </section>
     </main>
     </>
