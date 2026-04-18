@@ -256,8 +256,8 @@ export function PublicArticle() {
     />
     <article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 relative">
       
-      {/* Floating Pie Countdown */}
-      {timeLeft !== null && !readCompleted && (
+      {/* Floating Pie Countdown — only for logged in users */}
+      {user && timeLeft !== null && !readCompleted && (
         <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50 bg-white p-3 rounded-full shadow-2xl border border-emerald-100 flex items-center justify-center">
           <div className="relative w-14 h-14 flex items-center justify-center">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">

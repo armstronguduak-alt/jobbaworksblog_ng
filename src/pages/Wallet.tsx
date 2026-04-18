@@ -357,16 +357,26 @@ export function Wallet() {
                 <div className="space-y-5">
                   {transactions.map(tx => (
                      <div key={tx.id} className="flex justify-between items-center text-[15px] group">
-                       <a href="#" className="font-body text-[#1a73e8] hover:underline cursor-pointer">
-                         {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} – {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
-                       </a>
-                       <span className="text-[#3c4043] font-body">{walletSymbol}{Number(tx.amount).toFixed(2)}</span>
+                       <div className="flex items-center gap-3">
+                         <span className="font-body text-[#3c4043]">
+                           {new Date(tx.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
+                         </span>
+                         <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
+                           tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                           tx.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                           tx.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                           'bg-slate-100 text-slate-500'
+                         }`}>
+                           {tx.status === 'completed' ? 'Sent' : tx.status}
+                         </span>
+                       </div>
+                       <span className="text-[#3c4043] font-body font-bold">{walletSymbol}{Number(tx.amount).toFixed(2)}</span>
                      </div>
                   ))}
                 </div>
               </div>
               <div className="border-t border-[#dadce0] p-4 bg-[#f8f9fa]/50">
-                <button className="text-[#1a73e8] font-medium text-[14px] w-full text-center hover:underline cursor-pointer">View transactions</button>
+                <a href="/transactions" className="text-[#1a73e8] font-medium text-[14px] w-full text-center hover:underline cursor-pointer block">View all transactions</a>
               </div>
             </div>
           )}

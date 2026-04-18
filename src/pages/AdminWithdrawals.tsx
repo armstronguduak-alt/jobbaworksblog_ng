@@ -9,12 +9,26 @@ export function AdminWithdrawals() {
   const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert, showConfirm } = useDialog();
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [allWithdrawals, setAllWithdrawals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected'>('pending');
 
   useEffect(() => {
     if (hasAccess) fetchWithdrawals();
   }, [activeTab, hasAccess]);
+
+  // Fetch all withdrawals once for analytics
+  useEffect(() => {
+    if (hasAccess) fetchAllStats();
+  }, [hasAccess]);
+
+  const fetchAllStats = async () => {
+    const { data } = await supabase
+      .from('wallet_transactions')
+      .select('amount, status')
+      .eq('type', 'withdrawal');
+    setAllWithdrawals(data || []);
+  };
 
   const fetchWithdrawals = async () => {
     setIsLoading(true);
@@ -46,7 +60,7 @@ export function AdminWithdrawals() {
   const handleAction = async (txId: string, userId: string, newStatus: 'completed' | 'rejected', amount: number) => {
     const action = newStatus === 'completed' ? 'approve' : 'reject';
     const confirmed = await showConfirm(
-      `Are you sure you want to ${action} this withdrawal of ₦${Math.abs(amount).toLocaleString()}?`,
+      `Are you sure you want to ${action} this withdrawal of $${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}?`,
       `${action.charAt(0).toUpperCase() + action.slice(1)} Withdrawal`
     );
     if (!confirmed) return;
@@ -70,15 +84,16 @@ export function AdminWithdrawals() {
       // Send notification to the user
       await supabase.from('notifications').insert({
         user_id: userId,
-        title: newStatus === 'completed' ? 'Withdrawal Approved ✅' : 'Withdrawal Rejected ❌',
+        title: newStatus === 'completed' ? 'Withdrawal Sent ✅' : 'Withdrawal Rejected ❌',
         message: newStatus === 'completed'
-          ? `Your withdrawal of ₦${Math.abs(amount).toLocaleString()} has been approved and processed.`
-          : `Your withdrawal of ₦${Math.abs(amount).toLocaleString()} was rejected. The amount has been refunded to your wallet.`,
+          ? `Your withdrawal of $${Math.abs(amount).toLocaleString()} has been approved and sent to your account.`
+          : `Your withdrawal of $${Math.abs(amount).toLocaleString()} was rejected. The amount has been refunded to your wallet.`,
         type: 'system'
       });
 
       showAlert(`Withdrawal ${action}d successfully.`, 'Success');
       fetchWithdrawals();
+      fetchAllStats();
     } catch (err: any) {
       showAlert(err.message, 'Error');
     }
@@ -91,8 +106,15 @@ export function AdminWithdrawals() {
       try { return JSON.parse(details); } catch { return null; }
     }
     return details;
-    return details;
   };
+
+  // Analytics
+  const pendingTotal = allWithdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + Math.abs(w.amount), 0);
+  const approvedTotal = allWithdrawals.filter(w => w.status === 'completed').reduce((s, w) => s + Math.abs(w.amount), 0);
+  const rejectedTotal = allWithdrawals.filter(w => w.status === 'rejected').reduce((s, w) => s + Math.abs(w.amount), 0);
+  const pendingCount = allWithdrawals.filter(w => w.status === 'pending').length;
+  const approvedCount = allWithdrawals.filter(w => w.status === 'completed').length;
+  const rejectedCount = allWithdrawals.filter(w => w.status === 'rejected').length;
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!hasAccess) return <Navigate to="/dashboard" replace />;
@@ -107,6 +129,34 @@ export function AdminWithdrawals() {
         <p className="text-slate-500 mt-1">Review and process user withdrawal requests from the wallet.</p>
       </div>
 
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-amber-600 text-[20px]">hourglass_top</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-700">Pending</span>
+          </div>
+          <p className="text-2xl font-black text-amber-800 font-headline">${pendingTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          <p className="text-xs text-amber-600 font-medium mt-1">{pendingCount} request{pendingCount !== 1 ? 's' : ''} waiting</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-emerald-600 text-[20px]">check_circle</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">Approved & Sent</span>
+          </div>
+          <p className="text-2xl font-black text-emerald-800 font-headline">${approvedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          <p className="text-xs text-emerald-600 font-medium mt-1">{approvedCount} processed</p>
+        </div>
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-rose-600 text-[20px]">cancel</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-rose-700">Rejected</span>
+          </div>
+          <p className="text-2xl font-black text-rose-800 font-headline">${rejectedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          <p className="text-xs text-rose-600 font-medium mt-1">{rejectedCount} refunded</p>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1 max-w-max">
         {(['pending', 'completed', 'rejected'] as const).map(tab => (
@@ -119,7 +169,10 @@ export function AdminWithdrawals() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab}
+            {tab === 'completed' ? 'Sent' : tab}
+            {tab === 'pending' && pendingCount > 0 && (
+              <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+            )}
           </button>
         ))}
       </div>
@@ -132,19 +185,26 @@ export function AdminWithdrawals() {
               <tr>
                 <th className="p-4">User</th>
                 <th className="p-4">Amount</th>
-                <th className="p-4">Bank Details</th>
+                <th className="p-4">Fee & Net</th>
+                <th className="p-4">Payout Details</th>
                 <th className="p-4">Date</th>
+                <th className="p-4">Status</th>
                 {activeTab === 'pending' && <th className="p-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-400 animate-pulse">Loading withdrawals...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading withdrawals...</td></tr>
               ) : withdrawals.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-400">No {activeTab} withdrawal requests.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-slate-400">No {activeTab} withdrawal requests.</td></tr>
               ) : (
                 withdrawals.map(tx => {
                   const acct = parseAccountDetails(tx.meta);
+                  const meta = tx.meta || {};
+                  const feePercent = meta.withdrawalFeePercent || 0;
+                  const feeAmount = meta.feeDeducted || 0;
+                  const expectedAmount = meta.expectedAmount || (Math.abs(tx.amount) - feeAmount);
+                  
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
@@ -154,21 +214,42 @@ export function AdminWithdrawals() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="font-black text-lg text-rose-600">₦{Math.abs(tx.amount).toLocaleString()}</span>
+                        <span className="font-black text-lg text-slate-900">${Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-xs space-y-0.5">
+                          {feePercent > 0 && <p className="text-rose-500 font-bold">Fee: {feePercent}% (-${Number(feeAmount).toFixed(2)})</p>}
+                          <p className="text-emerald-700 font-black">Net: ${Number(expectedAmount).toFixed(2)}</p>
+                        </div>
                       </td>
                       <td className="p-4">
                         {acct ? (
                           <div className="text-xs space-y-0.5">
-                            <p className="font-bold text-slate-700">{acct.bank_name || acct.bankName || 'N/A'}</p>
-                            <p className="text-slate-500">{acct.account_number || acct.accountNumber || 'N/A'}</p>
-                            <p className="text-slate-500">{acct.account_name || acct.accountName || 'N/A'}</p>
+                            {acct.method && <p className="font-black text-slate-700 uppercase">{acct.method}</p>}
+                            {(acct.bank_name || acct.bankName) && <p className="font-bold text-slate-600">{acct.bank_name || acct.bankName}</p>}
+                            {(acct.account_number || acct.accountNumber) && <p className="text-slate-500">{acct.account_number || acct.accountNumber}</p>}
+                            {(acct.account_name || acct.accountName) && <p className="text-slate-500">{acct.account_name || acct.accountName}</p>}
+                            {acct.wallet_address && <p className="text-slate-500 truncate max-w-[180px]" title={acct.wallet_address}>{acct.wallet_address}</p>}
+                            {acct.minipay_uid && <p className="text-slate-500">MiniPay: {acct.minipay_uid}</p>}
+                            {acct.network && <p className="text-blue-500 font-bold">{acct.network}</p>}
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-xs italic">No details</span>
+                          <span className="text-slate-400 text-xs italic">No payout details</span>
                         )}
                       </td>
                       <td className="p-4 text-slate-500 text-xs font-bold">
                         {new Date(tx.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        <br />
+                        <span className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                          tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                          tx.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {tx.status === 'completed' ? 'Sent' : tx.status}
+                        </span>
                       </td>
                       {activeTab === 'pending' && (
                         <td className="p-4 text-right">

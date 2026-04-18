@@ -156,6 +156,16 @@ export function Transactions() {
                       {tx.type === 'swap' && meta.usd_amount && (
                         <p className="text-[10px] text-blue-500 font-bold mt-0.5">Received ${Number(meta.usd_amount).toFixed(2)} USD at ₦{meta.rate}/$ rate</p>
                       )}
+                      {tx.type === 'withdrawal' && (
+                        <div className="flex gap-3 mt-0.5">
+                          {meta.withdrawalFeePercent > 0 && (
+                            <span className="text-[10px] text-rose-500 font-bold">Fee: {meta.withdrawalFeePercent}% (-{formatAmount(meta.feeDeducted || 0)})</span>
+                          )}
+                          {meta.expectedAmount > 0 && (
+                            <span className="text-[10px] text-emerald-600 font-bold">Net: {formatAmount(meta.expectedAmount)}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -165,9 +175,13 @@ export function Transactions() {
                     <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
                       tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                       tx.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                      'bg-rose-100 text-rose-700'
+                      tx.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                      'bg-slate-100 text-slate-500'
                     }`}>
-                      {tx.status}
+                      {tx.type === 'withdrawal' && tx.status === 'completed' ? 'Sent' : 
+                       tx.type === 'withdrawal' && tx.status === 'pending' ? 'Pending' :
+                       tx.type === 'withdrawal' && tx.status === 'rejected' ? 'Rejected' :
+                       tx.status}
                     </span>
                   </div>
                 </div>

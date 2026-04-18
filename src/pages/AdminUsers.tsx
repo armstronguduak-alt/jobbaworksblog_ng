@@ -48,7 +48,31 @@ export function AdminUsers() {
       }
 
       const { data } = await query;
-      if (data) setUsersList(data);
+      if (data && data.length > 0) {
+        // Fetch wallet balances and referral counts in parallel
+        const userIds = data.map((u: any) => u.user_id || u.id).filter(Boolean);
+        const [walletsRes, referralsRes] = await Promise.all([
+          supabase.from('wallet_balances').select('user_id, balance, usdt_balance, referral_earnings').in('user_id', userIds),
+          supabase.from('referrals').select('referrer_user_id').in('referrer_user_id', userIds),
+        ]);
+
+        const walletMap: Record<string, any> = {};
+        (walletsRes.data || []).forEach((w: any) => { walletMap[w.user_id] = w; });
+
+        const refCountMap: Record<string, number> = {};
+        (referralsRes.data || []).forEach((r: any) => {
+          refCountMap[r.referrer_user_id] = (refCountMap[r.referrer_user_id] || 0) + 1;
+        });
+
+        const enriched = data.map((u: any) => ({
+          ...u,
+          _wallet: walletMap[u.user_id || u.id] || null,
+          _referralCount: refCountMap[u.user_id || u.id] || 0,
+        }));
+        setUsersList(enriched);
+      } else {
+        setUsersList(data || []);
+      }
     } catch (err) {
       console.error('Error fetching users:', err);
     } finally {
@@ -182,6 +206,8 @@ export function AdminUsers() {
                 <tr className="bg-white rounded-full shadow-sm border border-surface-container-low text-[#49454f]">
                   <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] rounded-l-full">USER</th>
                   <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">EMAIL</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">BALANCE</th>
+                  <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">REFERRALS</th>
                   <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">STATUS</th>
                   <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em]">JOINED</th>
                   <th className="py-4 px-6 font-black text-[10px] md:text-xs uppercase tracking-[0.15em] text-right rounded-r-full">ACTIONS</th>
@@ -200,13 +226,28 @@ export function AdminUsers() {
                         <span className="font-semibold text-on-surface">{u.name || 'Unknown'}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-on-surface-variant">{u.email || 'No email stored'}</td>
+                    <td className="py-4 px-6 text-on-surface-variant text-xs">{u.email || 'No email stored'}</td>
+                    <td className="py-4 px-6">
+                      {u._wallet ? (
+                        <div>
+                          <p className="font-black text-emerald-700 text-sm">${Number(u._wallet.usdt_balance || 0).toFixed(2)}</p>
+                          <p className="text-[10px] text-slate-400">₦{Number(u._wallet.balance || 0).toLocaleString()}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">$0.00</span>
+                      )}
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`font-black text-sm ${u._referralCount > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                        {u._referralCount}
+                      </span>
+                    </td>
                     <td className="py-4 px-6">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-variant text-on-surface-variant'}`}>
                         {u.status || 'Active'}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-on-surface-variant">
+                    <td className="py-4 px-6 text-on-surface-variant text-xs">
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-4 px-6 text-right">
