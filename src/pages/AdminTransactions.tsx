@@ -16,12 +16,23 @@ export function AdminTransactions() {
   const { data: transactions = [], isLoading, isFetching } = useQuery({
     queryKey: ['admin_transactions'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: txData, error } = await supabase
         .from('wallet_transactions')
-        .select(`*, profiles:user_id (name, email)`)
+        .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      const txs = txData || [];
+      // Fetch profiles separately since FK join may not exist
+      const userIds = [...new Set(txs.map(t => t.user_id).filter(Boolean))];
+      let profileMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, name, email, username')
+          .in('user_id', userIds);
+        (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+      return txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
     },
     enabled: !!hasAccess,
     staleTime: 5 * 60 * 1000,

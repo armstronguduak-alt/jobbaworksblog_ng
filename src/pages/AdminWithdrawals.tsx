@@ -35,7 +35,7 @@ export function AdminWithdrawals() {
     try {
       let q = supabase
         .from('wallet_transactions')
-        .select('*, profiles:user_id(name, email, username)')
+        .select('*')
         .eq('type', 'withdrawal')
         .order('created_at', { ascending: false });
 
@@ -49,7 +49,19 @@ export function AdminWithdrawals() {
 
       const { data, error } = await q;
       if (error) throw error;
-      if (data) setWithdrawals(data);
+      
+      const txs = data || [];
+      // Fetch profiles separately since FK join may not exist
+      const userIds = [...new Set(txs.map(t => t.user_id).filter(Boolean))];
+      let profileMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, name, email, username')
+          .in('user_id', userIds);
+        (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+      setWithdrawals(txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null })));
     } catch (err: any) {
       console.error(err);
     } finally {

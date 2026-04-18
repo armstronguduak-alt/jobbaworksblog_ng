@@ -65,9 +65,9 @@ export function AdminManagement() {
         supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'pending'),
         // Total Active Posts
         supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-        // Recent Withdrawals with Profiles
+        // Recent Withdrawals (no FK join)
         supabase.from('wallet_transactions')
-          .select(`id, amount, status, created_at, profiles:user_id (name)`)
+          .select('id, amount, status, created_at, user_id')
           .eq('type', 'withdrawal').eq('status', 'pending')
           .order('created_at', { ascending: false }).limit(5),
         // Total Deposits / Revenue
@@ -75,9 +75,9 @@ export function AdminManagement() {
           .select('amount')
           .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
           .eq('status', 'completed'),
-        // Recent Deposits/Purchases
+        // Recent Deposits/Purchases (no FK join)
         supabase.from('wallet_transactions')
-          .select(`id, amount, status, type, metadata, created_at, profiles:user_id (name, username)`)
+          .select('id, amount, status, type, meta, created_at, user_id')
           .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
           .order('created_at', { ascending: false }).limit(5),
       ]);
@@ -91,14 +91,33 @@ export function AdminManagement() {
       }
 
       if (postsRes.count !== null) setActivePostsCount(postsRes.count);
-      if (recentWithdrawalsRes.data) setRecentWithdrawals(recentWithdrawalsRes.data);
       
       if (depositsRes.data) {
         const depSum = depositsRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
         setTotalDeposits(depSum);
       }
 
-      if (recentDepositsRes.data) setRecentDeposits(recentDepositsRes.data);
+      // Fetch profiles separately for recent withdrawals + deposits
+      const allUserIds = [
+        ...(recentWithdrawalsRes.data || []).map(t => t.user_id),
+        ...(recentDepositsRes.data || []).map(t => t.user_id),
+      ].filter(Boolean);
+      const uniqueUserIds = [...new Set(allUserIds)];
+      let profileMap: Record<string, any> = {};
+      if (uniqueUserIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, name, username, email')
+          .in('user_id', uniqueUserIds);
+        (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+
+      if (recentWithdrawalsRes.data) {
+        setRecentWithdrawals(recentWithdrawalsRes.data.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null })));
+      }
+      if (recentDepositsRes.data) {
+        setRecentDeposits(recentDepositsRes.data.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null })));
+      }
 
     } catch (err) {
       console.error("Error fetching admin stats:", err);
