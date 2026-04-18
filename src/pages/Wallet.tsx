@@ -78,7 +78,7 @@ export function Wallet() {
         supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', userId).maybeSingle(),
         supabase.from('wallet_transactions').select('*').eq('user_id', userId).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
         supabase.from('payout_methods').select('*').eq('user_id', userId),
-        supabase.from('referrals').select('id', { count: 'exact' }).eq('referrer_id', userId)
+        supabase.from('referrals').select('id', { count: 'exact' }).eq('referrer_user_id', userId)
       ]);
         
       if (balanceRes.data) {
@@ -120,7 +120,7 @@ export function Wallet() {
     const { count: freshReferralCount } = await supabase
       .from('referrals')
       .select('id', { count: 'exact', head: true })
-      .eq('referrer_id', user!.id);
+      .eq('referrer_user_id', user!.id);
     const currentReferrals = freshReferralCount ?? referralCount;
     setReferralCount(currentReferrals);
 
