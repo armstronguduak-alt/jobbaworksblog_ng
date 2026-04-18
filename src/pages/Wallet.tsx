@@ -117,7 +117,7 @@ export function Wallet() {
       return;
     }
     if (referralCount < 2) {
-      setMessage('You need at least 2 referrers to perform a withdrawal.');
+      setMessage(`You need at least 2 active referrals to withdraw. You currently have ${referralCount}. Invite friends from the Referral page to unlock withdrawals.`);
       return;
     }
     if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < PAYOUT_THRESHOLD) {
@@ -323,14 +323,8 @@ export function Wallet() {
             </div>
           </div>
           
-          {referralCount < 2 && (
-            <div className="bg-rose-50 text-rose-800 p-4 rounded-xl border border-rose-200">
-              <div className="flex items-center gap-2 font-bold mb-1">
-                <span className="material-symbols-outlined">warning</span> Referral Requirement
-              </div>
-              <p className="text-sm">You need at least 2 active downlines (referrals) to process your withdrawal. You currently have {referralCount}.</p>
-            </div>
-          )}
+
+
 
           {/* Submit Button */}
           <div className="pt-2">
