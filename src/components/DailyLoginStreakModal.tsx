@@ -5,26 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCurrency } from '../hooks/useCurrency';
 import confetti from 'canvas-confetti';
 
-// Plan-based reward ranges (min, max) — used only for UI display
-const NGN_REWARDS: Record<string, [number, number]> = {
-  free:      [10, 500],
-  starter:   [100, 500],
-  pro:       [160, 1000],
-  elite:     [200, 14500],
-  vip:       [300, 22500],
-  executive: [500, 13500],
-  platinum:  [1000, 5000],
-};
-
-const USD_REWARDS: Record<string, [number, number]> = {
-  free:      [0.20, 0.50],
-  starter:   [0.50, 1.00],
-  pro:       [1.00, 3.00],
-  elite:     [1.00, 5.00],
-  vip:       [2.00, 8.00],
-  executive: [3.00, 15.00],
-  platinum:  [10.00, 30.00],
-};
+import { useAppSettings } from '../hooks/useAppSettings';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -37,6 +18,7 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { isGlobal, formatAmount } = useCurrency();
+  const { streakSettings } = useAppSettings();
   const [currentStreak, setCurrentStreak] = useState(0);
   const [claimedToday, setClaimedToday] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState(0);
@@ -105,9 +87,10 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
 
   const displayStreak = claimResult ? claimResult.streak : currentStreak;
 
-  // Get reward ranges for the current plan
-  const rewardTable = isGlobal ? USD_REWARDS : NGN_REWARDS;
-  const [minReward, maxReward] = rewardTable[planId] || rewardTable['free'];
+  // Get reward ranges for the current plan from dynamic settings
+  const planStreakSetting = streakSettings[planId] || streakSettings['free'];
+  const minReward = isGlobal ? planStreakSetting.usdMin : planStreakSetting.ngnMin;
+  const maxReward = isGlobal ? planStreakSetting.usdMax : planStreakSetting.ngnMax;
   const symbol = isGlobal ? '$' : '₦';
 
   // Format reward for display in grid tiles

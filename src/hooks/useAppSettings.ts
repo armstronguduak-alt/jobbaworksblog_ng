@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 export interface NonNigerianPlan {
   id: string;
   price: number;
+  usdReadReward?: number;
+  usdCommentReward?: number;
 }
 
 
@@ -41,6 +43,23 @@ const defaultExchangeRates: ExchangeRates = {
   dollarPrice: 1500,
   swapFee: 5,
   withdrawalFee: 5,
+};
+
+export interface PlanStreakSettings {
+  ngnMin: number;
+  ngnMax: number;
+  usdMin: number;
+  usdMax: number;
+}
+
+const defaultStreakSettings: Record<string, PlanStreakSettings> = {
+  free: { ngnMin: 10, ngnMax: 500, usdMin: 0.20, usdMax: 0.50 },
+  starter: { ngnMin: 100, ngnMax: 500, usdMin: 0.50, usdMax: 1.00 },
+  pro: { ngnMin: 160, ngnMax: 1000, usdMin: 1.00, usdMax: 3.00 },
+  elite: { ngnMin: 200, ngnMax: 14500, usdMin: 1.00, usdMax: 5.00 },
+  vip: { ngnMin: 300, ngnMax: 22500, usdMin: 2.00, usdMax: 8.00 },
+  executive: { ngnMin: 500, ngnMax: 13500, usdMin: 3.00, usdMax: 15.00 },
+  platinum: { ngnMin: 1000, ngnMax: 5000, usdMin: 10.00, usdMax: 30.00 },
 };
 
 export function useAppSettings() {
@@ -136,6 +155,21 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: streakSettings, refetch: refetchStreakSettings } = useQuery({
+    queryKey: ['systemSettings', 'streak_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'streak_settings')
+        .maybeSingle();
+      
+      if (error || !data) return defaultStreakSettings;
+      return { ...defaultStreakSettings, ...(data.value as Record<string, PlanStreakSettings>) };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
@@ -145,12 +179,14 @@ export function useAppSettings() {
     referralSettings: referralSettings || { nigerianReferralPercent: 25, crossReferralRewards: {
       free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
     }, swapEnabledForNigerians: true },
+    streakSettings: streakSettings || defaultStreakSettings,
     isLoadingToggles,
     refetchToggles,
     refetchUsdtAddresses,
     refetchNonNigerianPlans,
     refetchMonetizationRate,
     refetchExchangeRates,
-    refetchReferralSettings
+    refetchReferralSettings,
+    refetchStreakSettings
   };
 }

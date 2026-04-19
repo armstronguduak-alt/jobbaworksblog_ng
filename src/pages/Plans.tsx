@@ -285,11 +285,11 @@ export function Plans() {
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
-                    <span><strong className="font-bold">{formatAmount(plan.read_reward)}</strong> per article read</span>
+                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdReadReward || plan.read_reward / 1500).toFixed(2)}` : formatAmount(plan.read_reward)}</strong> per article read</span>
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
-                    <span><strong className="font-bold">{formatAmount(plan.comment_reward)}</strong> per comment</span>
+                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdCommentReward || plan.comment_reward / 1500).toFixed(2)}` : formatAmount(plan.comment_reward)}</strong> per comment</span>
                   </li>
                   {!isFree && (
                     <li className="flex items-center gap-3 text-sm font-bold">

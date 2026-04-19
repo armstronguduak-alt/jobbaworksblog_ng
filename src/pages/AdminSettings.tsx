@@ -22,7 +22,9 @@ export function AdminSettings() {
     refetchExchangeRates,
     refetchUsdtAddresses,
     refetchNonNigerianPlans,
-    refetchReferralSettings
+    refetchReferralSettings,
+    streakSettings: fetchedStreakSettings,
+    refetchStreakSettings
   } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
@@ -34,7 +36,13 @@ export function AdminSettings() {
     commentReward: '5',
     dailyReadingLimit: '5',
     dailyCommentLimit: '4',
-    globalPrice: '0'
+    globalPrice: '0',
+    globalReadReward: '0.02',
+    globalCommentReward: '0.01',
+    streakNgnMin: '10',
+    streakNgnMax: '500',
+    streakUsdMin: '0.20',
+    streakUsdMax: '0.50'
   });
 
   const [toggles, setToggles] = useState(pageToggles);
@@ -97,6 +105,8 @@ export function AdminSettings() {
   // Update form when a tier is selected
   useEffect(() => {
     if (selectedTier) {
+      const gs = fetchedNonNigerianPlans?.[selectedTier.id];
+      const ss = fetchedStreakSettings?.[selectedTier.id];
       setTierSettings({
         price: selectedTier.price.toString(),
         isActive: selectedTier.is_active,
@@ -104,10 +114,16 @@ export function AdminSettings() {
         commentReward: selectedTier.comment_reward.toString(),
         dailyReadingLimit: selectedTier.daily_read_limit.toString(),
         dailyCommentLimit: selectedTier.daily_comment_limit.toString(),
-        globalPrice: fetchedNonNigerianPlans?.[selectedTier.id]?.price?.toString() || '0'
+        globalPrice: gs?.price?.toString() || '0',
+        globalReadReward: gs?.usdReadReward?.toString() || '0',
+        globalCommentReward: gs?.usdCommentReward?.toString() || '0',
+        streakNgnMin: ss?.ngnMin?.toString() || '10',
+        streakNgnMax: ss?.ngnMax?.toString() || '500',
+        streakUsdMin: ss?.usdMin?.toString() || '0.20',
+        streakUsdMax: ss?.usdMax?.toString() || '0.50'
       });
     }
-  }, [selectedTierId, selectedTier, fetchedNonNigerianPlans]);
+  }, [selectedTierId, selectedTier, fetchedNonNigerianPlans, fetchedStreakSettings]);
 
   const updateTierMutation = useMutation({
     mutationFn: async () => {
@@ -121,13 +137,36 @@ export function AdminSettings() {
       }).eq('id', selectedTierId);
       if (error) throw error;
 
-      const updatedGlobalPlans = { ...fetchedNonNigerianPlans, [selectedTierId]: { id: selectedTierId, price: Number(tierSettings.globalPrice) } };
+      if (error) throw error;
+
+      const updatedGlobalPlans = { 
+        ...fetchedNonNigerianPlans, 
+        [selectedTierId]: { 
+          id: selectedTierId, 
+          price: Number(tierSettings.globalPrice),
+          usdReadReward: Number(tierSettings.globalReadReward),
+          usdCommentReward: Number(tierSettings.globalCommentReward)
+        } 
+      };
       const { error: sysError } = await supabase.from('system_settings').upsert({ key: 'non_nigerian_plans', value: updatedGlobalPlans });
       if (sysError) throw sysError;
+
+      const updatedStreakSettings = {
+        ...fetchedStreakSettings,
+        [selectedTierId]: {
+          ngnMin: Number(tierSettings.streakNgnMin),
+          ngnMax: Number(tierSettings.streakNgnMax),
+          usdMin: Number(tierSettings.streakUsdMin),
+          usdMax: Number(tierSettings.streakUsdMax)
+        }
+      };
+      const { error: streakError } = await supabase.from('system_settings').upsert({ key: 'streak_settings', value: updatedStreakSettings });
+      if (streakError) throw streakError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_subscription_plans'] });
       refetchNonNigerianPlans();
+      refetchStreakSettings();
       showAlert(`Successfully updated settings for ${selectedTier?.name}.`);
     },
     onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
@@ -354,6 +393,56 @@ export function AdminSettings() {
                     onChange={(e) => setTierSettings({...tierSettings, dailyCommentLimit: e.target.value})}
                     className="w-full px-4 py-4 rounded-2xl bg-surface-container-low border-transparent focus:bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-on-surface font-bold"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Read Reward (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-[18px]">$</span>
+                    <input 
+                      type="number" step="0.01"
+                      value={tierSettings.globalReadReward}
+                      onChange={(e) => setTierSettings({...tierSettings, globalReadReward: e.target.value})}
+                      className="w-full pl-11 pr-4 py-4 rounded-2xl bg-surface-container-low border-transparent focus:bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-on-surface font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Comment Reward (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-[18px]">$</span>
+                    <input 
+                      type="number" step="0.01"
+                      value={tierSettings.globalCommentReward}
+                      onChange={(e) => setTierSettings({...tierSettings, globalCommentReward: e.target.value})}
+                      className="w-full pl-11 pr-4 py-4 rounded-2xl bg-surface-container-low border-transparent focus:bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-on-surface font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 pt-4 border-t border-surface-container-low grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="col-span-full">
+                    <h4 className="text-sm font-bold text-on-surface uppercase tracking-widest flex items-center gap-2">
+                       <span className="material-symbols-outlined text-primary">spa</span> Daily Login Streak Settings
+                    </h4>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Nigerian Min Reward (₦)</label>
+                    <input type="number" value={tierSettings.streakNgnMin} onChange={(e) => setTierSettings({...tierSettings, streakNgnMin: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Nigerian Max Reward (₦)</label>
+                    <input type="number" value={tierSettings.streakNgnMax} onChange={(e) => setTierSettings({...tierSettings, streakNgnMax: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Min Reward (USD)</label>
+                    <input type="number" step="0.01" value={tierSettings.streakUsdMin} onChange={(e) => setTierSettings({...tierSettings, streakUsdMin: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Max Reward (USD)</label>
+                    <input type="number" step="0.01" value={tierSettings.streakUsdMax} onChange={(e) => setTierSettings({...tierSettings, streakUsdMax: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  </div>
                 </div>
               </div>
 
