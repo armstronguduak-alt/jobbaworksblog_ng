@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import confetti from 'canvas-confetti';
@@ -16,6 +16,14 @@ export function Wallet() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  // PIN verification state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState(['', '', '', '']);
+  const [pinError, setPinError] = useState('');
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successDetails, setSuccessDetails] = useState<any>(null);
   const [referralCount, setReferralCount] = useState(0);
   const { exchangeRates, pageToggles } = useAppSettings();
   const { isGlobal, symbol, exchangeRate } = useCurrency();
@@ -111,6 +119,7 @@ export function Wallet() {
     setWithdrawAmount(displayBalance.toString());
   };
 
+  // Validates inputs and opens the PIN modal
   const handleWithdraw = async () => {
     if (!pageToggles.walletEnabled) {
       setMessage('Withdrawal feature is temporarily disabled for maintenance.');
@@ -141,27 +150,99 @@ export function Wallet() {
       return;
     }
 
+    // Check if user has set a withdrawal PIN
+    const { data: userData } = await supabase.auth.getUser();
+    const savedPin = userData?.user?.user_metadata?.withdrawal_pin;
+    if (!savedPin) {
+      setMessage('You must set a withdrawal PIN in Settings before you can withdraw.');
+      return;
+    }
+
+    // Open PIN verification modal
+    setMessage('');
+    setPinInput(['', '', '', '']);
+    setPinError('');
+    setShowPinModal(true);
+    setTimeout(() => pinRefs.current[0]?.focus(), 100);
+  };
+
+  const handlePinChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newPin = [...pinInput];
+    newPin[index] = value.slice(-1);
+    setPinInput(newPin);
+    setPinError('');
+    if (value && index < 3) {
+      pinRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !pinInput[index] && index > 0) {
+      pinRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePinSubmit = async () => {
+    const enteredPin = pinInput.join('');
+    if (enteredPin.length !== 4) {
+      setPinError('Please enter all 4 digits.');
+      return;
+    }
+
+    // Verify PIN against user metadata
+    const { data: userData } = await supabase.auth.getUser();
+    const savedPin = userData?.user?.user_metadata?.withdrawal_pin;
+
+    if (enteredPin !== savedPin) {
+      setPinError('Incorrect PIN. Please try again.');
+      setPinInput(['', '', '', '']);
+      setTimeout(() => pinRefs.current[0]?.focus(), 100);
+      return;
+    }
+
+    // PIN is correct — proceed with the actual withdrawal
+    setShowPinModal(false);
     setIsSubmitting(true);
     setMessage('');
 
     try {
+      const selectedPm = payoutMethods.find((m: any) => m.id === selectedMethodId);
+      const accountDetails = selectedPm ? {
+        method: selectedPm.method,
+        account_name: selectedPm.account_name || null,
+        account_number: selectedPm.account_number || null,
+        bank_name: selectedPm.bank_name || null,
+        wallet_address: selectedPm.wallet_address || null,
+        minipay_uid: selectedPm.minipay_uid || null,
+        network: selectedPm.network || null,
+      } : {};
+
       const { error } = await supabase.from('wallet_transactions').insert({
         user_id: user!.id,
         type: 'withdrawal',
         amount: Number(withdrawAmount),
         status: 'pending',
-        description: `Withdrawal request via ${payoutMethods.find((m: any) => m.id === selectedMethodId)?.method || 'payout method'}`,
+        description: `Withdrawal request via ${selectedPm?.method || 'payout method'}`,
         meta: { 
           withdrawalFeePercent: exchangeRates.withdrawalFee,
           feeDeducted: fee,
           expectedAmount: youGet,
-          account_details: payoutMethods.find((m: any) => m.id === selectedMethodId)?.details || {}
+          account_details: accountDetails
         }
       });
 
       if (error) throw error;
 
-      setMessage('Withdrawal request submitted! It is pending admin approval.');
+      // Show success modal with details
+      setSuccessDetails({
+        amount: Number(withdrawAmount),
+        fee: fee,
+        youGet: youGet,
+        method: selectedPm?.method,
+        accountDetails
+      });
+      setShowSuccessModal(true);
       setWithdrawAmount('');
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       if (user) fetchWalletData(user.id);
@@ -382,6 +463,149 @@ export function Wallet() {
           )}
         </section>
       </main>
+
+      {/* PIN Verification Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-slate-200 relative animate-[fadeInUp_0.3s_ease-out]">
+            <button 
+              onClick={() => setShowPinModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-amber-600 text-3xl">lock</span>
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900 mb-1">Enter Withdrawal PIN</h3>
+              <p className="text-sm text-slate-500">Enter your 4-digit PIN to confirm this withdrawal of <span className="font-bold text-slate-800">{walletSymbol}{Number(withdrawAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></p>
+            </div>
+            
+            <div className="flex justify-center gap-3 mb-6">
+              {[0, 1, 2, 3].map((i) => (
+                <input
+                  key={i}
+                  ref={(el) => { pinRefs.current[i] = el; }}
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={pinInput[i]}
+                  onChange={(e) => handlePinChange(i, e.target.value)}
+                  onKeyDown={(e) => handlePinKeyDown(i, e)}
+                  className="w-14 h-14 text-center text-2xl font-black bg-slate-100 border-2 border-slate-200 rounded-xl focus:border-[#006b3f] focus:ring-2 focus:ring-[#006b3f]/20 outline-none transition-all"
+                />
+              ))}
+            </div>
+
+            {pinError && (
+              <p className="text-red-500 text-sm font-semibold text-center mb-4 animate-[shake_0.3s_ease-in-out]">{pinError}</p>
+            )}
+            
+            <button
+              onClick={handlePinSubmit}
+              disabled={pinInput.join('').length < 4}
+              className="w-full py-3.5 rounded-xl font-extrabold text-white bg-gradient-to-br from-[#006b3f] to-[#008751] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+            >
+              Verify & Withdraw
+            </button>
+
+            <p className="text-xs text-slate-400 text-center mt-4">Forgot your PIN? Update it in <a href="/settings" className="text-[#1a73e8] font-semibold hover:underline">Settings</a></p>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && successDetails && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-slate-200 relative animate-[fadeInUp_0.3s_ease-out]">
+            <button 
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-emerald-600 text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+              </div>
+              <h3 className="text-2xl font-extrabold text-slate-900 mb-1">Withdrawal Submitted! 🎉</h3>
+              <p className="text-sm text-slate-500">Your request is pending admin review and will be processed shortly.</p>
+            </div>
+            
+            <div className="bg-slate-50 rounded-2xl p-5 space-y-3 mb-6 border border-slate-100">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Amount</span>
+                <span className="font-bold text-slate-900">{walletSymbol}{successDetails.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Fee ({exchangeRates.withdrawalFee}%)</span>
+                <span className="font-semibold text-red-500">-{walletSymbol}{successDetails.fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="h-px bg-slate-200"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-bold text-slate-700">You'll Receive</span>
+                <span className="font-extrabold text-lg text-emerald-700">{walletSymbol}{successDetails.youGet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-2xl p-5 space-y-2 mb-6 border border-blue-100">
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-700 mb-2">Payout Destination</p>
+              {successDetails.accountDetails?.method && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Method</span>
+                  <span className="font-bold text-blue-900 uppercase">{successDetails.accountDetails.method}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.account_name && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Account Name</span>
+                  <span className="font-bold text-blue-900">{successDetails.accountDetails.account_name}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.account_number && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Account Number</span>
+                  <span className="font-bold text-blue-900">{successDetails.accountDetails.account_number}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.bank_name && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Bank</span>
+                  <span className="font-bold text-blue-900">{successDetails.accountDetails.bank_name}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.wallet_address && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Wallet</span>
+                  <span className="font-bold text-blue-900 truncate max-w-[160px]" title={successDetails.accountDetails.wallet_address}>{successDetails.accountDetails.wallet_address}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.minipay_uid && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">MiniPay ID</span>
+                  <span className="font-bold text-blue-900">{successDetails.accountDetails.minipay_uid}</span>
+                </div>
+              )}
+              {successDetails.accountDetails?.network && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-600">Network</span>
+                  <span className="font-bold text-blue-900">{successDetails.accountDetails.network}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full py-3.5 rounded-xl font-extrabold text-white bg-gradient-to-br from-[#006b3f] to-[#008751] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/20"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

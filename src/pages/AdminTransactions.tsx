@@ -148,7 +148,7 @@ export function AdminTransactions() {
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-blue-500/20">
           <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Total Deposits</p>
           <h3 className="text-2xl font-black text-blue-800">
-            {formatAmount(transactions.filter(t => t.type === 'plan_purchase' || t.type === 'deposit').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+            {formatAmount(transactions.filter(t => t.type === 'subscription_fee' || t.type === 'plan_purchase' || t.type === 'deposit').reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0))}
           </h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-rose-500/20">
