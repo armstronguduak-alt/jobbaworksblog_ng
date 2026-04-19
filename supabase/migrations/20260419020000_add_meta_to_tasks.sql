@@ -8,14 +8,19 @@ ALTER TABLE public.wallet_balances ADD COLUMN IF NOT EXISTS task_earnings numeri
 CREATE OR REPLACE FUNCTION public.claim_task_reward(p_task_id UUID)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_user_id UUID; v_reward NUMERIC; v_claimed BOOLEAN;
+  v_user_id UUID;
+  v_reward NUMERIC;
+  v_claimed BOOLEAN;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN RETURN json_build_object('success', false, 'message', 'Not authenticated'); END IF;
-  SELECT reward_amount INTO v_reward FROM public.tasks WHERE id = p_task_id AND status = 'active';
+  
+  v_reward := (SELECT reward_amount FROM public.tasks WHERE id = p_task_id AND status = 'active');
   IF v_reward IS NULL THEN RETURN json_build_object('success', false, 'message', 'Task not found or inactive'); END IF;
-  SELECT reward_claimed INTO v_claimed FROM public.user_tasks WHERE user_id = v_user_id AND task_id = p_task_id;
+  
+  v_claimed := (SELECT reward_claimed FROM public.user_tasks WHERE user_id = v_user_id AND task_id = p_task_id);
   IF v_claimed THEN RETURN json_build_object('success', false, 'message', 'Reward already claimed'); END IF;
+  
   INSERT INTO public.user_tasks (user_id, task_id, progress, completed, reward_claimed)
   VALUES (v_user_id, p_task_id, 1, true, true)
   ON CONFLICT (user_id, task_id) DO UPDATE SET completed = true, reward_claimed = true, updated_at = NOW();
