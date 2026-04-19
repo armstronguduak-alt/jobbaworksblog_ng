@@ -28,7 +28,9 @@ export function Earn() {
         supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', user!.id).maybeSingle(),
         supabase.from('post_reads').select('post_id').eq('user_id', user!.id),
         supabase.from('tasks').select('*').eq('status', 'active'),
-        supabase.from('user_tasks').select('task_id, completed').eq('user_id', user!.id)
+        supabase.from('user_tasks').select('task_id, completed').eq('user_id', user!.id),
+        supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_user_id', user!.id),
+        supabase.from('referral_commissions').select('plan_id').eq('referrer_user_id', user!.id)
       ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
@@ -71,11 +73,19 @@ export function Earn() {
       
       const availableTasks = allActiveTasks.filter((task: any) => !completedTaskIds.includes(task.id));
 
+      const planReferralCounts: Record<string, number> = { all: totalReferralsRes.count || 0 };
+      if (referralCommissionsRes.data) {
+        referralCommissionsRes.data.forEach((rc: any) => {
+          planReferralCounts[rc.plan_id] = (planReferralCounts[rc.plan_id] || 0) + 1;
+        });
+      }
+
       return { 
         stats, 
         availablePosts: availablePosts || [], 
         availableTasks: availableTasks || [],
-        walletData: walletDataRes.data 
+        walletData: walletDataRes.data,
+        planReferralCounts
       };
     }
   });
@@ -357,34 +367,63 @@ export function Earn() {
             <CommunityTaskCard />
 
             {/* Dynamic DB Bounties */}
-            {availableTasks.map((task: any) => (
-              <div key={task.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined">
-                        {task.task_type === 'social' ? 'thumb_up' : task.task_type === 'referrals' ? 'group_add' : 'task_alt'}
-                      </span>
+            {availableTasks.map((task: any) => {
+              const isReferral = task.task_type === 'referrals';
+              const target = task.target_count || 1;
+              const current = isReferral ? (data?.planReferralCounts?.[task.required_plan] || 0) : 0;
+              const completed = current >= target;
+
+              return (
+                <div key={task.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined">
+                          {task.task_type === 'social' ? 'thumb_up' : task.task_type === 'referrals' ? 'group_add' : 'task_alt'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-on-surface line-clamp-1">
+                          {task.title}
+                          {isReferral && <span className="ml-2 text-xs font-bold text-primary">({current}/{target})</span>}
+                        </h4>
+                        <p className="text-on-surface-variant text-[13px] line-clamp-2 mt-1">
+                          {task.description}
+                          {isReferral && task.required_plan !== 'all' && ` (Requires ${task.required_plan.toUpperCase()} plan)`}
+                        </p>
+                        {isReferral && !completed && (
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3 overflow-hidden">
+                            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${Math.min((current/target)*100, 100)}%` }}></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-on-surface line-clamp-1">{task.title}</h4>
-                      <p className="text-on-surface-variant text-[13px] line-clamp-2 mt-1">{task.description}</p>
+                    <div className="text-right shrink-0">
+                      <span className="block text-primary font-black">{formatAmount(task.reward_amount || 0)}</span>
+                      <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Reward</span>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="block text-primary font-black">{formatAmount(task.reward_amount || 0)}</span>
-                    <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Reward</span>
-                  </div>
+                  {isReferral && !completed ? (
+                    <Link
+                      to="/referral"
+                      className="w-full py-3 font-bold rounded-xl active:scale-95 transition-all border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 flex justify-center items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">group_add</span> Invite ({target - current} left)
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => handleExecuteExternalTask(task)}
+                      disabled={claimingId === task.id}
+                      className={`w-full py-3 font-bold rounded-xl active:scale-95 transition-all flex justify-center items-center gap-2 ${
+                        isReferral && completed ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
+                      }`}
+                    >
+                      {claimingId === task.id ? 'Working...' : isReferral && completed ? 'Claim Reward' : 'Complete Task'}
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleExecuteExternalTask(task)}
-                  disabled={claimingId === task.id}
-                  className="w-full py-3 font-bold rounded-xl active:scale-95 transition-all bg-surface-container-high text-on-surface hover:bg-surface-container-highest flex justify-center items-center gap-2"
-                >
-                  {claimingId === task.id ? 'Verifying...' : 'Complete Task'}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

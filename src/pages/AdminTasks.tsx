@@ -12,6 +12,7 @@ export function AdminTasks() {
   const queryClient = useQueryClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,6 +22,7 @@ export function AdminTasks() {
     required_plan: 'all',
     affiliate_url: '',
     duration_hours: 24,
+    duration_type: 'hours',
     max_participants: 0,
     start_date: '',
     end_date: '',
@@ -56,6 +58,61 @@ export function AdminTasks() {
     enabled: !!hasAccess
   });
 
+  const { data: taskParticipants, isLoading: loadingParticipants } = useQuery({
+    queryKey: ['admin_task_participants', viewingTaskId],
+    queryFn: async () => {
+      // First get user_tasks
+      const { data: utRows, error: utError } = await supabase
+        .from('user_tasks')
+        .select(`
+          id, completed, reward_claimed, user_id, updated_at,
+          profiles!inner(name, username, email)
+        `)
+        .eq('task_id', viewingTaskId);
+      
+      if (utError) throw utError;
+      if (!utRows || utRows.length === 0) return [];
+
+      const userIds = utRows.map(r => r.user_id);
+      
+      // Get their default payout method
+      const { data: pmList } = await supabase
+        .from('payout_methods')
+        .select('*')
+        .in('user_id', userIds)
+        .eq('is_default', true);
+
+      // Also get wallet balances to check task_earnings
+      const { data: walletList } = await supabase
+        .from('wallet_balances')
+        .select('user_id, task_earnings, balance')
+        .in('user_id', userIds);
+
+      return utRows.map(ut => ({
+        ...ut,
+        payoutMethod: pmList?.find(pm => pm.user_id === ut.user_id) || null,
+        walletData: walletList?.find(w => w.user_id === ut.user_id) || null
+      }));
+    },
+    enabled: !!viewingTaskId
+  });
+
+  const payoutTaskRewardMutation = useMutation({
+    mutationFn: async ({ userId, amount, taskId }: { userId: string, amount: number, taskId: string }) => {
+      const { error } = await supabase.rpc('deduct_task_reward', {
+        p_user_id: userId,
+        p_amount: amount,
+        p_task_id: taskId
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_task_participants'] });
+      showAlert('Payout marked as complete. Amount deducted from user wallet.', 'Success');
+    },
+    onError: (err: any) => showAlert(`Payout deduction failed: ${err.message}`, 'Error')
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {
@@ -66,9 +123,11 @@ export function AdminTasks() {
         task_type: formData.task_type,
         required_plan: formData.required_plan,
         affiliate_url: formData.affiliate_url,
-        duration_hours: Number(formData.duration_hours),
+        duration_hours: formData.duration_type === 'days' ? Number(formData.duration_hours) * 24 : Number(formData.duration_hours),
         status: 'active',
         meta: {
+          duration_type: formData.duration_type,
+          duration_value: Number(formData.duration_hours),
           max_participants: Number(formData.max_participants) || null,
           start_date: formData.start_date || null,
           end_date: formData.end_date || null,
@@ -86,7 +145,7 @@ export function AdminTasks() {
       showAlert('Task created successfully!', 'Success');
       setFormData({
         title: '', description: '', reward_amount: 500, target_count: 1, 
-        task_type: 'custom', required_plan: 'all', affiliate_url: '', duration_hours: 24,
+        task_type: 'custom', required_plan: 'all', affiliate_url: '', duration_hours: 24, duration_type: 'hours',
         max_participants: 0, start_date: '', end_date: '', priority: 'normal',
         verification_type: 'auto', instructions: ''
       });
@@ -223,7 +282,7 @@ export function AdminTasks() {
                     </td>
                     <td className="py-6 px-6">
                       <p className="text-sm font-bold text-slate-700 uppercase">{task.required_plan}</p>
-                      <p className="text-xs text-slate-500 mt-1">{task.duration_hours}h limit</p>
+                      <p className="text-xs text-slate-500 mt-1">{meta.duration_type === 'days' ? `${meta.duration_value} days` : `${meta.duration_value || task.duration_hours} ${meta.duration_type || 'hours'}`} limit</p>
                       {meta.start_date && (
                         <p className="text-[10px] text-slate-400 mt-0.5">From: {new Date(meta.start_date).toLocaleDateString()}</p>
                       )}
@@ -236,7 +295,13 @@ export function AdminTasks() {
                         {task.status}
                       </span>
                     </td>
-                    <td className="py-6 px-6 text-right last:rounded-r-2xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="py-6 px-6 text-right last:rounded-r-2xl opacity-0 group-hover:opacity-100 transition-opacity gap-2 flex justify-end flex-wrap items-center h-full">
+                      <button 
+                        onClick={() => setViewingTaskId(task.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors text-slate-600 bg-slate-50 hover:bg-slate-200"
+                      >
+                        Participants
+                      </button>
                       <button 
                         onClick={() => toggleTaskStatus(task.id, task.status)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${task.status === 'active' ? 'text-rose-600 bg-rose-50 hover:bg-rose-100' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
@@ -401,8 +466,14 @@ export function AdminTasks() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Duration (Hours)</label>
-                  <input type="number" min={1} value={formData.duration_hours} onChange={e => setFormData({...formData, duration_hours: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold"/>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Duration</label>
+                  <div className="flex gap-2">
+                    <input type="number" min={1} value={formData.duration_hours} onChange={e => setFormData({...formData, duration_hours: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold"/>
+                    <select value={formData.duration_type} onChange={e => setFormData({...formData, duration_type: e.target.value})} className="w-1/2 px-2 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-slate-900 font-bold">
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
                   <p className="text-[10px] text-slate-400 mt-1">How long users have to complete</p>
                 </div>
 
@@ -454,6 +525,94 @@ export function AdminTasks() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Participants Modal */}
+      {viewingTaskId && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h2 className="text-xl font-bold font-headline text-slate-900">Task Participants & Payouts</h2>
+              <button onClick={() => setViewingTaskId(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+                <span className="material-symbols-outlined text-[20px] text-slate-600">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              {loadingParticipants ? (
+                <div className="py-10 text-center text-slate-500">Loading participants...</div>
+              ) : !taskParticipants || taskParticipants.length === 0 ? (
+                <div className="py-10 text-center text-slate-500 bg-slate-50 rounded-2xl">No one has started this task yet.</div>
+              ) : (
+                <div className="space-y-4">
+                  {taskParticipants.map((p: any) => {
+                    const taskObj = tasks?.find((t: any) => t.id === viewingTaskId);
+                    const rewardAmt = taskObj?.reward_amount || 0;
+                    const pm = p.payoutMethod;
+                    const wallet = p.walletData;
+                    // If they have unclaimed or wallet balance covers it, admin can deduct
+                    const canDeduct = wallet?.balance >= rewardAmt;
+
+                    return (
+                      <div key={p.id} className="bg-white border text-sm border-slate-200 p-4 rounded-2xl flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-900">{p.profiles?.name} <span className="text-xs text-slate-400 font-normal">@{p.profiles?.username}</span></p>
+                          <p className="text-xs text-slate-500 mb-2">{p.profiles?.email}</p>
+                          
+                          <div className="flex gap-2 mb-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${p.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                              {p.completed ? 'Completed' : 'Started'}
+                            </span>
+                            {p.reward_claimed && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-blue-100 text-blue-700">
+                                Reward Reached Wallet
+                              </span>
+                            )}
+                          </div>
+
+                          {pm ? (
+                            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Default Payout Info</p>
+                              <div className="text-xs text-slate-600 grid grid-cols-2 gap-x-4 gap-y-1">
+                                <p><span className="font-medium">Method:</span> <span className="uppercase text-slate-800">{pm.method}</span></p>
+                                {pm.account_number && <p><span className="font-medium">Num:</span> {pm.account_number}</p>}
+                                {pm.bank_name && <p><span className="font-medium">Bank:</span> {pm.bank_name}</p>}
+                                {pm.account_name && <p><span className="font-medium">Name:</span> {pm.account_name}</p>}
+                                {pm.wallet_address && <p className="col-span-2 truncate"><span className="font-medium">Address:</span> {pm.wallet_address}</p>}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs italic text-amber-600 mt-2">No payout method configured.</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+                           <p className="text-xs text-slate-500 font-medium">Task Earnings: <strong className="text-slate-800">₦{wallet?.task_earnings || 0}</strong></p>
+                           <p className="text-xs text-slate-500 font-medium">Total Bal: <strong className="text-slate-800">₦{wallet?.balance || 0}</strong></p>
+                           
+                           {p.completed && (
+                             <button
+                               onClick={() => {
+                                 if(confirm(`Are you sure you want to deduct ₦${rewardAmt} from this user's wallet as a direct payment?`)) {
+                                   payoutTaskRewardMutation.mutate({ userId: p.user_id, amount: rewardAmt, taskId: viewingTaskId });
+                                 }
+                               }}
+                               disabled={!canDeduct || payoutTaskRewardMutation.isPending}
+                               className="mt-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-slate-800 transition-colors shadow-sm"
+                             >
+                               Mark Paid & Deduct ₦{rewardAmt}
+                             </button>
+                           )}
+                           {!canDeduct && p.completed && <p className="text-[10px] text-rose-500">Insufficient balance to deduct</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

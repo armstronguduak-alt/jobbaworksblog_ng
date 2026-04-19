@@ -38,11 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id, session.user);
+        if (event === 'SIGNED_IN') {
+          fetchProfile(session.user.id, session.user);
+        }
       } else {
         setProfile(null);
         setIsAdmin(false);
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string, currentUser?: User | null) => {
-    setIsLoading(true);
+    if (!profile) setIsLoading(true);
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
