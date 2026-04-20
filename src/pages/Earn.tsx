@@ -20,7 +20,7 @@ export function Earn() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
-      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes] = await Promise.all([
+      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes, totalReferralsRes, referralCommissionsRes] = await Promise.all([
         supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
         supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user!.id),
         supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).maybeSingle(),

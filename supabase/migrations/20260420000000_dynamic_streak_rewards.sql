@@ -2,183 +2,174 @@
 -- DYNAMIC PLAN-BASED & NATIONALITY-BASED DAILY STREAK REWARDS
 -- =========================================================
 
+DROP FUNCTION IF EXISTS public.claim_daily_login_reward();
+
 CREATE OR REPLACE FUNCTION public.claim_daily_login_reward()
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
-  _uid uuid := auth.uid();
-  _streak record;
-  _profile record;
-  _today date := CURRENT_DATE;
-  _new_streak integer;
-  _reward numeric;
-  _plan_id text;
-  _is_global boolean;
-  _min_reward numeric;
-  _max_reward numeric;
-  _currency text;
-  _settings jsonb;
-  _exchange jsonb;
-  _dollar_price numeric := 1500;
-  _plan_settings jsonb;
+  v_uid uuid := auth.uid();
+  v_today date := CURRENT_DATE;
+  v_new_streak integer;
+  v_reward numeric;
+  v_plan_id text;
+  v_is_global boolean;
+  v_min_reward numeric;
+  v_max_reward numeric;
+  v_currency text;
+  v_settings jsonb;
+  v_exchange jsonb;
+  v_dollar_price numeric := 1500;
+  v_plan_settings jsonb;
+  v_streak_cur integer;
+  v_streak_last date;
+  v_streak_earnings numeric;
 BEGIN
-  IF _uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
-
-  -- Get user's profile (is_global flag)
-  SELECT is_global INTO _is_global FROM public.profiles WHERE user_id = _uid;
-  _is_global := COALESCE(_is_global, false);
-
-  -- Get user's subscription plan
-  SELECT plan_id INTO _plan_id FROM public.user_subscriptions WHERE user_id = _uid;
-  _plan_id := COALESCE(_plan_id, 'free');
-
-  -- Get exchange rates for dollarPrice
-  SELECT value INTO _exchange FROM public.system_settings WHERE key = 'exchange_rates';
-  IF _exchange IS NOT NULL AND _exchange ? 'dollarPrice' THEN
-    _dollar_price := (_exchange->>'dollarPrice')::numeric;
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
   END IF;
 
-  -- Get streak settings
-  SELECT value INTO _settings FROM public.system_settings WHERE key = 'streak_settings';
+  SELECT p.is_global INTO v_is_global FROM public.profiles p WHERE p.user_id = v_uid;
+  v_is_global := COALESCE(v_is_global, false);
 
-  IF _settings IS NOT NULL AND _settings ? _plan_id THEN
-    _plan_settings := _settings->_plan_id;
-    IF _is_global THEN
-      _currency := 'USD';
-      _min_reward := (_plan_settings->>'usdMin')::numeric * _dollar_price;
-      _max_reward := (_plan_settings->>'usdMax')::numeric * _dollar_price;
+  SELECT us.plan_id INTO v_plan_id FROM public.user_subscriptions us WHERE us.user_id = v_uid;
+  v_plan_id := COALESCE(v_plan_id, 'free');
+
+  SELECT ss.value INTO v_exchange FROM public.system_settings ss WHERE ss.key = 'exchange_rates';
+  IF v_exchange IS NOT NULL AND v_exchange ? 'dollarPrice' THEN
+    v_dollar_price := (v_exchange->>'dollarPrice')::numeric;
+  END IF;
+
+  SELECT ss.value INTO v_settings FROM public.system_settings ss WHERE ss.key = 'streak_settings';
+
+  IF v_settings IS NOT NULL AND v_settings ? v_plan_id THEN
+    v_plan_settings := v_settings->v_plan_id;
+    IF v_is_global THEN
+      v_currency := 'USD';
+      v_min_reward := (v_plan_settings->>'usdMin')::numeric * v_dollar_price;
+      v_max_reward := (v_plan_settings->>'usdMax')::numeric * v_dollar_price;
     ELSE
-      _currency := 'NGN';
-      _min_reward := (_plan_settings->>'ngnMin')::numeric;
-      _max_reward := (_plan_settings->>'ngnMax')::numeric;
+      v_currency := 'NGN';
+      v_min_reward := (v_plan_settings->>'ngnMin')::numeric;
+      v_max_reward := (v_plan_settings->>'ngnMax')::numeric;
     END IF;
   ELSE
-    -- Fallback to hardcoded safe values if settings missing
-    IF _is_global THEN
-      _currency := 'USD';
-      CASE _plan_id
-        WHEN 'free'      THEN _min_reward := 0.20 * _dollar_price;  _max_reward := 0.50 * _dollar_price;
-        WHEN 'starter'   THEN _min_reward := 0.50 * _dollar_price;  _max_reward := 1.00 * _dollar_price;
-        WHEN 'pro'       THEN _min_reward := 1.00 * _dollar_price;  _max_reward := 3.00 * _dollar_price;
-        WHEN 'elite'     THEN _min_reward := 1.00 * _dollar_price;  _max_reward := 5.00 * _dollar_price;
-        WHEN 'vip'       THEN _min_reward := 2.00 * _dollar_price;  _max_reward := 8.00 * _dollar_price;
-        WHEN 'executive' THEN _min_reward := 3.00 * _dollar_price;  _max_reward := 15.00 * _dollar_price;
-        WHEN 'platinum'  THEN _min_reward := 10.00 * _dollar_price; _max_reward := 30.00 * _dollar_price;
-        ELSE                  _min_reward := 0.20 * _dollar_price;  _max_reward := 0.50 * _dollar_price;
+    IF v_is_global THEN
+      v_currency := 'USD';
+      CASE v_plan_id
+        WHEN 'free'      THEN v_min_reward := 0.20 * v_dollar_price;  v_max_reward := 0.50 * v_dollar_price;
+        WHEN 'starter'   THEN v_min_reward := 0.50 * v_dollar_price;  v_max_reward := 1.00 * v_dollar_price;
+        WHEN 'pro'       THEN v_min_reward := 1.00 * v_dollar_price;  v_max_reward := 3.00 * v_dollar_price;
+        WHEN 'elite'     THEN v_min_reward := 1.00 * v_dollar_price;  v_max_reward := 5.00 * v_dollar_price;
+        WHEN 'vip'       THEN v_min_reward := 2.00 * v_dollar_price;  v_max_reward := 8.00 * v_dollar_price;
+        WHEN 'executive' THEN v_min_reward := 3.00 * v_dollar_price;  v_max_reward := 15.00 * v_dollar_price;
+        WHEN 'platinum'  THEN v_min_reward := 10.00 * v_dollar_price; v_max_reward := 30.00 * v_dollar_price;
+        ELSE                  v_min_reward := 0.20 * v_dollar_price;  v_max_reward := 0.50 * v_dollar_price;
       END CASE;
     ELSE
-      _currency := 'NGN';
-      CASE _plan_id
-        WHEN 'free'      THEN _min_reward := 10;     _max_reward := 500;
-        WHEN 'starter'   THEN _min_reward := 100;    _max_reward := 500;
-        WHEN 'pro'       THEN _min_reward := 160;    _max_reward := 1000;
-        WHEN 'elite'     THEN _min_reward := 200;    _max_reward := 14500;
-        WHEN 'vip'       THEN _min_reward := 300;    _max_reward := 22500;
-        WHEN 'executive' THEN _min_reward := 500;    _max_reward := 13500;
-        WHEN 'platinum'  THEN _min_reward := 1000;   _max_reward := 5000;
-        ELSE                  _min_reward := 10;     _max_reward := 500;
+      v_currency := 'NGN';
+      CASE v_plan_id
+        WHEN 'free'      THEN v_min_reward := 10;     v_max_reward := 500;
+        WHEN 'starter'   THEN v_min_reward := 100;    v_max_reward := 500;
+        WHEN 'pro'       THEN v_min_reward := 160;    v_max_reward := 1000;
+        WHEN 'elite'     THEN v_min_reward := 200;    v_max_reward := 14500;
+        WHEN 'vip'       THEN v_min_reward := 300;    v_max_reward := 22500;
+        WHEN 'executive' THEN v_min_reward := 500;    v_max_reward := 13500;
+        WHEN 'platinum'  THEN v_min_reward := 1000;   v_max_reward := 5000;
+        ELSE                  v_min_reward := 10;     v_max_reward := 500;
       END CASE;
     END IF;
   END IF;
 
-  -- Randomize reward within range (rounded to 2 decimal places)
-  _reward := ROUND((_min_reward + random() * (_max_reward - _min_reward))::numeric, 2);
+  v_reward := ROUND((v_min_reward + random() * (v_max_reward - v_min_reward))::numeric, 2);
 
-  -- Get current streak record
-  SELECT * INTO _streak FROM public.daily_login_streaks WHERE user_id = _uid;
+  SELECT dls.current_streak, dls.last_claimed_date, dls.total_streak_earnings
+  INTO v_streak_cur, v_streak_last, v_streak_earnings
+  FROM public.daily_login_streaks dls WHERE dls.user_id = v_uid;
 
-  IF _streak IS NULL THEN
-    -- First time ever — Day 1
-    _new_streak := 1;
-
+  IF NOT FOUND THEN
+    v_new_streak := 1;
     INSERT INTO public.daily_login_streaks (user_id, current_streak, last_login_date, last_claimed_date, total_streak_earnings)
-    VALUES (_uid, _new_streak, _today, _today, _reward);
-
-  ELSIF _streak.last_claimed_date = _today THEN
-    -- Already claimed today
+    VALUES (v_uid, v_new_streak, v_today, v_today, v_reward);
+  ELSIF v_streak_last = v_today THEN
     RETURN jsonb_build_object(
       'success', false,
       'message', 'You already claimed today''s login reward!',
-      'current_streak', _streak.current_streak,
+      'current_streak', v_streak_cur,
       'reward', 0,
       'already_claimed', true,
-      'currency', _currency
+      'currency', v_currency
     );
-
-  ELSIF _streak.last_claimed_date = _today - 1 THEN
-    -- Consecutive day — increment streak
-    IF _streak.current_streak >= 7 THEN
-      _new_streak := 1;  -- Reset after 7-day cycle completes
+  ELSIF v_streak_last = v_today - 1 THEN
+    IF v_streak_cur >= 7 THEN
+      v_new_streak := 1;
     ELSE
-      _new_streak := _streak.current_streak + 1;
+      v_new_streak := v_streak_cur + 1;
     END IF;
-
     UPDATE public.daily_login_streaks
-    SET current_streak = _new_streak,
-        last_login_date = _today,
-        last_claimed_date = _today,
-        total_streak_earnings = total_streak_earnings + _reward,
+    SET current_streak = v_new_streak,
+        last_login_date = v_today,
+        last_claimed_date = v_today,
+        total_streak_earnings = total_streak_earnings + v_reward,
         updated_at = now()
-    WHERE user_id = _uid;
-
+    WHERE user_id = v_uid;
   ELSE
-    -- Missed a day — reset to Day 1
-    _new_streak := 1;
-
+    v_new_streak := 1;
     UPDATE public.daily_login_streaks
-    SET current_streak = _new_streak,
-        last_login_date = _today,
-        last_claimed_date = _today,
-        total_streak_earnings = total_streak_earnings + _reward,
+    SET current_streak = v_new_streak,
+        last_login_date = v_today,
+        last_claimed_date = v_today,
+        total_streak_earnings = total_streak_earnings + v_reward,
         updated_at = now()
-    WHERE user_id = _uid;
+    WHERE user_id = v_uid;
   END IF;
 
-  -- Credit reward to wallet (balance + total_earnings)
   UPDATE public.wallet_balances
-  SET balance = balance + _reward,
-      total_earnings = total_earnings + _reward,
+  SET balance = balance + v_reward,
+      total_earnings = total_earnings + v_reward,
       updated_at = now()
-  WHERE user_id = _uid;
+  WHERE user_id = v_uid;
 
-  -- If no wallet row exists, create one
   IF NOT FOUND THEN
     INSERT INTO public.wallet_balances (user_id, balance, total_earnings)
-    VALUES (_uid, _reward, _reward);
+    VALUES (v_uid, v_reward, v_reward);
   END IF;
 
-  -- Log the transaction
   INSERT INTO public.wallet_transactions (user_id, amount, type, status, description, meta)
   VALUES (
-    _uid,
-    _reward,
+    v_uid,
+    v_reward,
     'login_reward',
     'completed',
-    CASE WHEN _is_global
-      THEN format('Day %s Streak — $%s USD reward', _new_streak, ROUND(_reward / _dollar_price, 2))
-      ELSE format('Day %s Streak — ₦%s reward', _new_streak, _reward)
+    CASE WHEN v_is_global
+      THEN format('Day %s Streak — $%s USD reward', v_new_streak, ROUND(v_reward / v_dollar_price, 2))
+      ELSE format('Day %s Streak — ₦%s reward', v_new_streak, v_reward)
     END,
     jsonb_build_object(
-      'streak_day', _new_streak,
-      'plan_id', _plan_id,
-      'currency', _currency,
-      'is_global', _is_global,
-      'min_range', _min_reward,
-      'max_range', _max_reward
+      'streak_day', v_new_streak,
+      'plan_id', v_plan_id,
+      'currency', v_currency,
+      'is_global', v_is_global,
+      'min_range', v_min_reward,
+      'max_range', v_max_reward
     )
   );
 
   RETURN jsonb_build_object(
     'success', true,
-    'message', CASE WHEN _is_global
-      THEN format('$%s USD earned for Day %s login streak!', ROUND(_reward / _dollar_price, 2), _new_streak)
-      ELSE format('₦%s earned for Day %s login streak!', _reward, _new_streak)
+    'message', CASE WHEN v_is_global
+      THEN format('$%s USD earned for Day %s login streak!', ROUND(v_reward / v_dollar_price, 2), v_new_streak)
+      ELSE format('₦%s earned for Day %s login streak!', v_reward, v_new_streak)
     END,
-    'current_streak', _new_streak,
-    'reward', _reward,
+    'current_streak', v_new_streak,
+    'reward', v_reward,
     'already_claimed', false,
-    'currency', _currency,
-    'plan_id', _plan_id,
-    'is_global', _is_global
+    'currency', v_currency,
+    'plan_id', v_plan_id,
+    'is_global', v_is_global
   );
 END;
 $$;
