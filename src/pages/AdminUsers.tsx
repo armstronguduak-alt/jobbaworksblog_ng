@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { SendMessageModal } from '../components/SendMessageModal';
 
 export function AdminUsers() {
   const { isAdmin, isLoading: authLoading } = useAuth();
+  const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -32,7 +33,7 @@ export function AdminUsers() {
     if (isAdmin) {
       fetchUsers();
     }
-  }, [isAdmin, search]);
+  }, [isAdmin, search, regionView]);
 
   async function fetchUsers() {
     setIsLoading(true);
@@ -42,6 +43,12 @@ export function AdminUsers() {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
+
+      if (regionView === 'nigeria') {
+        query = query.eq('is_global', false);
+      } else if (regionView === 'global') {
+        query = query.eq('is_global', true);
+      }
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);

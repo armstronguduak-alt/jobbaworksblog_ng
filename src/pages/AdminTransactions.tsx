@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -12,9 +12,10 @@ export function AdminTransactions() {
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
   const { formatAmount } = useCurrency();
+  const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
 
   const { data: transactions = [], isLoading, isFetching } = useQuery({
-    queryKey: ['admin_transactions'],
+    queryKey: ['admin_transactions', regionView],
     queryFn: async () => {
       const { data: txData, error } = await supabase
         .from('wallet_transactions')
@@ -25,14 +26,27 @@ export function AdminTransactions() {
       // Fetch profiles separately since FK join may not exist
       const userIds = [...new Set(txs.map(t => t.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
+      let filteredUserIds = new Set(userIds);
+      
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
+        let profilesQuery = supabase
           .from('profiles')
-          .select('user_id, name, email, username')
+          .select('user_id, name, email, username, is_global')
           .in('user_id', userIds);
+          
+        if (regionView === 'nigeria') {
+          profilesQuery = profilesQuery.eq('is_global', false);
+        } else if (regionView === 'global') {
+          profilesQuery = profilesQuery.eq('is_global', true);
+        }
+
+        const { data: profilesData } = await profilesQuery;
+        filteredUserIds = new Set((profilesData || []).map(p => p.user_id));
         (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
-      return txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
+      return txs
+        .filter(tx => regionView === 'all' || filteredUserIds.has(tx.user_id))
+        .map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
     },
     enabled: !!hasAccess,
     staleTime: 5 * 60 * 1000,

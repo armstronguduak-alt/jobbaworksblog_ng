@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ export function AdminSettings() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
+  const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
   const { 
     pageToggles, 
     monetizationRate: fetchedMonetizationRate, 
@@ -628,6 +629,7 @@ export function AdminSettings() {
           </div>
 
           {/* Global Payment Addresses */}
+          {(regionView === 'all' || regionView === 'global') && (
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative mb-8">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
@@ -673,6 +675,7 @@ export function AdminSettings() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Referral & Cross-Referral Settings */}
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative">
@@ -688,6 +691,7 @@ export function AdminSettings() {
 
             <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-6 space-y-6">
               {/* Nigerian-to-Nigerian Referral % */}
+              {(regionView === 'all' || regionView === 'nigeria') && (
               <div>
                 <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
                   Nigerian-to-Nigerian Referral Percentage (%)
@@ -703,8 +707,10 @@ export function AdminSettings() {
                 </div>
                 <p className="text-[13px] text-[#6b7280] mt-2">Percentage of the referred Nigerian user&apos;s plan purchase paid to the referrer.</p>
               </div>
+              )}
 
               {/* Swap Toggle for Nigerians */}
+              {(regionView === 'all' || regionView === 'nigeria') && (
               <div className="flex items-center justify-between p-4 rounded-2xl border bg-surface-container-low border-surface-container">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-100 text-blue-600">
@@ -722,8 +728,10 @@ export function AdminSettings() {
                   <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${swapEnabledForNigerians ? 'translate-x-6' : 'translate-x-0'}`} />
                 </button>
               </div>
+              )}
 
               {/* Cross-Referral Rewards (Non-Nigerian refers Nigerian) */}
+              {(regionView === 'all' || regionView === 'global') && (
               <div>
                 <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-3">
                   Cross-Referral Rewards (Non-Nigerian → Nigerian, in USD)
@@ -747,6 +755,7 @@ export function AdminSettings() {
                   ))}
                 </div>
               </div>
+              )}
 
               <div className="flex justify-end pt-4 border-t border-gray-200">
                 <button 

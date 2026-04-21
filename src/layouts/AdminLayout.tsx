@@ -50,6 +50,31 @@ export function AdminLayout() {
     return false;
   });
 
+  const [regionView, setRegionView] = useState<'all' | 'nigeria' | 'global'>('all');
+
+  const getRegionToggle = () => (
+    <div className="flex items-center bg-surface-container-low rounded-xl p-1.5 shadow-inner border border-surface-container-highest/20 mr-4">
+      <button
+        onClick={() => setRegionView('all')}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${regionView === 'all' ? 'bg-white text-primary shadow-sm scale-105' : 'text-on-surface-variant hover:text-on-surface'}`}
+      >
+        All Users
+      </button>
+      <button
+        onClick={() => setRegionView('nigeria')}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${regionView === 'nigeria' ? 'bg-white text-primary shadow-sm scale-105' : 'text-on-surface-variant hover:text-on-surface'}`}
+      >
+        Nigerian
+      </button>
+      <button
+        onClick={() => setRegionView('global')}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${regionView === 'global' ? 'bg-white text-primary shadow-sm scale-105' : 'text-on-surface-variant hover:text-on-surface'}`}
+      >
+        Non-Nigerian
+      </button>
+    </div>
+  );
+
   return (
     <div className="flex h-screen bg-surface font-body overflow-hidden">
       
@@ -70,6 +95,11 @@ export function AdminLayout() {
             <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Admin"} alt="Admin Avatar" className="w-full h-full object-cover" />
           </Link>
         </div>
+      </div>
+      
+      {/* Mobile Region Toggle (just below top bar) */}
+      <div className="md:hidden fixed top-[70px] w-full bg-white border-b border-surface-container-low p-2 z-40 flex justify-center">
+        {getRegionToggle()}
       </div>
 
       {/* Sidebar Overlay (Mobile) */}
@@ -154,7 +184,7 @@ export function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative mt-[115px] md:mt-0">
         
         {/* Desktop Top Bar */}
         <header className="hidden md:flex h-[90px] px-8 lg:px-12 items-center justify-between border-b border-surface-container/50 bg-surface-container-lowest/80 backdrop-blur-md z-30 flex-shrink-0 sticky top-0">
@@ -165,10 +195,11 @@ export function AdminLayout() {
             </h1>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            {getRegionToggle()}
             <NotificationsDropdown />
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 ml-2">
               <div className="flex flex-col items-end">
                 <span className="text-sm font-bold text-on-surface leading-tight">
                   {profile?.name || profile?.full_name || profile?.username || 'Admin'}
@@ -185,8 +216,8 @@ export function AdminLayout() {
         </header>
 
         {/* Admin Pages Scrollable Content */}
-        <div className="flex-1 overflow-y-auto mt-[70px] md:mt-0 relative pb-10">
-          <Outlet />
+        <div className="flex-1 overflow-y-auto relative pb-10">
+          <Outlet context={{ regionView, setRegionView }} />
         </div>
       </div>
     </div>

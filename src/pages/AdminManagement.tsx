@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AdminManagement() {
   const { isAdmin, isModerator, isLoading: authLoading } = useAuth();
   const hasAccess = isAdmin || isModerator;
+  const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
   
   const [totalUsers, setTotalUsers] = useState(0);
   const [pendingWithdrawalsSum, setPendingWithdrawalsSum] = useState(0);
@@ -20,7 +21,7 @@ export function AdminManagement() {
     if (hasAccess) {
       fetchAdminStats();
     }
-  }, [hasAccess]);
+  }, [hasAccess, regionView]);
 
   // Real-time channels
   useEffect(() => {
@@ -52,34 +53,48 @@ export function AdminManagement() {
       supabase.removeChannel(usersChannel);
       supabase.removeChannel(postsChannel);
     };
-  }, [hasAccess]);
+  }, [hasAccess, regionView]);
 
   async function fetchAdminStats() {
     setIsLoading(true);
     try {
-      // Run all queries in parallel instead of sequentially
+      let matchedUserIds: string[] | null = null;
+      if (regionView !== 'all') {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('is_global', regionView === 'global');
+        matchedUserIds = (profiles || []).map(p => p.user_id);
+      }
+
+      let qUsers = supabase.from('profiles').select('*', { count: 'exact', head: true });
+      if (regionView === 'nigeria') qUsers = qUsers.eq('is_global', false);
+      if (regionView === 'global') qUsers = qUsers.eq('is_global', true);
+
+      let qWithdrawals = supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'pending');
+      if (matchedUserIds) qWithdrawals = qWithdrawals.in('user_id', matchedUserIds);
+
+      let qPosts = supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'approved');
+      if (matchedUserIds) qPosts = qPosts.in('author_id', matchedUserIds);
+
+      let qRecentWithdrawals = supabase.from('wallet_transactions').select('id, amount, status, created_at, user_id').eq('type', 'withdrawal').eq('status', 'pending').order('created_at', { ascending: false });
+      if (matchedUserIds) qRecentWithdrawals = qRecentWithdrawals.in('user_id', matchedUserIds);
+      qRecentWithdrawals = qRecentWithdrawals.limit(5);
+
+      let qDeposits = supabase.from('wallet_transactions').select('amount').in('type', ['deposit', 'subscription_payment', 'plan_purchase']).eq('status', 'completed');
+      if (matchedUserIds) qDeposits = qDeposits.in('user_id', matchedUserIds);
+
+      let qRecentDeposits = supabase.from('wallet_transactions').select('id, amount, status, type, meta, created_at, user_id').in('type', ['deposit', 'subscription_payment', 'plan_purchase']).order('created_at', { ascending: false });
+      if (matchedUserIds) qRecentDeposits = qRecentDeposits.in('user_id', matchedUserIds);
+      qRecentDeposits = qRecentDeposits.limit(5);
+
       const [usersRes, withdrawalsRes, postsRes, recentWithdrawalsRes, depositsRes, recentDepositsRes] = await Promise.all([
-        // Total Users
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        // Pending Withdrawals sum & count
-        supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'pending'),
-        // Total Active Posts
-        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-        // Recent Withdrawals (no FK join)
-        supabase.from('wallet_transactions')
-          .select('id, amount, status, created_at, user_id')
-          .eq('type', 'withdrawal').eq('status', 'pending')
-          .order('created_at', { ascending: false }).limit(5),
-        // Total Deposits / Revenue
-        supabase.from('wallet_transactions')
-          .select('amount')
-          .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
-          .eq('status', 'completed'),
-        // Recent Deposits/Purchases (no FK join)
-        supabase.from('wallet_transactions')
-          .select('id, amount, status, type, meta, created_at, user_id')
-          .in('type', ['deposit', 'subscription_payment', 'plan_purchase'])
-          .order('created_at', { ascending: false }).limit(5),
+        qUsers,
+        qWithdrawals,
+        qPosts,
+        qRecentWithdrawals,
+        qDeposits,
+        qRecentDeposits,
       ]);
 
       if (usersRes.count !== null) setTotalUsers(usersRes.count);
