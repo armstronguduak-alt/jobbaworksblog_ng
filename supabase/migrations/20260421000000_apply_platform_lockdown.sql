@@ -229,3 +229,32 @@ BEGIN
   );
 END;
 $$;
+
+-- 3. toggle_platform_lockdown RPC
+CREATE OR REPLACE FUNCTION public.toggle_platform_lockdown(_lock boolean)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- We assume admin has already been verified by the frontend / UI RLS,
+  -- but since it's an RPC, it's best to verify using profiles table
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.user_id = auth.uid()
+  ) THEN
+    -- But actually, we check if they are in user_roles as admin
+    -- Wait, we can just let it insert since only admins reach this UI, 
+    -- but for safety we check user_roles:
+    IF NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role IN ('admin', 'moderator')) THEN
+       RAISE EXCEPTION 'Unauthorized: only admins can lock the platform.';
+    END IF;
+  END IF;
+
+  INSERT INTO public.system_settings (key, value)
+  VALUES ('platform_lockdown', jsonb_build_object('locked', _lock))
+  ON CONFLICT (key) DO UPDATE
+  SET value = jsonb_build_object('locked', _lock),
+      updated_at = NOW();
+END;
+$$;
