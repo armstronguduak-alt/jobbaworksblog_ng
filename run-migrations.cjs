@@ -30,11 +30,11 @@ if (process.argv[2] === '--uri') {
 } else if (process.argv[2]) {
   const password = process.argv[2];
   const encodedPassword = encodeURIComponent(password);
-  // Use host/port/user/password/database separately to avoid URL-encoding issues
+  // Use separate params to avoid URL-encoding issues with special chars in password
   connectionConfig = {
-    host: `aws-0-eu-west-1.pooler.supabase.com`,
-    port: 6543,
-    user: `postgres.${PROJECT_REF}`,
+    host: `db.${PROJECT_REF}.supabase.co`,
+    port: 5432,
+    user: 'postgres',
     password: password,
     database: 'postgres',
     ssl: { rejectUnauthorized: false },

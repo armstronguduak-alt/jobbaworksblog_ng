@@ -22,7 +22,7 @@ export function Earn() {
 
       const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes, totalReferralsRes, referralCommissionsRes] = await Promise.all([
         supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
-        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed_by', user!.id),
+        supabase.from('user_tasks').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('completed', true),
         supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).maybeSingle(),
         supabase.from('daily_user_counters').select('read_count, comment_count').eq('user_id', user!.id).eq('counter_date', today).maybeSingle(),
         supabase.from('user_subscriptions').select('plan_id, plan_earnings, is_completed').eq('user_id', user!.id).maybeSingle(),

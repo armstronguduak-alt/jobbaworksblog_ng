@@ -24,7 +24,9 @@ export function AdminSettings() {
     refetchNonNigerianPlans,
     refetchReferralSettings,
     streakSettings: fetchedStreakSettings,
-    refetchStreakSettings
+    refetchStreakSettings,
+    platformLockdown,
+    refetchPlatformLockdown
   } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
@@ -785,10 +787,22 @@ export function AdminSettings() {
             </p>
             
             <button 
-              onClick={() => showAlert('WARNING: Initializing platform-wide lockdown...', 'Security Alert')}
-              className="bg-[#e11d48] hover:bg-[#be123c] text-white px-8 py-4 rounded-xl font-extrabold uppercase tracking-widest text-sm shadow-md shadow-[#e11d48]/20 active:scale-95 transition-all"
+              onClick={async () => {
+                const newLockState = !platformLockdown?.locked;
+                if (!confirm(`Are you sure you want to ${newLockState ? 'ACTIVATE' : 'DEACTIVATE'} platform lockdown? ${newLockState ? 'All earnings will stop.' : 'Earnings will resume.'}`)) {
+                  return;
+                }
+                const { error } = await supabase.rpc('toggle_platform_lockdown', { _lock: newLockState });
+                if (error) {
+                  showAlert(`Failed to toggle lockdown: ${error.message}`, 'Error');
+                } else {
+                  refetchPlatformLockdown();
+                  showAlert(`Platform lockdown has been ${newLockState ? 'ACTIVATED' : 'DEACTIVATED'}.`, 'Security Alert');
+                }
+              }}
+              className={`${platformLockdown?.locked ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-[#e11d48] hover:bg-[#be123c] shadow-[#e11d48]/20'} text-white px-8 py-4 rounded-xl font-extrabold uppercase tracking-widest text-sm shadow-md active:scale-95 transition-all`}
             >
-              ACTIVATE REWARD LOCKDOWN
+               {platformLockdown?.locked ? 'DEACTIVATE LOCKDOWN (RESUME EARNINGS)' : 'ACTIVATE REWARD LOCKDOWN'}
             </button>
           </div>
 

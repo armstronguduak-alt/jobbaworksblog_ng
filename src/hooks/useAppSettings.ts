@@ -170,6 +170,21 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: platformLockdown, refetch: refetchPlatformLockdown } = useQuery({
+    queryKey: ['systemSettings', 'platform_lockdown'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'platform_lockdown')
+        .maybeSingle();
+      
+      if (error || !data) return { locked: false };
+      return data.value as { locked: boolean };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
@@ -180,6 +195,7 @@ export function useAppSettings() {
       free: 0, starter: 0.50, pro: 1.50, elite: 3.00, vip: 5.00, executive: 7.00, platinum: 10.00
     }, swapEnabledForNigerians: true },
     streakSettings: streakSettings || defaultStreakSettings,
+    platformLockdown: platformLockdown || { locked: false },
     isLoadingToggles,
     refetchToggles,
     refetchUsdtAddresses,
@@ -187,6 +203,7 @@ export function useAppSettings() {
     refetchMonetizationRate,
     refetchExchangeRates,
     refetchReferralSettings,
-    refetchStreakSettings
+    refetchStreakSettings,
+    refetchPlatformLockdown
   };
 }
