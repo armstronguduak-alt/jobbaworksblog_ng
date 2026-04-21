@@ -19,6 +19,7 @@ export interface PageToggles {
   blogEnabled: boolean;
   storiesEnabled: boolean;
   leaderboardPublicEnabled: boolean;
+  globalRegistrationEnabled: boolean;
 }
 
 const defaultToggles: PageToggles = {
@@ -31,6 +32,7 @@ const defaultToggles: PageToggles = {
   blogEnabled: true,
   storiesEnabled: true,
   leaderboardPublicEnabled: true,
+  globalRegistrationEnabled: true,
 };
 
 export interface ExchangeRates {

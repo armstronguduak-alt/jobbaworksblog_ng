@@ -815,6 +815,40 @@ export function AdminSettings() {
             </button>
           </div>
 
+          {/* Nigerian-Only Mode */}
+          <div className="bg-[#fffbeb] p-6 md:p-8 rounded-[2rem] shadow-sm relative mt-8">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="material-symbols-outlined text-[#d97706] text-2xl">public_off</span>
+              <h2 className="text-2xl font-extrabold font-headline text-[#b45309]">Global Access Mode</h2>
+            </div>
+            
+            <p className="text-[#92400e] text-[15px] leading-relaxed mb-6 max-w-2xl">
+              When disabled, the platform will only accept Nigerian users. The signup page will be restricted to Nigeria, and international features will be hidden for new registrations.
+            </p>
+            
+            <button 
+              onClick={async () => {
+                const newGlobalState = pageToggles?.globalRegistrationEnabled === false ? true : false;
+                if (!confirm(`Are you sure you want to ${newGlobalState ? 'ENABLE' : 'DISABLE'} global access?`)) return;
+                
+                try {
+                  const { error } = await supabase.from('system_settings').upsert({
+                    key: 'page_toggles',
+                    value: { ...pageToggles, globalRegistrationEnabled: newGlobalState }
+                  });
+                  if (error) throw error;
+                  showAlert(`Global registration is now ${newGlobalState ? 'ENABLED' : 'DISABLED'}.`, 'Success');
+                  refetchToggles();
+                } catch (err: any) {
+                  showAlert(`Failed: ${err.message}`, 'Error');
+                }
+              }}
+              className={`${pageToggles?.globalRegistrationEnabled !== false ? 'bg-[#d97706] hover:bg-[#b45309] shadow-[#d97706]/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'} text-white px-8 py-4 rounded-xl font-extrabold uppercase tracking-widest text-sm shadow-md active:scale-95 transition-all w-full md:w-auto`}
+            >
+               {pageToggles?.globalRegistrationEnabled !== false ? 'DISABLE GLOBAL ACCESS (NIGERIA ONLY)' : 'ENABLE GLOBAL ACCESS (ALL COUNTRIES)'}
+            </button>
+          </div>
+
         </div>
       </div>
     </main>

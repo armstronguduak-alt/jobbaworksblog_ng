@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { COUNTRIES } from '../lib/countries';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function Signup() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,9 @@ export function Signup() {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [referrerUsername, setReferrerUsername] = useState<string | null>(null);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const { pageToggles } = useAppSettings();
+  const globalRegistrationEnabled = pageToggles?.globalRegistrationEnabled !== false;
   
 
 
@@ -271,11 +275,12 @@ export function Signup() {
                     <div className="group relative">
                       <select
                         name="countryCode"
-                        value={formData.countryCode}
+                        value={globalRegistrationEnabled ? formData.countryCode : 'NG'}
                         onChange={handleChange}
-                        className="w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all text-sm md:text-base font-medium text-slate-800"
+                        disabled={!globalRegistrationEnabled}
+                        className={`w-full h-12 md:h-14 px-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary-fixed-dim focus:bg-surface-container-lowest transition-all text-sm md:text-base font-medium ${!globalRegistrationEnabled ? 'text-on-surface-variant cursor-not-allowed opacity-80' : 'text-slate-800'}`}
                       >
-                        {COUNTRIES.map(c => (
+                        {COUNTRIES.filter(c => !globalRegistrationEnabled ? c.code === 'NG' : true).map(c => (
                           <option key={c.code} value={c.code}>
                             {c.flag} {c.name} ({c.dial_code})
                           </option>
