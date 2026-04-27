@@ -146,6 +146,25 @@ export function AdminUsers() {
     }
   };
 
+  const handleFlagUser = async (user: any) => {
+    const isCurrentlyFlagged = user.status === 'flagged';
+    const action = isCurrentlyFlagged ? 'unflag' : 'flag';
+    if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) return;
+
+    try {
+      const { error } = await supabase.rpc('admin_toggle_user_flag', {
+        p_user_id: user.user_id || user.id,
+        p_is_flagged: !isCurrentlyFlagged
+      });
+      if (error) throw error;
+      alert(`User successfully ${action}ged.`);
+      fetchUsers();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error ${action}ging user: ${err.message}`);
+    }
+  };
+
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -250,7 +269,7 @@ export function AdminUsers() {
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-variant text-on-surface-variant'}`}>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${u.status === 'active' ? 'bg-emerald-100 text-emerald-800' : u.status === 'flagged' ? 'bg-red-100 text-red-800' : 'bg-surface-variant text-on-surface-variant'}`}>
                         {u.status || 'Active'}
                       </span>
                     </td>
@@ -258,7 +277,15 @@ export function AdminUsers() {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button onClick={() => handleManageRole(u)} className="text-primary font-bold hover:underline text-xs">Manage Role</button>
+                      <div className="flex flex-col items-end gap-2">
+                        <button onClick={() => handleManageRole(u)} className="text-primary font-bold hover:underline text-xs">Manage Role</button>
+                        <button 
+                          onClick={() => handleFlagUser(u)} 
+                          className={`font-bold hover:underline text-xs ${u.status === 'flagged' ? 'text-emerald-600' : 'text-red-600'}`}
+                        >
+                          {u.status === 'flagged' ? 'Unflag User' : 'Flag User'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
