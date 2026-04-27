@@ -2,13 +2,25 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function AdminManagement() {
   const { isAdmin, isModerator, isLoading: authLoading } = useAuth();
   const hasAccess = isAdmin || isModerator;
   const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
+  const { exchangeRates } = useAppSettings();
   
-  const [totalUsers, setTotalUsers] = useState(0);
+  const totalUsers = useState(0)[0]; // Just a placeholder trick to avoid rearranging all states in diffs, wait, no. Let's just put it below regionView.
+  
+  const symbol = regionView === 'global' ? '$' : '₦';
+  const formatAdminAmount = (amount: number) => {
+    if (regionView === 'global') {
+      return (amount / (exchangeRates?.dollarPrice || 1500)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+  
+  const [totalUsersCount, setTotalUsers] = useState(0);
   const [pendingWithdrawalsSum, setPendingWithdrawalsSum] = useState(0);
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
   const [activePostsCount, setActivePostsCount] = useState(0);
@@ -173,7 +185,7 @@ export function AdminManagement() {
               <span className="material-symbols-outlined">group</span>
             </div>
             <p className="text-white/80 text-sm font-medium mb-1">Total Users</p>
-            <h3 className="text-white text-3xl font-bold font-headline">{isLoading ? '...' : totalUsers.toLocaleString()}</h3>
+            <h3 className="text-white text-3xl font-bold font-headline">{isLoading ? '...' : totalUsersCount.toLocaleString()}</h3>
             <div className="mt-4 flex items-center gap-2 text-primary-fixed text-xs font-bold">
               <span className="material-symbols-outlined text-sm">trending_up</span>
               <span>Live Database Count</span>
@@ -191,7 +203,7 @@ export function AdminManagement() {
             <span className="material-symbols-outlined">payments</span>
           </div>
           <p className="text-on-surface-variant text-sm font-medium mb-1">Pending Withdrawals</p>
-          <h3 className="text-on-surface text-3xl font-bold font-headline">₦{isLoading ? '...' : pendingWithdrawalsSum.toLocaleString()}</h3>
+          <h3 className="text-on-surface text-3xl font-bold font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(pendingWithdrawalsSum)}</h3>
           <div className="mt-4 flex items-center gap-2 text-error text-xs font-bold">
             <span className="material-symbols-outlined text-sm">priority_high</span>
             <span>{pendingWithdrawalsCount} requests requiring action</span>
@@ -217,7 +229,7 @@ export function AdminManagement() {
             <span className="material-symbols-outlined">account_balance_wallet</span>
           </div>
           <p className="text-[#0c4a6e]/70 text-sm font-medium mb-1">Total System Revenue</p>
-          <h3 className="text-[#0c4a6e] text-3xl font-bold font-headline">₦{isLoading ? '...' : totalDeposits.toLocaleString()}</h3>
+          <h3 className="text-[#0c4a6e] text-3xl font-bold font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(totalDeposits)}</h3>
           <div className="mt-4 flex items-center gap-2 text-[#0284c7] text-xs font-bold">
             <span className="material-symbols-outlined text-sm">trending_up</span>
             <span>Deposits & Subscriptions</span>
@@ -251,7 +263,7 @@ export function AdminManagement() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-bold text-on-surface text-sm md:text-base">₦{Number(tx.amount).toLocaleString()}</p>
+                    <p className="font-bold text-on-surface text-sm md:text-base">{symbol}{formatAdminAmount(Number(tx.amount))}</p>
                     <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
                   </div>
                 </div>
@@ -287,7 +299,7 @@ export function AdminManagement() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-black text-emerald-600 text-sm md:text-base">+₦{Number(tx.amount).toLocaleString()}</p>
+                    <p className="font-black text-emerald-600 text-sm md:text-base">+{symbol}{formatAdminAmount(Number(tx.amount))}</p>
                     <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest mt-1">
                       {tx.status}
                     </span>

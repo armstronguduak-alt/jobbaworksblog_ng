@@ -6,11 +6,13 @@ import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { SupportChatbot } from '../components/SupportChatbot';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { CommunityModal } from '../components/CommunityModal';
+import { PlanUpsellModal } from '../components/PlanUpsellModal';
 import { supabase } from '../lib/supabase';
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
+  const [isUpsellModalOpen, setIsUpsellModalOpen] = useState(false);
   const [communityChecked, setCommunityChecked] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -39,6 +41,26 @@ export function DashboardLayout() {
       }
     })();
   }, [user?.id, communityChecked]);
+
+  // Auto-show Upsell Modal logic (Once a day)
+  useEffect(() => {
+    if (!profile?.id || isCommunityModalOpen) return;
+    
+    // Check if user is on the highest plan
+    if (profile?.plan_id === 'platinum') return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const lastUpsellDate = localStorage.getItem(`last_upsell_${profile.id}`);
+
+    if (lastUpsellDate !== today) {
+      // Delay showing it to not overwhelm them on load
+      const timer = setTimeout(() => {
+        setIsUpsellModalOpen(true);
+        localStorage.setItem(`last_upsell_${profile.id}`, today);
+      }, 5000); // show 5 seconds after load
+      return () => clearTimeout(timer);
+    }
+  }, [profile, isCommunityModalOpen]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -252,6 +274,11 @@ export function DashboardLayout() {
             setIsCommunityModalOpen(false);
             navigate('/earn');
           }}
+        />
+        <PlanUpsellModal 
+          isOpen={isUpsellModalOpen}
+          onClose={() => setIsUpsellModalOpen(false)}
+          currentPlanId={profile?.plan_id || 'free'}
         />
       </div>
     </div>

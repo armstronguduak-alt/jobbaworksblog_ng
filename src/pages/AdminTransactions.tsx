@@ -4,15 +4,22 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCurrency } from '../hooks/useCurrency';
+import { useAppSettings } from '../hooks/useAppSettings';
 
 export function AdminTransactions() {
   const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
   const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert } = useDialog();
   const queryClient = useQueryClient();
-  const { formatAmount } = useCurrency();
+  const { exchangeRates } = useAppSettings();
   const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
+
+  const formatTxAmount = (amount: number, isGlobalTx?: boolean) => {
+    if (isGlobalTx || regionView === 'global') {
+      return '$' + (amount / (exchangeRates?.dollarPrice || 1500)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return '₦' + amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
 
   const { data: transactions = [], isLoading, isFetching } = useQuery({
     queryKey: ['admin_transactions', regionView],
@@ -83,7 +90,7 @@ export function AdminTransactions() {
            await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Withdrawal Approved & Sent',
-             message: `Your withdrawal request for ${formatAmount(txAmount)} has been successfully processed. The funds are on their way to your account!`,
+             message: `Your withdrawal request for ${formatTxAmount(txAmount)} has been successfully processed. The funds are on their way to your account!`,
              type: 'system',
              is_read: false
            });
@@ -92,7 +99,7 @@ export function AdminTransactions() {
              await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Withdrawal Failed',
-             message: `Your withdrawal request for ${formatAmount(txAmount)} was rejected due to incorrect details or violations. Please contact support.`,
+             message: `Your withdrawal request for ${formatTxAmount(txAmount)} was rejected due to incorrect details or violations. Please contact support.`,
              type: 'alert',
              is_read: false
            });
@@ -101,7 +108,7 @@ export function AdminTransactions() {
            await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Deposit Confirmed',
-             message: `Your manual deposit of ${formatAmount(txAmount)} has been verified and credited to your account.`,
+             message: `Your manual deposit of ${formatTxAmount(txAmount)} has been verified and credited to your account.`,
              type: 'system',
              is_read: false
            });
@@ -110,7 +117,7 @@ export function AdminTransactions() {
            await supabase.from('notifications').insert({
              user_id: userId,
              title: 'Deposit Rejected',
-             message: `Your manual deposit of ${formatAmount(txAmount)} could not be verified. Please contact support if you believe this is an error.`,
+             message: `Your manual deposit of ${formatTxAmount(txAmount)} could not be verified. Please contact support if you believe this is an error.`,
              type: 'alert',
              is_read: false
            });
@@ -150,31 +157,31 @@ export function AdminTransactions() {
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container/50">
           <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Volume</p>
           <h3 className="text-2xl font-black text-on-surface">
-            {formatAmount(transactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+            {formatTxAmount(transactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
           </h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-emerald-500/20">
           <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Total Earnings</p>
           <h3 className="text-2xl font-black text-emerald-800">
-            {formatAmount(transactions.filter(t => t.type.includes('reward')).reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+            {formatTxAmount(transactions.filter(t => t.type.includes('reward')).reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
           </h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-blue-500/20">
           <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Total Deposits</p>
           <h3 className="text-2xl font-black text-blue-800">
-            {formatAmount(transactions.filter(t => t.type === 'subscription_fee' || t.type === 'plan_purchase' || t.type === 'deposit').reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0))}
+            {formatTxAmount(transactions.filter(t => t.type === 'subscription_fee' || t.type === 'plan_purchase' || t.type === 'deposit').reduce((acc, tx) => acc + Math.abs(Number(tx.amount || 0)), 0))}
           </h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-rose-500/20">
           <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Total Withdrawals</p>
           <h3 className="text-2xl font-black text-rose-800">
-            {formatAmount(transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+            {formatTxAmount(transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
           </h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-amber-500/20">
           <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">Referral Comm.</p>
           <h3 className="text-2xl font-black text-amber-800">
-            {formatAmount(transactions.filter(t => t.type === 'referral_bonus').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
+            {formatTxAmount(transactions.filter(t => t.type === 'referral_bonus').reduce((acc, tx) => acc + Number(tx.amount || 0), 0))}
           </h3>
         </div>
       </div>
@@ -238,7 +245,7 @@ export function AdminTransactions() {
                     </td>
                     <td className="p-4 font-black flex flex-col justify-center h-full">
                        <span className={tx.type === 'withdrawal' && tx.status === 'completed' ? 'text-rose-600' : tx.type === 'deposit' || tx.type === 'referral_bonus' ? 'text-emerald-600' : 'text-on-surface'}>
-                         {tx.type === 'withdrawal' && tx.status === 'completed' ? '-' : '+'}{formatAmount(Number(tx.amount))}
+                         {tx.type === 'withdrawal' && tx.status === 'completed' ? '-' : '+'}{formatTxAmount(Number(tx.amount), tx.profiles?.is_global)}
                        </span>
                     </td>
                     <td className="p-4 text-on-surface-variant text-[11px]">
