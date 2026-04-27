@@ -451,7 +451,17 @@ export function Wallet() {
                            {tx.status === 'completed' ? 'Sent' : tx.status}
                          </span>
                        </div>
-                       <span className="text-[#3c4043] font-body font-bold">{walletSymbol}{Number(tx.amount).toFixed(2)}</span>
+                       <div className="text-right flex flex-col items-end">
+                         <span className="text-[#3c4043] font-body font-bold">{walletSymbol}{Number(tx.amount).toFixed(2)}</span>
+                         {tx.meta?.paidAmount !== undefined && (
+                           <span className="text-[11px] text-emerald-600 font-bold block mt-0.5">Paid: {walletSymbol}{Number(tx.meta.paidAmount).toFixed(2)}</span>
+                         )}
+                         {tx.meta?.deductionReason && (
+                           <span className="text-[10px] text-rose-500 max-w-[200px] truncate block mt-0.5" title={tx.meta.deductionReason}>
+                             Note: {tx.meta.deductionReason}
+                           </span>
+                         )}
+                       </div>
                      </div>
                   ))}
                 </div>

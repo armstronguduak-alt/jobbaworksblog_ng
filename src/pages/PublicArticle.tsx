@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { SEO } from '../components/SEO';
 import { ShareButton } from '../components/ShareButton';
-import { DisplayAd, InArticleAd } from '../components/AdSense';
+
 
 // FAST: Fetch only the core article data (title, content, image, author) — 1 network call
 export const fetchArticleCore = async (slug: string) => {
@@ -358,7 +358,7 @@ export function PublicArticle() {
       </div>
 
       {/* Ad: Before Article Content */}
-      <DisplayAd className="my-8" />
+
 
       {post.featured_image && (
         <div className="w-full mb-12 rounded-3xl overflow-hidden shadow-lg border border-surface-container-low">
@@ -423,7 +423,7 @@ export function PublicArticle() {
             />
 
             {/* Ad: In-Article (after Read Also) */}
-            <InArticleAd className="my-8" />
+
           </>
         );
       })()}
@@ -511,7 +511,7 @@ export function PublicArticle() {
       </section>
 
       {/* Ad: After Comments */}
-      <DisplayAd className="my-10" />
+
 
       {/* Related Articles Section */}
       {relatedPosts.length > 0 && (

@@ -8,10 +8,7 @@ import confetti from 'canvas-confetti';
 export function Swap() {
   const { user, profile } = useAuth();
 
-  // Block global (non-Nigerian) users from accessing swap
-  if (profile?.is_nigerian === false) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Swap page is now enabled for non-Nigerian users too as per request
   const [balance, setBalance] = useState<number>(0);
   const [usdtBalance, setUsdtBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);

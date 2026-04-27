@@ -157,12 +157,24 @@ export function Transactions() {
                         <p className="text-[10px] text-blue-500 font-bold mt-0.5">Received ${Number(meta.usd_amount).toFixed(2)} USD at ₦{meta.rate}/$ rate</p>
                       )}
                       {tx.type === 'withdrawal' && (
-                        <div className="flex gap-3 mt-0.5">
-                          {meta.withdrawalFeePercent > 0 && (
-                            <span className="text-[10px] text-rose-500 font-bold">Fee: {meta.withdrawalFeePercent}% (-{formatAmount(meta.feeDeducted || 0)})</span>
+                        <div className="flex flex-col gap-0.5 mt-0.5">
+                          <div className="flex gap-3">
+                            {meta.withdrawalFeePercent > 0 && (
+                              <span className="text-[10px] text-rose-500 font-bold">Fee: {meta.withdrawalFeePercent}% (-${Number(meta.feeDeducted || 0).toFixed(2)})</span>
+                            )}
+                            {meta.expectedAmount > 0 && (
+                              <span className="text-[10px] text-emerald-600 font-bold">Expected Net: ${Number(meta.expectedAmount).toFixed(2)}</span>
+                            )}
+                          </div>
+                          {meta.paidAmount !== undefined && (
+                            <span className="text-[10px] text-emerald-600 font-bold mt-1">
+                              Actual Paid: ${Number(meta.paidAmount).toFixed(2)}
+                            </span>
                           )}
-                          {meta.expectedAmount > 0 && (
-                            <span className="text-[10px] text-emerald-600 font-bold">Net: {formatAmount(meta.expectedAmount)}</span>
+                          {meta.deductionReason && (
+                            <span className="text-[10px] text-rose-500 font-bold mt-0.5 max-w-[250px] leading-tight">
+                              Note: {meta.deductionReason}
+                            </span>
                           )}
                         </div>
                       )}
@@ -170,7 +182,7 @@ export function Transactions() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`font-black text-sm ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {isPositive ? '+' : ''}{formatAmount(Math.abs(tx.amount))}
+                      {isPositive ? '+' : ''}{tx.type === 'withdrawal' || tx.type === 'swap' ? '$' + Number(Math.abs(tx.amount)).toFixed(2) : formatAmount(Math.abs(tx.amount))}
                     </p>
                     <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
                       tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :

@@ -13,6 +13,13 @@ export function AdminWithdrawals() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected'>('pending');
 
+  // Approval Modal State
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<any>(null);
+  const [paidAmount, setPaidAmount] = useState<string>('');
+  const [deductionReason, setDeductionReason] = useState<string>('');
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
   useEffect(() => {
     if (hasAccess) fetchWithdrawals();
   }, [activeTab, hasAccess]);
@@ -69,8 +76,54 @@ export function AdminWithdrawals() {
     }
   };
 
-  const handleAction = async (txId: string, userId: string, newStatus: 'completed' | 'rejected', amount: number) => {
-    const action = newStatus === 'completed' ? 'approve' : 'reject';
+  const openApprovalModal = (tx: any) => {
+    setSelectedTx(tx);
+    const meta = tx.meta || {};
+    const expectedAmount = meta.expectedAmount || (Math.abs(tx.amount) - (meta.feeDeducted || 0));
+    setPaidAmount(expectedAmount.toString());
+    setDeductionReason('');
+    setApprovalModalOpen(true);
+  };
+
+  const submitApproval = async () => {
+    if (!selectedTx) return;
+    setIsSubmittingApproval(true);
+    
+    const amountToPay = Number(paidAmount) || 0;
+    const finalMeta = {
+      ...(selectedTx.meta || {}),
+      paidAmount: amountToPay,
+      deductionReason: deductionReason
+    };
+
+    try {
+      const { error } = await supabase
+        .from('wallet_transactions')
+        .update({ status: 'completed', meta: finalMeta })
+        .eq('id', selectedTx.id);
+
+      if (error) throw error;
+
+      await supabase.from('notifications').insert({
+        user_id: selectedTx.user_id,
+        title: 'Withdrawal Sent ✅',
+        message: `Your withdrawal has been processed. Amount paid: $${amountToPay.toLocaleString()}.${deductionReason ? ' Note: ' + deductionReason : ''}`,
+        type: 'system'
+      });
+
+      showAlert(`Withdrawal approved successfully.`, 'Success');
+      setApprovalModalOpen(false);
+      fetchWithdrawals();
+      fetchAllStats();
+    } catch (err: any) {
+      showAlert(err.message, 'Error');
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  };
+
+  const handleAction = async (txId: string, userId: string, newStatus: 'rejected', amount: number) => {
+    const action = 'reject';
     const confirmed = await showConfirm(
       `Are you sure you want to ${action} this withdrawal of $${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}?`,
       `${action.charAt(0).toUpperCase() + action.slice(1)} Withdrawal`
@@ -80,7 +133,7 @@ export function AdminWithdrawals() {
     try {
       const { error } = await supabase
         .from('wallet_transactions')
-        .update({ status: newStatus })
+        .update({ status: 'rejected' })
         .eq('id', txId);
 
       if (error) throw error;
@@ -96,10 +149,8 @@ export function AdminWithdrawals() {
       // Send notification to the user
       await supabase.from('notifications').insert({
         user_id: userId,
-        title: newStatus === 'completed' ? 'Withdrawal Sent ✅' : 'Withdrawal Rejected ❌',
-        message: newStatus === 'completed'
-          ? `Your withdrawal of $${Math.abs(amount).toLocaleString()} has been approved and sent to your account.`
-          : `Your withdrawal of $${Math.abs(amount).toLocaleString()} was rejected. The amount has been refunded to your wallet.`,
+        title: 'Withdrawal Rejected ❌',
+        message: `Your withdrawal of $${Math.abs(amount).toLocaleString()} was rejected. The amount has been refunded to your wallet.`,
         type: 'system'
       });
 
@@ -267,7 +318,7 @@ export function AdminWithdrawals() {
                         <td className="p-4 text-right">
                           <div className="flex gap-2 justify-end">
                             <button
-                              onClick={() => handleAction(tx.id, tx.user_id, 'completed', tx.amount)}
+                              onClick={() => openApprovalModal(tx)}
                               className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-200 flex items-center gap-1 transition-colors"
                             >
                               <span className="material-symbols-outlined text-[14px]">check</span> Approve
@@ -289,6 +340,68 @@ export function AdminWithdrawals() {
           </table>
         </div>
       </div>
+
+      {/* Approval Modal */}
+      {approvalModalOpen && selectedTx && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-6 md:p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black font-headline text-slate-900">Approve Withdrawal</h3>
+                <button onClick={() => setApprovalModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
+                  <p className="text-sm text-slate-500 font-medium">Requested Amount</p>
+                  <p className="text-xl font-black text-slate-800">${Math.abs(selectedTx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Actual Amount Paid ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-100 border-transparent focus:bg-slate-50 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all font-bold text-slate-800"
+                    placeholder="Enter amount actually sent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Breakdown / Deduction Reason (Optional)</label>
+                  <textarea
+                    value={deductionReason}
+                    onChange={(e) => setDeductionReason(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-100 border-transparent focus:bg-slate-50 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-sm text-slate-700 min-h-[100px]"
+                    placeholder="e.g., Deducted $5 for invalid ad-clicking activities."
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">This will be shown on the user's transaction history.</p>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => setApprovalModalOpen(false)}
+                  className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitApproval}
+                  disabled={isSubmittingApproval || !paidAmount}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 rounded-xl font-bold shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingApproval ? 'Processing...' : 'Confirm Approval'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

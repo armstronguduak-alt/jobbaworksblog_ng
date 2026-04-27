@@ -65,13 +65,20 @@ export function AdminSettings() {
   });
   const [swapEnabledForNigerians, setSwapEnabledForNigerians] = useState(fetchedReferralSettings.swapEnabledForNigerians !== false);
 
-  // Sync internal state when pageToggles load
   useEffect(() => {
-    setToggles(pageToggles);
+    setToggles(prev => JSON.stringify(prev) === JSON.stringify(pageToggles) ? prev : pageToggles);
   }, [pageToggles]);
 
   useEffect(() => {
-    setUsdtAddrs(fetchedUsdtAddresses || []);
+    setUsdtAddrs(prev => {
+      const fetched = fetchedUsdtAddresses || [];
+      if (JSON.stringify(prev) !== JSON.stringify(fetched)) {
+        // Only override if the fetched is different and we haven't typed yet, or we explicitly re-synced.
+        // But honestly, it's better to just do this on initial load.
+        return fetched;
+      }
+      return prev;
+    });
   }, [fetchedUsdtAddresses]);
 
   useEffect(() => {
