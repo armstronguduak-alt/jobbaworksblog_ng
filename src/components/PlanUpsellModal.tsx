@@ -13,7 +13,7 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: { isOpen: bo
 
   // Determine the next plan based on the current plan
   const planOrder = ['free', 'starter', 'pro', 'elite', 'vip', 'executive', 'platinum'];
-  const currentIndex = planOrder.indexOf(currentPlanId);
+  const currentIndex = planOrder.indexOf(currentPlanId.toLowerCase().trim());
   const isHighestPlan = currentIndex === planOrder.length - 1;
 
   if (isHighestPlan) return null;

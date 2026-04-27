@@ -57,6 +57,7 @@ export function AdminSettings() {
   });
 
   const [usdtAddrs, setUsdtAddrs] = useState<string[]>(fetchedUsdtAddresses || []);
+  const [usdtAddrsLoaded, setUsdtAddrsLoaded] = useState(false);
 
   // Referral settings state
   const [refPercent, setRefPercent] = useState(fetchedReferralSettings.nigerianReferralPercent?.toString() || '25');
@@ -70,16 +71,11 @@ export function AdminSettings() {
   }, [pageToggles]);
 
   useEffect(() => {
-    setUsdtAddrs(prev => {
-      const fetched = fetchedUsdtAddresses || [];
-      if (JSON.stringify(prev) !== JSON.stringify(fetched)) {
-        // Only override if the fetched is different and we haven't typed yet, or we explicitly re-synced.
-        // But honestly, it's better to just do this on initial load.
-        return fetched;
-      }
-      return prev;
-    });
-  }, [fetchedUsdtAddresses]);
+    if (fetchedUsdtAddresses && fetchedUsdtAddresses.length > 0 && fetchedUsdtAddresses[0] !== "TRxxxxxxxxx1" && !usdtAddrsLoaded) {
+      setUsdtAddrs(fetchedUsdtAddresses);
+      setUsdtAddrsLoaded(true);
+    }
+  }, [fetchedUsdtAddresses, usdtAddrsLoaded]);
 
   useEffect(() => {
     setMonetizationRate(fetchedMonetizationRate.toString());

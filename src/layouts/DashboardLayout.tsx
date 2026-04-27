@@ -47,7 +47,7 @@ export function DashboardLayout() {
     if (!profile?.id || isCommunityModalOpen) return;
     
     // Check if user is on the highest plan
-    if (profile?.plan_id === 'platinum') return;
+    if (profile?.plan_id?.toLowerCase() === 'platinum') return;
 
     const today = new Date().toISOString().split('T')[0];
     const lastUpsellDate = localStorage.getItem(`last_upsell_${profile.id}`);
@@ -278,7 +278,7 @@ export function DashboardLayout() {
         <PlanUpsellModal 
           isOpen={isUpsellModalOpen}
           onClose={() => setIsUpsellModalOpen(false)}
-          currentPlanId={profile?.plan_id || 'free'}
+          currentPlanId={profile?.plan_id?.toLowerCase() || 'free'}
         />
       </div>
     </div>
