@@ -22,11 +22,20 @@ export function Settings() {
     return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
   });
 
+  // Read dark mode preference from profile on mount
+  useEffect(() => {
+    if (profile?.dark_mode !== undefined) {
+      setIsDarkMode(!!profile.dark_mode);
+    }
+  }, [profile?.dark_mode]);
+
   useEffect(() => {
     checkMfaStatus();
     if (user?.id) fetchPayoutMethods();
-    
-    // Sync dark mode state with document
+  }, [user]);
+
+  // Apply dark mode class and persist to both localStorage and DB
+  useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -34,7 +43,12 @@ export function Settings() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [user, isDarkMode]);
+
+    // Persist to database (fire-and-forget)
+    if (user?.id) {
+      supabase.from('profiles').update({ dark_mode: isDarkMode }).eq('user_id', user.id).then();
+    }
+  }, [isDarkMode]);
 
   const fetchPayoutMethods = async () => {
     const { data } = await supabase.auth.getSession();

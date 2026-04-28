@@ -56,7 +56,7 @@ export function AdminTransactions() {
         .map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
     },
     enabled: !!hasAccess,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   useEffect(() => {

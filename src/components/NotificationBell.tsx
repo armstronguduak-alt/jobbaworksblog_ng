@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -206,13 +205,12 @@ export function NotificationBell() {
         {/* Footer */}
         {notifications.length > 0 && (
           <div className="p-3 border-t border-surface-container bg-surface-container-lowest/50">
-            <Link 
-              to="/notifications" 
-              onClick={() => setIsOpen(false)}
-              className="block text-center text-xs font-bold text-primary hover:text-emerald-800 transition-colors py-1"
+            <button 
+              onClick={() => { markAllRead(); setIsOpen(false); }}
+              className="block text-center text-xs font-bold text-primary hover:text-emerald-800 transition-colors py-1 w-full"
             >
-              View All Notifications
-            </Link>
+              Mark All as Read & Close
+            </button>
           </div>
         )}
       </div>

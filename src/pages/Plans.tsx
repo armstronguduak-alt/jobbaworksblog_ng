@@ -17,7 +17,7 @@ export function Plans() {
   const { user, profile } = useAuth();
   const { showAlert, showConfirm } = useDialog();
   const { isGlobal, formatAmount } = useCurrency();
-  const { nonNigerianPlans, usdtAddresses } = useAppSettings();
+  const { nonNigerianPlans, usdtAddresses, paymentGatewaySettings } = useAppSettings();
 
   const [plans, setPlans] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<string>('free');
@@ -76,7 +76,11 @@ export function Plans() {
     if (plan.id === currentPlan) return;
 
     if (isGlobal) {
-      setManualPaymentPlan({ ...plan, actualPrice });
+      if (paymentGatewaySettings.gatewayType === 'nowpayments') {
+        handleNowpaymentsCheckout(plan, actualPrice);
+      } else {
+        setManualPaymentPlan({ ...plan, actualPrice });
+      }
       return;
     }
 
@@ -103,7 +107,7 @@ export function Plans() {
   const initKorapayCheckout = (plan: any) => {
     const email = user?.email || profile?.email || 'user@jobbaworks.com';
     const name = profile?.name || 'User';
-    const KORAPAY_PUBLIC_KEY = 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4';
+    const KORAPAY_PUBLIC_KEY = paymentGatewaySettings.korapayApiKey || 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4';
 
     const processBackendUpgrade = async (reference: string) => {
       try {
@@ -191,6 +195,60 @@ export function Plans() {
     } finally {
       setProcessingPlan(null);
       setManualPaymentPlan(null);
+    }
+  };
+
+  const handleNowpaymentsCheckout = async (plan: any, actualPrice: number) => {
+    setProcessingPlan(plan.id);
+    try {
+      const apiKey = paymentGatewaySettings.nowpaymentsApiKey;
+      if (!apiKey) {
+        showAlert('Payment gateway not configured. Please contact admin.', 'Error');
+        setProcessingPlan(null);
+        return;
+      }
+      
+      const response = await fetch('https://api.nowpayments.io/v1/invoice', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price_amount: actualPrice,
+          price_currency: 'usd',
+          order_id: `${user?.id}_${plan.id}_${Date.now()}`,
+          order_description: `Upgrade to ${plan.name} plan`,
+          success_url: `${window.location.origin}/plans?payment=success`,
+          cancel_url: `${window.location.origin}/plans?payment=cancelled`,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.invoice_url) {
+        // Also log this as a pending transaction in DB so admin knows
+        await supabase.from('wallet_transactions').insert({
+          user_id: user?.id,
+          amount: actualPrice * 1500, // Converting back to standard system NGN equivalent
+          type: 'deposit',
+          status: 'pending',
+          description: `NOWPayments Plan Purchase: ${plan.name}`,
+          meta: { 
+            plan_id: plan.id, 
+            currency: 'USD',
+            invoice_id: data.id,
+            gateway: 'nowpayments'
+          },
+        });
+        
+        window.location.href = data.invoice_url;
+      } else {
+        throw new Error(data.message || 'Failed to create invoice');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showAlert(`Payment error: ${err.message}`, 'Error');
+      setProcessingPlan(null);
     }
   };
 
@@ -381,49 +439,99 @@ export function Plans() {
         </div>
       </section>
 
-      {/* Manual Payment Modal */}
+      {/* Manual Payment Modal Redesign */}
       {manualPaymentPlan && isGlobal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest max-w-md w-full rounded-[2rem] shadow-2xl p-6 md:p-8 relative">
-            <button 
-              onClick={() => setManualPaymentPlan(null)}
-              className="absolute top-6 right-6 w-8 h-8 rounded-full bg-surface hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
-            <h2 className="text-2xl font-black font-headline text-on-surface mb-2">Secure Crypto Payment</h2>
-            <p className="text-on-surface-variant text-sm mb-6">You are upgrading to the <strong className="text-primary">{manualPaymentPlan.name}</strong> plan for <strong className="text-[#111928]">${manualPaymentPlan.actualPrice} USD</strong>.</p>
-            
-            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 mb-6">
-              <p className="text-xs font-bold text-amber-800 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
-                Send USDT To This Address
-              </p>
-              <p className="text-sm font-mono font-bold text-[#111928] break-all select-all">
-                {usdtAddresses && usdtAddresses.length > 0 ? usdtAddresses[rotationIndex] : 'Loading address...'}
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white max-w-lg w-full rounded-[2rem] shadow-2xl overflow-hidden relative animate-[fadeInUp_0.4s_ease-out] border border-gray-100">
+            {/* Header */}
+            <div className="bg-emerald-900 px-8 py-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+              <button 
+                onClick={() => setManualPaymentPlan(null)}
+                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-sm z-10"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white backdrop-blur-sm">
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>currency_bitcoin</span>
+                  </div>
+                  <h2 className="text-2xl font-black font-headline text-white">Crypto Checkout</h2>
+                </div>
+                <p className="text-emerald-100/80 text-sm">You are upgrading to the <strong className="text-white">{manualPaymentPlan.name}</strong> plan.</p>
+              </div>
             </div>
 
-            <ul className="text-sm text-on-surface-variant space-y-2 mb-8 list-disc pl-4">
-              <li>Ensure you send exactly <strong>${manualPaymentPlan.actualPrice}</strong> in USDT (TRC20).</li>
-              <li>Network fees are not included. Please cover any transfer fees.</li>
-              <li>Once you have completed the transfer, click the confirmation button below. Avoid false confirmations.</li>
-            </ul>
+            <div className="p-8">
+              {/* Steps */}
+              <div className="space-y-6">
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">1</div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-900">Amount to send</h4>
+                    <p className="text-3xl font-black text-gray-900 mt-1 tracking-tight">${manualPaymentPlan.actualPrice} <span className="text-base text-gray-500 font-bold">USDT</span></p>
+                    <p className="text-xs text-amber-600 font-bold mt-1 bg-amber-50 px-2 py-1 rounded inline-block">Important: Send EXACTLY this amount. Exclude network fees.</p>
+                  </div>
+                </div>
 
-            <button 
-              onClick={handleManualConfirmation}
-              disabled={processingPlan === manualPaymentPlan.id}
-              className="w-full bg-primary hover:bg-emerald-800 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70 disabled:cursor-wait"
-            >
-              {processingPlan === manualPaymentPlan.id ? 'Processing...' : 'I Have Transferred The Funds'}
-              {processingPlan !== manualPaymentPlan.id && <span className="material-symbols-outlined text-[20px]">check_circle</span>}
-            </button>
-            <button 
-              onClick={() => setManualPaymentPlan(null)}
-              className="w-full mt-3 text-sm font-bold text-on-surface-variant hover:text-on-surface transition-colors py-2"
-            >
-              Cancel Transaction
-            </button>
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">2</div>
+                  <div className="flex-1 w-full">
+                    <h4 className="font-bold text-gray-900">Destination Address</h4>
+                    <div className="flex items-center gap-2 mt-1 mb-2">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-widest rounded">TRC20 Network Only</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 relative group flex items-center justify-between gap-4">
+                      <p className="text-sm font-mono font-bold text-gray-800 break-all select-all">
+                        {usdtAddresses && usdtAddresses.length > 0 ? usdtAddresses[rotationIndex] : 'Loading address...'}
+                      </p>
+                      <button 
+                        onClick={() => {
+                          if (usdtAddresses && usdtAddresses.length > 0) {
+                            navigator.clipboard.writeText(usdtAddresses[rotationIndex]);
+                            showAlert('Address copied to clipboard!', 'Success');
+                          }
+                        }}
+                        className="shrink-0 w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:border-emerald-200 transition-all active:scale-95"
+                        title="Copy Address"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">3</div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-900">Confirm Payment</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed mt-1">
+                      Once your wallet indicates the transaction is successful, click the confirmation button below. Your account will be upgraded after admin verification.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <button 
+                  onClick={handleManualConfirmation}
+                  disabled={processingPlan === manualPaymentPlan.id}
+                  className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl shadow-xl shadow-gray-900/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {processingPlan === manualPaymentPlan.id ? 'Verifying Transfer...' : 'I Have Transferred The Funds'}
+                  {processingPlan !== manualPaymentPlan.id && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
+                </button>
+                <button 
+                  onClick={() => setManualPaymentPlan(null)}
+                  className="w-full mt-3 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors py-2"
+                >
+                  Cancel Transaction
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -2,18 +2,15 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import confetti from 'canvas-confetti';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useCurrency } from '../hooks/useCurrency';
 
 export function Wallet() {
   const { user } = useAuth();
-  const [balance, setBalance] = useState<number>(0);
-  const [usdtBalance, setUsdtBalance] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [payoutMethods, setPayoutMethods] = useState<any[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   // PIN verification state
@@ -37,11 +34,40 @@ export function Wallet() {
   const fee = numAmount * widthdrawalFeePercent;
   const youGet = numAmount - fee;
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchWalletData(user.id);
-    }
-  }, [user]);
+  const { data: walletData, isLoading, refetch } = useQuery({
+    queryKey: ['wallet-data', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('Not authenticated');
+      const [balanceRes, txRes, methodsRes, referralRes] = await Promise.all([
+        supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_transactions').select('*').eq('user_id', user.id).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
+        supabase.from('payout_methods').select('*').eq('user_id', user.id),
+        supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_user_id', user.id)
+      ]);
+        
+      const methods = methodsRes.data || [];
+      if (!selectedMethodId && methods.length > 0) {
+        const defaultMethod = methods.find((m: any) => m.is_default);
+        setSelectedMethodId(defaultMethod ? defaultMethod.id : methods[0].id);
+      }
+
+      return {
+        balance: balanceRes.data?.balance || 0,
+        usdtBalance: balanceRes.data?.usdt_balance || 0,
+        transactions: txRes.data || [],
+        payoutMethods: methods,
+        referralCount: referralRes.count || 0
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 0,
+  });
+
+  const balance = walletData?.balance || 0;
+  const usdtBalance = walletData?.usdtBalance || 0;
+  const transactions = walletData?.transactions || [];
+  const payoutMethods = walletData?.payoutMethods || [];
+  const referralCount = walletData?.referralCount || 0;
 
   // Real-time subscriptions for balance and transactions
   useEffect(() => {
@@ -52,11 +78,8 @@ export function Wallet() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wallet_balances', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          if (payload.new) {
-            setBalance((payload.new as any).balance || 0);
-            setUsdtBalance((payload.new as any).usdt_balance || 0);
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['wallet-data', user.id] });
         }
       )
       .subscribe();
@@ -67,7 +90,7 @@ export function Wallet() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: `user_id=eq.${user.id}` },
         () => {
-          fetchWalletData(user.id);
+          queryClient.invalidateQueries({ queryKey: ['wallet-data', user.id] });
         }
       )
       .subscribe();
@@ -76,44 +99,7 @@ export function Wallet() {
       supabase.removeChannel(balanceChannel);
       supabase.removeChannel(txChannel);
     };
-  }, [user]);
-
-  const fetchWalletData = async (userId: string) => {
-    try {
-      if (transactions.length === 0) setIsLoading(true);
-
-      const [balanceRes, txRes, methodsRes, referralRes] = await Promise.all([
-        supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', userId).maybeSingle(),
-        supabase.from('wallet_transactions').select('*').eq('user_id', userId).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
-        supabase.from('payout_methods').select('*').eq('user_id', userId),
-        supabase.from('referrals').select('id', { count: 'exact' }).eq('referrer_user_id', userId)
-      ]);
-        
-      if (balanceRes.data) {
-        setBalance(balanceRes.data.balance || 0);
-        setUsdtBalance(balanceRes.data.usdt_balance || 0);
-      }
-      if (txRes.data) setTransactions(txRes.data);
-      if (methodsRes.data) {
-        setPayoutMethods(methodsRes.data);
-        const defaultMethod = methodsRes.data.find((m: any) => m.is_default);
-        if (defaultMethod && !selectedMethodId) {
-          setSelectedMethodId(defaultMethod.id);
-        } else if (methodsRes.data.length > 0 && !selectedMethodId) {
-          setSelectedMethodId(methodsRes.data[0].id);
-        }
-      }
-      
-      if (referralRes.count !== null && referralRes.count !== undefined) {
-        setReferralCount(referralRes.count);
-      }
-      
-    } catch (err) {
-      console.error("Error fetching wallet data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [user?.id, queryClient]);
 
   const handleMaxClick = () => {
     setWithdrawAmount(displayBalance.toString());
@@ -245,7 +231,7 @@ export function Wallet() {
       setShowSuccessModal(true);
       setWithdrawAmount('');
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      if (user) fetchWalletData(user.id);
+      refetch();
     } catch (error: any) {
       setMessage(`Error: ${error.message || 'An error occurred during withdrawal.'}`);
     } finally {
@@ -260,7 +246,7 @@ export function Wallet() {
     try {
       await supabase.from('payout_methods').delete().eq('id', id);
       if (selectedMethodId === id) setSelectedMethodId(null);
-      if (user) fetchWalletData(user.id);
+      refetch();
     } catch (err) {
       console.error(err);
     }

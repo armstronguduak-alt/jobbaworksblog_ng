@@ -27,7 +27,9 @@ export function AdminSettings() {
     streakSettings: fetchedStreakSettings,
     refetchStreakSettings,
     platformLockdown,
-    refetchPlatformLockdown
+    refetchPlatformLockdown,
+    paymentGatewaySettings: fetchedPaymentGatewaySettings,
+    refetchPaymentGatewaySettings
   } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
@@ -66,6 +68,13 @@ export function AdminSettings() {
   });
   const [swapEnabledForNigerians, setSwapEnabledForNigerians] = useState(fetchedReferralSettings.swapEnabledForNigerians !== false);
 
+  // Payment Gateway Settings State
+  const [paymentGateway, setPaymentGateway] = useState({
+    gatewayType: fetchedPaymentGatewaySettings?.gatewayType || 'manual_usdt',
+    nowpaymentsApiKey: fetchedPaymentGatewaySettings?.nowpaymentsApiKey || '',
+    korapayApiKey: fetchedPaymentGatewaySettings?.korapayApiKey || 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4'
+  });
+
   useEffect(() => {
     setToggles(prev => JSON.stringify(prev) === JSON.stringify(pageToggles) ? prev : pageToggles);
   }, [pageToggles]);
@@ -96,6 +105,16 @@ export function AdminSettings() {
     });
     setSwapEnabledForNigerians(fetchedReferralSettings.swapEnabledForNigerians !== false);
   }, [fetchedReferralSettings]);
+
+  useEffect(() => {
+    if (fetchedPaymentGatewaySettings) {
+      setPaymentGateway({
+        gatewayType: fetchedPaymentGatewaySettings.gatewayType || 'manual_usdt',
+        nowpaymentsApiKey: fetchedPaymentGatewaySettings.nowpaymentsApiKey || '',
+        korapayApiKey: fetchedPaymentGatewaySettings.korapayApiKey || 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4'
+      });
+    }
+  }, [fetchedPaymentGatewaySettings]);
 
   const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
     queryKey: ['admin_subscription_plans'],
@@ -250,6 +269,19 @@ export function AdminSettings() {
     onSuccess: () => {
       refetchUsdtAddresses();
       showAlert(`USDT Addresses saved successfully.`);
+    },
+    onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
+  });
+
+  const updatePaymentGatewaysMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('system_settings')
+        .upsert({ key: 'payment_gateway_settings', value: paymentGateway });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPaymentGatewaySettings();
+      showAlert(`Payment Gateway Settings saved successfully.`);
     },
     onError: (err: any) => showAlert(`Error: ${err.message}`, 'Error')
   });
@@ -630,6 +662,109 @@ export function AdminSettings() {
 
             </div>
           </div>
+
+          {/* Payment Gateway Settings */}
+          {(regionView === 'all' || regionView === 'global') && (
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative mb-8">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <span className="material-symbols-outlined">payments</span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold font-headline text-[#111928]">Payment Gateways</h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">Configure API keys and select the active gateway for global users.</p>
+              </div>
+            </div>
+            
+            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-4 space-y-6">
+              
+              <div>
+                <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-3">
+                  Active Global Gateway
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex-1 cursor-pointer">
+                    <div className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${paymentGateway.gatewayType === 'manual_usdt' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      <input 
+                        type="radio" 
+                        name="gateway_type" 
+                        value="manual_usdt" 
+                        checked={paymentGateway.gatewayType === 'manual_usdt'} 
+                        onChange={(e) => setPaymentGateway(prev => ({...prev, gatewayType: e.target.value}))}
+                        className="w-4 h-4 text-indigo-600"
+                      />
+                      <div>
+                        <p className="font-bold text-sm text-[#111928]">Manual USDT Transfer (Non-Nigerians)</p>
+                        <p className="text-[11px] text-[#6b7280]">Users manually send USDT to predefined addresses.</p>
+                      </div>
+                    </div>
+                  </label>
+                  <label className="flex-1 cursor-pointer">
+                    <div className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${paymentGateway.gatewayType === 'nowpayments' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      <input 
+                        type="radio" 
+                        name="gateway_type" 
+                        value="nowpayments" 
+                        checked={paymentGateway.gatewayType === 'nowpayments'} 
+                        onChange={(e) => setPaymentGateway(prev => ({...prev, gatewayType: e.target.value}))}
+                        className="w-4 h-4 text-indigo-600"
+                      />
+                      <div>
+                        <p className="font-bold text-sm text-[#111928]">NOWPayments API (Non-Nigerians)</p>
+                        <p className="text-[11px] text-[#6b7280]">Automated crypto checkouts via NOWPayments.</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                    NOWPayments API Key
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] material-symbols-outlined text-[18px]">key</span>
+                    <input 
+                      type="text" 
+                      value={paymentGateway.nowpaymentsApiKey}
+                      onChange={(e) => setPaymentGateway(prev => ({...prev, nowpaymentsApiKey: e.target.value}))}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-mono text-sm"
+                      placeholder="e.g. A1B2C3D-E4F5G6H-I7J8K9L-M0N1O2P"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">
+                    Korapay Public API Key (Nigerians)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] material-symbols-outlined text-[18px]">key</span>
+                    <input 
+                      type="text" 
+                      value={paymentGateway.korapayApiKey}
+                      onChange={(e) => setPaymentGateway(prev => ({...prev, korapayApiKey: e.target.value}))}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-mono text-sm"
+                      placeholder="pk_live_..."
+                    />
+                  </div>
+                  <p className="text-[11px] text-[#6b7280] mt-1">Used for Nigerian users card payments.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button 
+                  onClick={() => updatePaymentGatewaysMutation.mutate()}
+                  disabled={updatePaymentGatewaysMutation.isPending}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex items-center gap-2"
+                >
+                  {updatePaymentGatewaysMutation.isPending ? 'Saving...' : 'Save API Keys & Gateway'}
+                </button>
+              </div>
+            </div>
+          </div>
+          )}
 
           {/* Global Payment Addresses */}
           {(regionView === 'all' || regionView === 'global') && (

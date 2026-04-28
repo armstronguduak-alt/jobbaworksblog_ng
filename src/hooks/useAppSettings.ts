@@ -64,6 +64,18 @@ const defaultStreakSettings: Record<string, PlanStreakSettings> = {
   platinum: { ngnMin: 1000, ngnMax: 5000, usdMin: 10.00, usdMax: 30.00 },
 };
 
+export interface PaymentGatewaySettings {
+  gatewayType: 'manual_usdt' | 'nowpayments';
+  nowpaymentsApiKey: string;
+  korapayApiKey: string;
+}
+
+const defaultPaymentGatewaySettings: PaymentGatewaySettings = {
+  gatewayType: 'manual_usdt',
+  nowpaymentsApiKey: '',
+  korapayApiKey: 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4',
+};
+
 export function useAppSettings() {
   const { data: pageToggles, isLoading: isLoadingToggles, refetch: refetchToggles } = useQuery({
     queryKey: ['systemSettings', 'page_toggles'],
@@ -187,6 +199,21 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: paymentGatewaySettings, refetch: refetchPaymentGatewaySettings } = useQuery({
+    queryKey: ['systemSettings', 'payment_gateway_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'payment_gateway_settings')
+        .maybeSingle();
+      
+      if (error || !data) return defaultPaymentGatewaySettings;
+      return { ...defaultPaymentGatewaySettings, ...(data.value as Partial<PaymentGatewaySettings>) } as PaymentGatewaySettings;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
@@ -198,6 +225,7 @@ export function useAppSettings() {
     }, swapEnabledForNigerians: true },
     streakSettings: streakSettings || defaultStreakSettings,
     platformLockdown: platformLockdown || { locked: false },
+    paymentGatewaySettings: paymentGatewaySettings || defaultPaymentGatewaySettings,
     isLoadingToggles,
     refetchToggles,
     refetchUsdtAddresses,
@@ -206,6 +234,7 @@ export function useAppSettings() {
     refetchExchangeRates,
     refetchReferralSettings,
     refetchStreakSettings,
-    refetchPlatformLockdown
+    refetchPlatformLockdown,
+    refetchPaymentGatewaySettings
   };
 }

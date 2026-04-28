@@ -3,14 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function AdminWithdrawals() {
   const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
   const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert, showConfirm } = useDialog();
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
-  const [allWithdrawals, setAllWithdrawals] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected'>('pending');
 
   // Approval Modal State
@@ -20,26 +19,23 @@ export function AdminWithdrawals() {
   const [deductionReason, setDeductionReason] = useState<string>('');
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
-  useEffect(() => {
-    if (hasAccess) fetchWithdrawals();
-  }, [activeTab, hasAccess]);
-
   // Fetch all withdrawals once for analytics
-  useEffect(() => {
-    if (hasAccess) fetchAllStats();
-  }, [hasAccess]);
+  const { data: allWithdrawals = [] } = useQuery({
+    queryKey: ['admin-withdrawals-stats'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('wallet_transactions')
+        .select('amount, status')
+        .eq('type', 'withdrawal');
+      return data || [];
+    },
+    enabled: hasAccess,
+    staleTime: 0,
+  });
 
-  const fetchAllStats = async () => {
-    const { data } = await supabase
-      .from('wallet_transactions')
-      .select('amount, status')
-      .eq('type', 'withdrawal');
-    setAllWithdrawals(data || []);
-  };
-
-  const fetchWithdrawals = async () => {
-    setIsLoading(true);
-    try {
+  const { data: withdrawals = [], isLoading, refetch: fetchWithdrawals } = useQuery({
+    queryKey: ['admin-withdrawals', activeTab],
+    queryFn: async () => {
       let q = supabase
         .from('wallet_transactions')
         .select('*')
@@ -68,13 +64,22 @@ export function AdminWithdrawals() {
           .in('user_id', userIds);
         (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
-      setWithdrawals(txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null })));
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
+    },
+    enabled: hasAccess,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (!hasAccess) return;
+    const channel = supabase.channel(`admin-withdrawals-${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-stats'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [hasAccess, queryClient]);
 
   const openApprovalModal = (tx: any) => {
     setSelectedTx(tx);
@@ -113,8 +118,8 @@ export function AdminWithdrawals() {
 
       showAlert(`Withdrawal approved successfully.`, 'Success');
       setApprovalModalOpen(false);
-      fetchWithdrawals();
-      fetchAllStats();
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-stats'] });
     } catch (err: any) {
       showAlert(err.message, 'Error');
     } finally {
@@ -155,8 +160,8 @@ export function AdminWithdrawals() {
       });
 
       showAlert(`Withdrawal ${action}d successfully.`, 'Success');
-      fetchWithdrawals();
-      fetchAllStats();
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-stats'] });
     } catch (err: any) {
       showAlert(err.message, 'Error');
     }

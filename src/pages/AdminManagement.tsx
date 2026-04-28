@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,8 +10,6 @@ export function AdminManagement() {
   const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
   const { exchangeRates } = useAppSettings();
   
-  const totalUsers = useState(0)[0]; // Just a placeholder trick to avoid rearranging all states in diffs, wait, no. Let's just put it below regionView.
-  
   const symbol = regionView === 'global' ? '$' : '₦';
   const formatAdminAmount = (amount: number) => {
     if (regionView === 'global') {
@@ -20,14 +18,28 @@ export function AdminManagement() {
     return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
   
+  // ── Analytics State ──
   const [totalUsersCount, setTotalUsers] = useState(0);
+  const [nigerianUsersCount, setNigerianUsers] = useState(0);
+  const [globalUsersCount, setGlobalUsers] = useState(0);
   const [pendingWithdrawalsSum, setPendingWithdrawalsSum] = useState(0);
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
   const [activePostsCount, setActivePostsCount] = useState(0);
   const [recentWithdrawals, setRecentWithdrawals] = useState<any[]>([]);
   const [totalDeposits, setTotalDeposits] = useState(0);
+  const [totalEarningsPaid, setTotalEarningsPaid] = useState(0);
+  const [totalReferralEarnings, setTotalReferralEarnings] = useState(0);
   const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ── Debounced real-time refetch ──
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedFetch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchAdminStats();
+    }, 2000); // 2s debounce — prevents spamming on burst events
+  }, [regionView]);
 
   useEffect(() => {
     if (hasAccess) {
@@ -35,37 +47,34 @@ export function AdminManagement() {
     }
   }, [hasAccess, regionView]);
 
-  // Real-time channels
+  // Real-time channels with debounced refetch
   useEffect(() => {
     if (!hasAccess) return;
 
+    const channelId = Math.random().toString(36).substring(7);
+
     const txChannel = supabase
-      .channel(`admin-tx-channel-${Math.random().toString(36).substring(7)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
-        fetchAdminStats();
-      })
+      .channel(`admin-tx-${channelId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, debouncedFetch)
       .subscribe();
 
     const usersChannel = supabase
-      .channel(`admin-users-channel-${Math.random().toString(36).substring(7)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchAdminStats();
-      })
+      .channel(`admin-users-${channelId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, debouncedFetch)
       .subscribe();
 
     const postsChannel = supabase
-      .channel(`admin-posts-channel-${Math.random().toString(36).substring(7)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
-        fetchAdminStats();
-      })
+      .channel(`admin-posts-${channelId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, debouncedFetch)
       .subscribe();
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(txChannel);
       supabase.removeChannel(usersChannel);
       supabase.removeChannel(postsChannel);
     };
-  }, [hasAccess, regionView]);
+  }, [hasAccess, regionView, debouncedFetch]);
 
   async function fetchAdminStats() {
     setIsLoading(true);
@@ -79,10 +88,15 @@ export function AdminManagement() {
         matchedUserIds = (profiles || []).map(p => p.user_id);
       }
 
-      let qUsers = supabase.from('profiles').select('*', { count: 'exact', head: true });
-      if (regionView === 'nigeria') qUsers = qUsers.eq('is_global', false);
-      if (regionView === 'global') qUsers = qUsers.eq('is_global', true);
+      // ── User counts (always fetch both for the breakdown cards) ──
+      const [usersAllRes, usersNgnRes, usersGlobalRes] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true })
+          .then(r => r),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_global', false),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_global', true),
+      ]);
 
+      // ── Financial queries ──
       let qWithdrawals = supabase.from('wallet_transactions').select('amount').eq('type', 'withdrawal').eq('status', 'pending');
       if (matchedUserIds) qWithdrawals = qWithdrawals.in('user_id', matchedUserIds);
 
@@ -96,21 +110,37 @@ export function AdminManagement() {
       let qDeposits = supabase.from('wallet_transactions').select('amount').in('type', ['deposit', 'subscription_payment', 'plan_purchase']).eq('status', 'completed');
       if (matchedUserIds) qDeposits = qDeposits.in('user_id', matchedUserIds);
 
+      let qEarningsPaid = supabase.from('wallet_transactions').select('amount').in('type', ['earning', 'streak_reward', 'referral_bonus', 'task_reward', 'read_reward', 'comment_reward']).eq('status', 'completed');
+      if (matchedUserIds) qEarningsPaid = qEarningsPaid.in('user_id', matchedUserIds);
+
+      let qReferralEarnings = supabase.from('wallet_transactions').select('amount').eq('type', 'referral_bonus').eq('status', 'completed');
+      if (matchedUserIds) qReferralEarnings = qReferralEarnings.in('user_id', matchedUserIds);
+
       let qRecentDeposits = supabase.from('wallet_transactions').select('id, amount, status, type, meta, created_at, user_id').in('type', ['deposit', 'subscription_payment', 'plan_purchase']).order('created_at', { ascending: false });
       if (matchedUserIds) qRecentDeposits = qRecentDeposits.in('user_id', matchedUserIds);
       qRecentDeposits = qRecentDeposits.limit(5);
 
-      const [usersRes, withdrawalsRes, postsRes, recentWithdrawalsRes, depositsRes, recentDepositsRes] = await Promise.all([
-        qUsers,
+      const [withdrawalsRes, postsRes, recentWithdrawalsRes, depositsRes, earningsPaidRes, referralEarningsRes, recentDepositsRes] = await Promise.all([
         qWithdrawals,
         qPosts,
         qRecentWithdrawals,
         qDeposits,
+        qEarningsPaid,
+        qReferralEarnings,
         qRecentDeposits,
       ]);
 
-      if (usersRes.count !== null) setTotalUsers(usersRes.count);
-      
+      // ── Set user counts ──
+      if (regionView === 'all') {
+        setTotalUsers(usersAllRes.count ?? 0);
+      } else if (regionView === 'nigeria') {
+        setTotalUsers(usersNgnRes.count ?? 0);
+      } else {
+        setTotalUsers(usersGlobalRes.count ?? 0);
+      }
+      setNigerianUsers(usersNgnRes.count ?? 0);
+      setGlobalUsers(usersGlobalRes.count ?? 0);
+
       if (withdrawalsRes.data) {
         setPendingWithdrawalsCount(withdrawalsRes.data.length);
         const sum = withdrawalsRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
@@ -124,7 +154,17 @@ export function AdminManagement() {
         setTotalDeposits(depSum);
       }
 
-      // Fetch profiles separately for recent withdrawals + deposits
+      if (earningsPaidRes.data) {
+        const earningsSum = earningsPaidRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
+        setTotalEarningsPaid(earningsSum);
+      }
+
+      if (referralEarningsRes.data) {
+        const refSum = referralEarningsRes.data.reduce((acc, tx) => acc + Number(tx.amount), 0);
+        setTotalReferralEarnings(refSum);
+      }
+
+      // Fetch profiles separately for recent lists
       const allUserIds = [
         ...(recentWithdrawalsRes.data || []).map(t => t.user_id),
         ...(recentDepositsRes.data || []).map(t => t.user_id),
@@ -153,7 +193,7 @@ export function AdminManagement() {
     }
   }
 
-  if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
+  if (authLoading) return <div className="p-10 text-center text-on-surface-variant">Loading admin check...</div>;
   if (!hasAccess) return <Navigate to="/dashboard" replace />;
 
   const timeAgo = (dateStr: string) => {
@@ -164,22 +204,33 @@ export function AdminManagement() {
     return new Date(dateStr).toLocaleDateString();
   };
 
+  const StatCard = ({ icon, label, value, subtitle, colorClass = 'text-primary', bgClass = 'bg-surface-container-lowest' }: { icon: string; label: string; value: string; subtitle: string; colorClass?: string; bgClass?: string }) => (
+    <div className={`${bgClass} p-5 rounded-[1.25rem] border border-surface-container/30 shadow-sm`}>
+      <div className={`w-10 h-10 rounded-xl ${colorClass}/10 flex items-center justify-center mb-3`}>
+        <span className={`material-symbols-outlined text-[20px] ${colorClass}`}>{icon}</span>
+      </div>
+      <p className="text-on-surface-variant text-xs font-semibold mb-1">{label}</p>
+      <h3 className="text-on-surface text-2xl font-black font-headline">{isLoading ? '...' : value}</h3>
+      <p className={`text-[10px] font-bold mt-2 ${colorClass} uppercase tracking-wider`}>{subtitle}</p>
+    </div>
+  );
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32">
       {/* Welcome Header */}
       <section className="mb-10">
-        <div className="inline-flex items-center gap-1 px-3 py-1 bg-[#dcfce7] text-[#006b3f] rounded-full mb-3">
+        <div className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full mb-3">
           <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
           <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">System Overview</span>
         </div>
-        <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight mb-1 font-headline">Operations Overview</h1>
-        <p className="text-outline text-sm md:text-base">Monitoring platform health and transaction velocity.</p>
+        <h1 className="text-2xl md:text-3xl font-black text-on-surface tracking-tight mb-1 font-headline">Operations Overview</h1>
+        <p className="text-on-surface-variant text-sm md:text-base">Monitoring platform health and transaction velocity.</p>
       </section>
 
-      {/* Bento Grid Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {/* Total Users (Primary Accent) */}
-        <div className="bg-primary-container p-6 rounded-[1.5rem] relative overflow-hidden group shadow-lg">
+      {/* ── Primary Stats Row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* Total Users — Large accent card */}
+        <div className="col-span-2 md:col-span-1 bg-primary-container p-6 rounded-[1.5rem] relative overflow-hidden group shadow-lg">
           <div className="relative z-10">
             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white mb-4">
               <span className="material-symbols-outlined">group</span>
@@ -191,53 +242,34 @@ export function AdminManagement() {
               <span>Live Database Count</span>
             </div>
           </div>
-          {/* Abstract Pattern */}
           <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
             <span className="material-symbols-outlined text-[120px] text-white" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
           </div>
         </div>
 
-        {/* Pending Withdrawals (Neon Highlight) */}
-        <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-[0px_20px_40px_rgba(0,33,16,0.06)] border border-outline-variant/20">
-          <div className="w-12 h-12 rounded-full bg-tertiary-fixed-dim/20 flex items-center justify-center text-tertiary mb-4">
-            <span className="material-symbols-outlined">payments</span>
+        <StatCard icon="flag" label="Nigerian Users" value={nigerianUsersCount.toLocaleString()} subtitle="🇳🇬 NGN Users" colorClass="text-emerald-600" />
+        <StatCard icon="public" label="Non-Nigerian Users" value={globalUsersCount.toLocaleString()} subtitle="🌍 USD Users" colorClass="text-blue-600" />
+        
+        {/* Pending Withdrawals */}
+        <div className="bg-surface-container-lowest p-5 rounded-[1.25rem] shadow-sm border border-error/10">
+          <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center mb-3">
+            <span className="material-symbols-outlined text-[20px] text-error">payments</span>
           </div>
-          <p className="text-on-surface-variant text-sm font-medium mb-1">Pending Withdrawals</p>
-          <h3 className="text-on-surface text-3xl font-bold font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(pendingWithdrawalsSum)}</h3>
-          <div className="mt-4 flex items-center gap-2 text-error text-xs font-bold">
-            <span className="material-symbols-outlined text-sm">priority_high</span>
-            <span>{pendingWithdrawalsCount} requests requiring action</span>
-          </div>
-        </div>
-
-        {/* Total Posts (Subtle Depth) */}
-        <div className="bg-surface-container-low p-6 rounded-[1.5rem]">
-          <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container mb-4">
-            <span className="material-symbols-outlined">post_add</span>
-          </div>
-          <p className="text-on-surface-variant text-sm font-medium mb-1">Total Active Posts</p>
-          <h3 className="text-on-surface text-3xl font-bold font-headline">{isLoading ? '...' : activePostsCount.toLocaleString()}</h3>
-          <div className="mt-4 flex items-center gap-2 text-primary text-xs font-bold">
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            <span>Live Articles Count</span>
-          </div>
-        </div>
-
-        {/* Total Revenue / Deposits */}
-        <div className="bg-[#f0f9ff] p-6 rounded-[1.5rem] border border-[#bae6fd]">
-          <div className="w-12 h-12 rounded-full bg-[#38bdf8]/20 flex items-center justify-center text-[#0284c7] mb-4">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
-          </div>
-          <p className="text-[#0c4a6e]/70 text-sm font-medium mb-1">Total System Revenue</p>
-          <h3 className="text-[#0c4a6e] text-3xl font-bold font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(totalDeposits)}</h3>
-          <div className="mt-4 flex items-center gap-2 text-[#0284c7] text-xs font-bold">
-            <span className="material-symbols-outlined text-sm">trending_up</span>
-            <span>Deposits & Subscriptions</span>
-          </div>
+          <p className="text-on-surface-variant text-xs font-semibold mb-1">Pending Withdrawals</p>
+          <h3 className="text-on-surface text-2xl font-black font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(pendingWithdrawalsSum)}</h3>
+          <p className="text-[10px] font-bold mt-2 text-error uppercase tracking-wider">{pendingWithdrawalsCount} requests awaiting</p>
         </div>
       </div>
 
-      {/* Asymmetric Section: Pending Approvals & Quick Insights */}
+      {/* ── Financial Stats Row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        <StatCard icon="account_balance_wallet" label="Total Revenue" value={`${symbol}${formatAdminAmount(totalDeposits)}`} subtitle="Deposits & Plans" colorClass="text-blue-600" />
+        <StatCard icon="savings" label="Total Earnings Paid" value={`${symbol}${formatAdminAmount(totalEarningsPaid)}`} subtitle="All reward types" colorClass="text-amber-600" />
+        <StatCard icon="hub" label="Referral Earnings" value={`${symbol}${formatAdminAmount(totalReferralEarnings)}`} subtitle="Referral bonuses" colorClass="text-violet-600" />
+        <StatCard icon="post_add" label="Active Posts" value={activePostsCount.toLocaleString()} subtitle="Live articles" colorClass="text-primary" />
+      </div>
+
+      {/* ── Asymmetric Section: Pending Approvals & Quick Insights ── */}
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Pending Approvals (Main Column) */}
         <div className="flex-grow space-y-6">
@@ -249,10 +281,10 @@ export function AdminManagement() {
             {isLoading ? (
               <div className="p-6 text-center text-on-surface-variant">Loading requests...</div>
             ) : recentWithdrawals.length === 0 ? (
-              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl">No pending withdrawals.</div>
+              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-surface-container/30">No pending withdrawals.</div>
             ) : (
               recentWithdrawals.map(tx => (
-                <div key={tx.id} className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-transparent hover:border-primary-fixed-dim/40 transition-all">
+                <div key={tx.id} className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-surface-container/30 hover:border-primary/30 transition-all">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container flex items-center justify-center">
                       <span className="material-symbols-outlined text-on-surface-variant">person</span>
@@ -264,7 +296,7 @@ export function AdminManagement() {
                   </div>
                   <div className="text-right shrink-0 ml-2">
                     <p className="font-bold text-on-surface text-sm md:text-base">{symbol}{formatAdminAmount(Number(tx.amount))}</p>
-                    <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-tertiary-fixed-dim/10 text-tertiary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
+                    <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-amber-500/10 text-amber-600 text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
                   </div>
                 </div>
               ))
@@ -278,12 +310,12 @@ export function AdminManagement() {
             {isLoading ? (
               <div className="p-6 text-center text-on-surface-variant">Loading deposits...</div>
             ) : recentDeposits.length === 0 ? (
-              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl">No recent deposits.</div>
+              <div className="p-6 text-center text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-surface-container/30">No recent deposits.</div>
             ) : (
               recentDeposits.map(tx => (
-                <div key={tx.id} className="bg-white p-5 rounded-[1.2rem] flex items-center justify-between shadow-[0px_4px_12px_rgba(0,0,0,0.02)] border border-surface-container-low hover:border-blue-200 transition-all">
+                <div key={tx.id} className="bg-surface-container-lowest p-5 rounded-[1.2rem] flex items-center justify-between shadow-sm border border-surface-container/30 hover:border-primary/30 transition-all">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                       <span className="material-symbols-outlined">
                          {tx.type === 'plan_purchase' || tx.type === 'subscription_payment' ? 'workspace_premium' : 'savings'}
                       </span>
@@ -299,8 +331,8 @@ export function AdminManagement() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-black text-emerald-600 text-sm md:text-base">+{symbol}{formatAdminAmount(Number(tx.amount))}</p>
-                    <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest mt-1">
+                    <p className="font-black text-primary text-sm md:text-base">+{symbol}{formatAdminAmount(Number(tx.amount))}</p>
+                    <span className="inline-block px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest mt-1">
                       {tx.status}
                     </span>
                   </div>
@@ -312,7 +344,7 @@ export function AdminManagement() {
 
         {/* Side Insights (Offset Grid) */}
         <div className="lg:w-80 space-y-8">
-          <div className="bg-inverse-surface p-6 rounded-[1.5rem] text-white shadow-lg">
+          <div className="bg-inverse-surface p-6 rounded-[1.5rem] text-inverse-on-surface shadow-lg">
             <h4 className="font-bold mb-4 font-label">Admin Actions</h4>
             <div className="grid grid-cols-2 gap-3">
               <Link to="/admin/users" className="flex flex-col items-center justify-center gap-2 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
@@ -327,10 +359,10 @@ export function AdminManagement() {
                 <span className="material-symbols-outlined text-secondary-fixed">article</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-center">Content</span>
               </Link>
-              <button disabled className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 rounded-xl opacity-50 cursor-not-allowed">
-                <span className="material-symbols-outlined text-error-container">report</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-center">Logs</span>
-              </button>
+              <Link to="/admin/settings" className="flex flex-col items-center justify-center gap-2 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
+                <span className="material-symbols-outlined text-amber-400">tune</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-center">Settings</span>
+              </Link>
             </div>
           </div>
 
@@ -353,6 +385,31 @@ export function AdminManagement() {
               <div className="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
                 <span>Database Connection</span>
                 <span>Connected</span>
+              </div>
+            </div>
+          </div>
+
+          {/* User Distribution Card */}
+          <div className="bg-surface-container-lowest p-6 rounded-[1.5rem] border border-surface-container/30">
+            <h4 className="font-bold text-on-surface text-sm mb-4">User Distribution</h4>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-on-surface-variant font-semibold">🇳🇬 Nigerian</span>
+                  <span className="font-black text-on-surface">{nigerianUsersCount.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${totalUsersCount > 0 ? (nigerianUsersCount / (nigerianUsersCount + globalUsersCount)) * 100 : 0}%` }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-on-surface-variant font-semibold">🌍 Non-Nigerian</span>
+                  <span className="font-black text-on-surface">{globalUsersCount.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${totalUsersCount > 0 ? (globalUsersCount / (nigerianUsersCount + globalUsersCount)) * 100 : 0}%` }}></div>
+                </div>
               </div>
             </div>
           </div>

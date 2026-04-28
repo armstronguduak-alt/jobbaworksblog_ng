@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { SendMessageModal } from '../components/SendMessageModal';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function AdminUsers() {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { regionView } = useOutletContext<{ regionView: 'all' | 'nigeria' | 'global' }>();
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
@@ -29,15 +29,9 @@ export function AdminUsers() {
     { id: 'transactions', label: 'Transactions & Withdrawals' },
   ];
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchUsers();
-    }
-  }, [isAdmin, search, regionView]);
-
-  async function fetchUsers() {
-    setIsLoading(true);
-    try {
+  const { data: usersList = [], isLoading, refetch: fetchUsers } = useQuery({
+    queryKey: ['admin-users', regionView, search],
+    queryFn: async () => {
       let query = supabase
         .from('profiles')
         .select('*')
@@ -71,21 +65,18 @@ export function AdminUsers() {
           refCountMap[r.referrer_user_id] = (refCountMap[r.referrer_user_id] || 0) + 1;
         });
 
-        const enriched = data.map((u: any) => ({
+        return data.map((u: any) => ({
           ...u,
           _wallet: walletMap[u.user_id || u.id] || null,
           _referralCount: refCountMap[u.user_id || u.id] || 0,
         }));
-        setUsersList(enriched);
-      } else {
-        setUsersList(data || []);
       }
-    } catch (err) {
-      console.error('Error fetching users:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+      return data || [];
+    },
+    enabled: isAdmin,
+    staleTime: 0,
+    placeholderData: (prev) => prev,
+  });
 
   const handleManageRole = async (user: any) => {
     setSelectedUserForRole(user);
@@ -158,7 +149,7 @@ export function AdminUsers() {
       });
       if (error) throw error;
       alert(`User successfully ${action}ged.`);
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     } catch (err: any) {
       console.error(err);
       alert(`Error ${action}ging user: ${err.message}`);

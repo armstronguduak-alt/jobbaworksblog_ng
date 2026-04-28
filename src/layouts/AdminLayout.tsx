@@ -76,10 +76,10 @@ export function AdminLayout() {
   );
 
   return (
-    <div className="flex h-screen bg-surface font-body overflow-hidden">
+    <div className="flex h-screen bg-surface text-on-surface font-body overflow-hidden">
       
       {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 w-full h-[70px] bg-white border-b border-surface-container-low flex items-center justify-between px-4 z-50">
+      <div className="md:hidden fixed top-0 w-full h-[70px] bg-surface-container-lowest border-b border-surface-container-low flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-3">
           <button onClick={toggleSidebar} className="p-2 text-on-surface bg-surface-container/50 rounded-xl shadow-sm border border-surface-container-low">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -98,7 +98,7 @@ export function AdminLayout() {
       </div>
       
       {/* Mobile Region Toggle (just below top bar) */}
-      <div className="md:hidden fixed top-[70px] w-full bg-white border-b border-surface-container-low p-2 z-40 flex justify-center">
+      <div className="md:hidden fixed top-[70px] w-full bg-surface-container-lowest border-b border-surface-container-low p-2 z-40 flex justify-center">
         {getRegionToggle()}
       </div>
 
@@ -113,16 +113,16 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50
-        w-[260px] bg-white border-r border-surface-container-low h-full
+        w-[260px] bg-surface-container-lowest border-r border-surface-container-low h-full
         flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0 border-b border-transparent bg-white">
+        <div className="h-[90px] px-6 flex items-center gap-3 flex-shrink-0 border-b border-transparent bg-surface-container-lowest">
           <div className="bg-primary/10 p-2 rounded-lg text-primary flex items-center justify-center">
             <span className="material-symbols-outlined">verified_user</span>
           </div>
-          <span className="text-2xl font-black text-[#191c1d] font-headline tracking-tight block">
+          <span className="text-2xl font-black text-on-surface font-headline tracking-tight block">
             JW <span className="text-primary">Admin</span>
           </span>
         </div>
@@ -143,8 +143,8 @@ export function AdminLayout() {
                     onClick={() => setIsSidebarOpen(false)}
                     className={`flex items-center gap-4 px-4 py-3 rounded-[12px] font-bold transition-all duration-200
                       ${isActive 
-                        ? 'bg-[#dcfce7] text-[#006b3f]' 
-                        : 'text-[#191c1d] hover:bg-surface-container-low'
+                        ? 'bg-primary/10 text-primary' 
+                        : 'text-on-surface hover:bg-surface-container-low'
                       }
                     `}
                   >
@@ -164,7 +164,7 @@ export function AdminLayout() {
               <Link 
                 to="/dashboard" 
                 onClick={() => setIsSidebarOpen(false)}
-                className="flex items-center gap-4 px-4 py-3 rounded-[12px] font-bold transition-all duration-200 text-[#191c1d] hover:bg-surface-container-low"
+                className="flex items-center gap-4 px-4 py-3 rounded-[12px] font-bold transition-all duration-200 text-on-surface hover:bg-surface-container-low"
               >
                 <span className="material-symbols-outlined text-[20px]">
                   arrow_back

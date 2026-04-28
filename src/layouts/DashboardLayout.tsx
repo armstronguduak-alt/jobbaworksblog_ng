@@ -98,10 +98,10 @@ export function DashboardLayout() {
   ].filter(item => item.show);
 
   return (
-    <div className="flex h-screen bg-[#f8faf9] text-on-surface font-body overflow-hidden">
+    <div className="flex h-screen bg-surface text-on-surface font-body overflow-hidden">
       
       {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 w-full h-[70px] bg-white border-b border-surface-container flex items-center justify-between px-4 z-50">
+      <div className="md:hidden fixed top-0 w-full h-[70px] bg-surface-container-lowest border-b border-surface-container flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-3">
           <button onClick={toggleSidebar} className="p-2 text-on-surface-variant bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -132,7 +132,7 @@ export function DashboardLayout() {
       {/* Sidebar */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50
-        w-[260px] bg-white border-r border-surface-container h-full
+        w-[260px] bg-surface-container-lowest border-r border-surface-container h-full
         flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
@@ -238,7 +238,7 @@ export function DashboardLayout() {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
         {/* Desktop Top Bar */}
-        <header className="hidden md:flex h-[90px] px-8 lg:px-12 items-center justify-between border-b border-surface-container/50 bg-[#f8faf9]/80 backdrop-blur-md z-30 flex-shrink-0 sticky top-0">
+        <header className="hidden md:flex h-[90px] px-8 lg:px-12 items-center justify-between border-b border-surface-container/50 bg-surface/80 backdrop-blur-md z-30 flex-shrink-0 sticky top-0">
           <h1 className="text-xl lg:text-3xl font-black font-headline text-emerald-950 tracking-tight">
             {getPageTitle()}
           </h1>

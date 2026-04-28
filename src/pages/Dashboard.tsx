@@ -183,10 +183,10 @@ export function Dashboard() {
             <span className="text-[10px] font-semibold text-center text-on-surface-variant leading-tight">Write Story</span>
           </Link>
           <Link to="/plans" className="flex flex-col items-center gap-1.5 group cursor-pointer">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-amber-600 shadow-sm group-active:scale-90 transition-all border border-amber-200/50">
+            <div className="w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-amber-500 shadow-sm group-active:scale-90 transition-all border border-surface-container-highest">
               <span className="material-symbols-outlined text-2xl">bolt</span>
             </div>
-            <span className="text-[10px] font-semibold text-center text-amber-700 leading-tight">Boost Earnings</span>
+            <span className="text-[10px] font-semibold text-center text-amber-500 leading-tight">Boost Earnings</span>
           </Link>
         </div>
       </section>
@@ -195,7 +195,7 @@ export function Dashboard() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="col-span-1 md:col-span-2 bg-surface-container-lowest p-5 rounded-[1.5rem] flex flex-col justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-emerald-50 px-2.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-0.5 rounded-full">
               Total Earnings
             </span>
             <div className="mt-3">
