@@ -21,19 +21,9 @@ export function Wallet() {
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successDetails, setSuccessDetails] = useState<any>(null);
-  const [referralCount, setReferralCount] = useState(0);
   const { exchangeRates, pageToggles } = useAppSettings();
   const { isGlobal, symbol, exchangeRate } = useCurrency();
   
-  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 10.00;
-  const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
-  const walletSymbol = '$';
-  
-  const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
-  const numAmount = Number(withdrawAmount) || 0;
-  const fee = numAmount * widthdrawalFeePercent;
-  const youGet = numAmount - fee;
-
   const { data: walletData, isLoading, refetch } = useQuery({
     queryKey: ['wallet-data', user?.id],
     queryFn: async () => {
@@ -68,6 +58,15 @@ export function Wallet() {
   const transactions = walletData?.transactions || [];
   const payoutMethods = walletData?.payoutMethods || [];
   const referralCount = walletData?.referralCount || 0;
+
+  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 10.00;
+  const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
+  const walletSymbol = '$';
+  
+  const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
+  const numAmount = Number(withdrawAmount) || 0;
+  const fee = numAmount * widthdrawalFeePercent;
+  const youGet = numAmount - fee;
 
   // Real-time subscriptions for balance and transactions
   useEffect(() => {
