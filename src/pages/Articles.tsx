@@ -175,7 +175,7 @@ export function Articles() {
           <h2 className="text-on-surface text-3xl md:text-4xl font-black font-headline">{formatAmount(totalEarnings)}</h2>
           <div className="mt-4 flex items-center gap-2 text-tertiary font-medium text-xs md:text-sm">
             <span className="material-symbols-outlined text-sm">payments</span>
-            <span>From article reads</span>
+          </div>
         </div>
       </section>
 

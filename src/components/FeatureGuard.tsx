@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { useAppSettings, PageToggles } from '../hooks/useAppSettings';
+import { useAppSettings, type PageToggles } from '../hooks/useAppSettings';
 import { FeatureDisabled } from './FeatureDisabled';
 
 interface FeatureGuardProps {
