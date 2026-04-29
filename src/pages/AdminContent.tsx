@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
+import { useQuery } from '@tanstack/react-query';
+import { ArticleAnalyticsGraph } from '../components/ArticleAnalyticsGraph';
 
 export function AdminContent() {
   const { isAdmin, isModerator, permissions, isLoading: authLoading } = useAuth();
@@ -70,6 +72,22 @@ export function AdminContent() {
       setIsLoading(false);
     }
   }
+
+  const { data: analyticsDaily = [] } = useQuery({
+    queryKey: ['admin-article-analytics'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('post_analytics_daily')
+        .select('date, user_views, anonymous_views, post_id, posts!inner(author_user_id)');
+        
+      if (error) {
+        console.error('Analytics query error:', error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: hasAccess,
+  });
 
   const filteredPosts = posts.filter(post => {
     if (filter === 'all') return true;
@@ -176,6 +194,12 @@ export function AdminContent() {
           <h3 className="text-3xl font-black font-headline text-on-surface">₦{stats.totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
         </div>
       </div>
+
+      <ArticleAnalyticsGraph 
+        data={analyticsDaily} 
+        articles={posts.filter(p => p.status === 'approved').map(a => ({ id: a.id, title: a.title }))} 
+        isAdmin={true}
+      />
 
       <div className="bg-transparent overflow-hidden">
         {/* Filters */}

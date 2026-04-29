@@ -59,6 +59,8 @@ const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation').then(mo
 const EmailVerified = lazy(() => import('./pages/EmailVerified').then(module => ({ default: module.EmailVerified })));
 const AdminLogin = lazy(() => import('./pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
 
+import { FeatureGuard } from './components/FeatureGuard';
+
 function App() {
   return (
     <ErrorBoundary>
@@ -77,9 +79,9 @@ function App() {
         <Route path="/" element={<BlogLayout />}>
           <Route index element={<Home />} />
           <Route path="author/:username" element={<PublicProfile />} />
-          <Route path="stories" element={<StoriesHub />} />
-          <Route path="stories/:slug" element={<StoryDetail />} />
-          <Route path="stories/read/:slug/:chapterNum" element={<StoryReader />} />
+          <Route path="stories" element={<FeatureGuard feature="storiesEnabled"><StoriesHub /></FeatureGuard>} />
+          <Route path="stories/:slug" element={<FeatureGuard feature="storiesEnabled"><StoryDetail /></FeatureGuard>} />
+          <Route path="stories/read/:slug/:chapterNum" element={<FeatureGuard feature="storiesEnabled"><StoryReader /></FeatureGuard>} />
           <Route path="blog" element={<Home />} />
           <Route path="article/:slug" element={<PublicArticle />} />
           <Route path=":slug" element={<Home />} />
@@ -93,8 +95,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="dashboard/mystories" element={<MyStories />} />
-            <Route path="stories/create" element={<CreateStory />} />
+            <Route path="dashboard/mystories" element={<FeatureGuard feature="storiesEnabled"><MyStories /></FeatureGuard>} />
+            <Route path="stories/create" element={<FeatureGuard feature="storiesEnabled"><CreateStory /></FeatureGuard>} />
             <Route path="plans" element={<Plans />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="articles" element={<Articles />} />

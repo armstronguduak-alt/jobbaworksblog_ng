@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrency } from '../hooks/useCurrency';
+import { ArticleAnalyticsGraph } from '../components/ArticleAnalyticsGraph';
 
 interface Article {
   id: string;
@@ -46,6 +47,25 @@ export function Articles() {
     },
     enabled: !!user?.id,
     staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: analyticsDaily = [] } = useQuery({
+    queryKey: ['my-article-analytics', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('post_analytics_daily')
+        .select('date, user_views, anonymous_views, post_id, posts!inner(author_user_id)')
+        .eq('posts.author_user_id', user.id);
+        
+      if (error) {
+        console.error('Analytics query error:', error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!user?.id,
   });
 
   // Real-time subscription — invalidates cache when posts change
@@ -156,9 +176,14 @@ export function Articles() {
           <div className="mt-4 flex items-center gap-2 text-tertiary font-medium text-xs md:text-sm">
             <span className="material-symbols-outlined text-sm">payments</span>
             <span>From article reads</span>
-          </div>
         </div>
       </section>
+
+      {/* Advanced Analytics Graph */}
+      <ArticleAnalyticsGraph 
+        data={analyticsDaily} 
+        articles={articles.map(a => ({ id: a.id, title: a.title }))} 
+      />
 
       {/* Filters and Search */}
       <section className="flex flex-col lg:flex-row gap-4 mb-6 items-start lg:items-center justify-between bg-surface-container-lowest p-4 rounded-3xl shadow-sm border border-emerald-50">

@@ -69,7 +69,9 @@ export function BlogLayout() {
           {/* Desktop nav — Categories fit in one row without scrolling */}
           <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 flex-1 px-4 justify-center overflow-hidden whitespace-nowrap mask-edges">
             <Link to="/" className="text-emerald-700 font-bold font-headline text-[11px] xl:text-xs shrink-0">Home</Link>
-            <Link to="/stories" className="text-primary font-bold font-headline text-[11px] xl:text-xs shrink-0">Stories✨</Link>
+            {pageToggles.storiesEnabled && (
+              <Link to="/stories" className="text-primary font-bold font-headline text-[11px] xl:text-xs shrink-0">Stories✨</Link>
+            )}
             {categories.map(cat => (
               <Link key={cat.id} to={`/${cat.slug}`} className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-[10px] xl:text-[11px] shrink-0 truncate max-w-[80px] xl:max-w-[120px]" title={cat.name}>
                 {cat.name}
@@ -203,16 +205,18 @@ export function BlogLayout() {
            </Link>
 
           {/* Stories Link */}
-          <Link
-            to="/stories"
-            onClick={() => setIsMenuOpen(false)}
-            className={`font-bold px-4 py-3 rounded-xl flex items-center gap-3 transition-colors ${
-              location.pathname === '/stories' ? 'bg-amber-50 text-amber-800' : 'text-amber-700 hover:bg-amber-50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">auto_stories</span>
-            Stories ✨
-          </Link>
+          {pageToggles.storiesEnabled && (
+            <Link
+              to="/stories"
+              onClick={() => setIsMenuOpen(false)}
+              className={`font-bold px-4 py-3 rounded-xl flex items-center gap-3 transition-colors ${
+                location.pathname === '/stories' ? 'bg-amber-50 text-amber-800' : 'text-amber-700 hover:bg-amber-50'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">auto_stories</span>
+              Stories ✨
+            </Link>
+          )}
 
           {/* Category Divider */}
           <p className="px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-outline">Categories</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -142,6 +142,20 @@ export function PublicArticle() {
   const comments = data?.comments || [];
   const relatedPosts = data?.relatedPosts || [];
   const readAlsoPosts = data?.readAlsoPosts || [];
+  
+  const viewTracked = useRef(false);
+
+  useEffect(() => {
+    if (post?.id && !viewTracked.current) {
+      viewTracked.current = true;
+      supabase.rpc('increment_post_view', {
+        p_post_id: post.id,
+        p_is_user: !!user
+      }).then(({ error }) => {
+        if (error) console.error('Failed to track view:', error);
+      });
+    }
+  }, [post?.id, user]);
 
   useEffect(() => {
     if (data?.isFollowing !== undefined) {
