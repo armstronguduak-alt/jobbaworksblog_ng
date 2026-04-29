@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { SendMessageModal } from '../components/SendMessageModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function AdminUsers() {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -28,6 +29,48 @@ export function AdminUsers() {
     { id: 'referrals', label: 'Referrals' },
     { id: 'transactions', label: 'Transactions & Withdrawals' },
   ];
+
+  const { data: analytics } = useQuery({
+    queryKey: ['admin-users-analytics', regionView],
+    queryFn: async () => {
+      let query = supabase.from('profiles').select('joined_at, is_global');
+      if (regionView === 'nigeria') query = query.eq('is_global', false);
+      if (regionView === 'global') query = query.eq('is_global', true);
+      
+      const { data } = await query;
+      if (!data) return { totalUsers: 0, activeToday: 0, chartData: [] };
+
+      const totalUsers = data.length;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      
+      const activeToday = data.filter(u => new Date(u.joined_at) >= today).length;
+
+      // Group by day for the last 7 days
+      const days = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        d.setHours(0,0,0,0);
+        return d;
+      });
+
+      const chartData = days.map(day => {
+        const nextDay = new Date(day);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const count = data.filter(u => {
+          const joined = new Date(u.joined_at);
+          return joined >= day && joined < nextDay;
+        }).length;
+        return {
+          name: day.toLocaleDateString('en-US', { weekday: 'short' }),
+          users: count
+        };
+      });
+
+      return { totalUsers, activeToday, chartData };
+    },
+    enabled: isAdmin
+  });
 
   const { data: usersList = [], isLoading, refetch: fetchUsers } = useQuery({
     queryKey: ['admin-users', regionView, search],
@@ -177,6 +220,56 @@ export function AdminUsers() {
           />
         </div>
       </div>
+
+      {/* Analytics Section */}
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-surface-container-low flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant uppercase tracking-widest">Total Users</p>
+                <p className="text-4xl font-black text-on-surface mt-2">{analytics.totalUsers}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                <span className="material-symbols-outlined">group</span>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-surface-container-low flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant uppercase tracking-widest">New Today</p>
+                <p className="text-4xl font-black text-on-surface mt-2">{analytics.activeToday}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
+                <span className="material-symbols-outlined">person_add</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-surface-container-low">
+            <p className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-6">User Growth (Last 7 Days)</p>
+            <div className="h-[180px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={analytics.chartData}>
+                  <defs>
+                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dx={-10} allowDecimals={false} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ stroke: '#059669', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  />
+                  <Area type="monotone" dataKey="users" stroke="#059669" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-transparent overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
