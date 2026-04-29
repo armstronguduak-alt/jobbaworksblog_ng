@@ -30,10 +30,12 @@ export function DashboardLayout() {
           .eq('task_name', 'Join Our Community')
           .maybeSingle();
 
-        // Show modal if user has never started the community task
+        // Show modal ONLY if user has never interacted with the community task at all.
+        // If they have ANY record (started, approved, or claimed), do NOT show it.
         if (!data) {
           setIsCommunityModalOpen(true);
         }
+        // Explicitly: if data exists (any status), modal stays closed.
       } catch (err) {
         console.log('Community check skipped:', err);
       } finally {

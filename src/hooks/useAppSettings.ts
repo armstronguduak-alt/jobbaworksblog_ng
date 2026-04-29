@@ -48,20 +48,19 @@ const defaultExchangeRates: ExchangeRates = {
 };
 
 export interface PlanStreakSettings {
-  ngnMin: number;
-  ngnMax: number;
-  usdMin: number;
-  usdMax: number;
+  weeklyTotalNgn: number;
+  weeklyTotalUsd: number;
+  enabled: boolean;
 }
 
 const defaultStreakSettings: Record<string, PlanStreakSettings> = {
-  free: { ngnMin: 10, ngnMax: 500, usdMin: 0.20, usdMax: 0.50 },
-  starter: { ngnMin: 100, ngnMax: 500, usdMin: 0.50, usdMax: 1.00 },
-  pro: { ngnMin: 160, ngnMax: 1000, usdMin: 1.00, usdMax: 3.00 },
-  elite: { ngnMin: 200, ngnMax: 14500, usdMin: 1.00, usdMax: 5.00 },
-  vip: { ngnMin: 300, ngnMax: 22500, usdMin: 2.00, usdMax: 8.00 },
-  executive: { ngnMin: 500, ngnMax: 13500, usdMin: 3.00, usdMax: 15.00 },
-  platinum: { ngnMin: 1000, ngnMax: 5000, usdMin: 10.00, usdMax: 30.00 },
+  free:      { weeklyTotalNgn: 320,   weeklyTotalUsd: 1,   enabled: true },
+  starter:   { weeklyTotalNgn: 833,   weeklyTotalUsd: 3,   enabled: true },
+  pro:       { weeklyTotalNgn: 2500,  weeklyTotalUsd: 7,   enabled: true },
+  elite:     { weeklyTotalNgn: 5000,  weeklyTotalUsd: 15,  enabled: true },
+  vip:       { weeklyTotalNgn: 10000, weeklyTotalUsd: 30,  enabled: true },
+  executive: { weeklyTotalNgn: 20000, weeklyTotalUsd: 60,  enabled: true },
+  platinum:  { weeklyTotalNgn: 40000, weeklyTotalUsd: 125, enabled: true },
 };
 
 export interface PaymentGatewaySettings {

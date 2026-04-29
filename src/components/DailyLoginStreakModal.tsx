@@ -99,17 +99,19 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
     return `₦${amount >= 1000 ? (amount / 1000).toFixed(1) + 'k' : amount.toLocaleString()}`;
   };
 
-  // Arithmetic Progression over 7 days sum = Total
-  const a = totalReward * 0.1;
-  const d = totalReward / 70.0;
+  // Arithmetic Progression: 7 terms summing exactly to totalReward
+  // Matches SQL: a = Total * 4/49, d = Total / 49
+  // S = 7a + 21d = 7*(4T/49) + 21*(T/49) = 28T/49 + 21T/49 = 49T/49 = T ✓
+  const a = totalReward * 4.0 / 49.0;
+  const d = totalReward / 49.0;
 
   const dayRewards = Array.from({ length: 7 }, (_, i) => {
     const amount = a + i * d;
     return Math.round(amount * 100) / 100;
   });
 
-  const minReward = Math.round(a * 100) / 100;
-  const maxReward = Math.round((a + 6 * d) * 100) / 100;
+  const minReward = dayRewards[0];
+  const maxReward = dayRewards[6];
 
   // Format the claimed reward for display
   const formatClaimReward = (amount: number) => {

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../hooks/useCurrency';
+import { useAppSettings } from '../hooks/useAppSettings';
 import confetti from 'canvas-confetti';
 
 /**
@@ -7,17 +8,19 @@ import confetti from 'canvas-confetti';
  * Case 1: No plan / free → show modal encouraging first subscription
  * Case 2: Active plan (starter–executive) → show only the NEXT higher plan
  * Case 3: Platinum → never show modal (handled by parent gating + isHighestPlan)
+ *
+ * All earning data is pulled from global settings — NOT hardcoded.
  */
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'elite', 'vip', 'executive', 'platinum'] as const;
 
-const PLAN_DETAILS: Record<string, { name: string; priceNgn: number; priceUsd: number; weeklyNgn: number; weeklyUsd: number; tagline: string }> = {
-  starter:   { name: 'Starter Plan',      priceNgn: 3000,  priceUsd: 10,  weeklyNgn: 1500,  weeklyUsd: 5,   tagline: 'Start earning with daily streaks' },
-  pro:       { name: 'Pro Active',        priceNgn: 6000,  priceUsd: 20,  weeklyNgn: 3000,  weeklyUsd: 10,  tagline: 'Double your daily earning power' },
-  elite:     { name: 'Elite Growth',      priceNgn: 9000,  priceUsd: 30,  weeklyNgn: 4500,  weeklyUsd: 15,  tagline: 'Unlock elite-tier tasks & rewards' },
-  vip:       { name: 'VIP Power',         priceNgn: 15000, priceUsd: 50,  weeklyNgn: 7500,  weeklyUsd: 25,  tagline: 'Priority access to premium tasks' },
-  executive: { name: 'Executive Master',  priceNgn: 30000, priceUsd: 100, weeklyNgn: 15000, weeklyUsd: 50,  tagline: 'Maximize earnings with executive perks' },
-  platinum:  { name: 'Platinum Master',   priceNgn: 75000, priceUsd: 250, weeklyNgn: 37500, weeklyUsd: 125, tagline: 'Unlimited earning potential — the pinnacle' },
+const PLAN_NAMES: Record<string, { name: string; tagline: string }> = {
+  starter:   { name: 'Starter Plan',      tagline: 'Start earning with daily streaks' },
+  pro:       { name: 'Pro Active',        tagline: 'Double your daily earning power' },
+  elite:     { name: 'Elite Growth',      tagline: 'Unlock elite-tier tasks & rewards' },
+  vip:       { name: 'VIP Power',         tagline: 'Priority access to premium tasks' },
+  executive: { name: 'Executive Master',  tagline: 'Maximize earnings with executive perks' },
+  platinum:  { name: 'Platinum Master',   tagline: 'Unlimited earning potential — the pinnacle' },
 };
 
 interface Props {
@@ -29,6 +32,7 @@ interface Props {
 export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
   const navigate = useNavigate();
   const { symbol, formatAmount } = useCurrency();
+  const { streakSettings, nonNigerianPlans } = useAppSettings();
 
   if (!isOpen) return null;
 
@@ -40,13 +44,25 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
 
   const isFreeTier = currentIndex <= 0; // free or unrecognized plan
   const nextPlanId = isFreeTier ? 'starter' : PLAN_ORDER[Math.min(currentIndex + 1, PLAN_ORDER.length - 1)];
-  const nextPlan = PLAN_DETAILS[nextPlanId];
+  const nextPlanMeta = PLAN_NAMES[nextPlanId];
 
-  if (!nextPlan) return null;
+  if (!nextPlanMeta) return null;
 
   const isGlobal = symbol === '$';
-  const displayPrice = isGlobal ? nextPlan.priceUsd : nextPlan.priceNgn;
-  const displayWeekly = isGlobal ? nextPlan.weeklyUsd : nextPlan.weeklyNgn;
+
+  // Pull weekly earning from global settings (dynamic, admin-controlled)
+  const planStreak = streakSettings[nextPlanId] || streakSettings['free'];
+  const displayWeekly = isGlobal ? (planStreak.weeklyTotalUsd || 2) : (planStreak.weeklyTotalNgn || 700);
+
+  // Pull plan price from global settings
+  const globalPlan = nonNigerianPlans[nextPlanId];
+  const displayPrice = isGlobal ? (globalPlan?.price || 10) : 0; // Nigerian price comes from subscription_plans table
+
+  // Calculate day 1 and day 7 using same AP formula as modal/SQL
+  const a = displayWeekly * 4.0 / 49.0;
+  const d = displayWeekly / 49.0;
+  const day1 = Math.round(a * 100) / 100;
+  const day7 = Math.round((a + 6 * d) * 100) / 100;
 
   const handleUpgradeClick = () => {
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -76,7 +92,7 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
                 Start Earning Today!
               </h2>
               <p className="text-on-surface-variant text-sm md:text-base leading-relaxed">
-                You're on the <strong className="text-on-surface">Free plan</strong>. Subscribe to the <strong className="text-primary">{nextPlan.name}</strong> to unlock daily streak rewards, higher task payouts, and exclusive earning opportunities.
+                You're on the <strong className="text-on-surface">Free plan</strong>. Subscribe to the <strong className="text-primary">{nextPlanMeta.name}</strong> to unlock daily streak rewards, higher task payouts, and exclusive earning opportunities.
               </p>
             </>
           ) : (
@@ -86,7 +102,7 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
                 Maximize Your Earnings!
               </h2>
               <p className="text-on-surface-variant text-sm md:text-base leading-relaxed">
-                Upgrade to the <strong className="text-primary">{nextPlan.name}</strong> to {nextPlan.tagline.toLowerCase()}.
+                Upgrade to the <strong className="text-primary">{nextPlanMeta.name}</strong> to {nextPlanMeta.tagline.toLowerCase()}.
               </p>
             </>
           )}
@@ -102,8 +118,12 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
               <span className="font-black text-primary">{formatAmount(displayWeekly)}</span>
             </div>
             <div className="flex justify-between items-center bg-surface-container-lowest p-3 rounded-xl shadow-sm border border-surface-container/50">
-              <span className="text-on-surface-variant font-medium text-sm">21-Day Cycle Total</span>
-              <span className="font-black text-primary">{formatAmount(displayWeekly * 3)}</span>
+              <span className="text-on-surface-variant font-medium text-sm">Daily Range</span>
+              <span className="font-black text-primary text-sm">{symbol}{day1.toLocaleString()} → {symbol}{day7.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center bg-surface-container-lowest p-3 rounded-xl shadow-sm border border-surface-container/50">
+              <span className="text-on-surface-variant font-medium text-sm">Monthly Potential</span>
+              <span className="font-black text-primary">{formatAmount(displayWeekly * 4)}</span>
             </div>
             {isFreeTier && (
               <div className="flex justify-between items-center bg-surface-container-lowest p-3 rounded-xl shadow-sm border border-surface-container/50">
@@ -119,7 +139,7 @@ export function PlanUpsellModal({ isOpen, onClose, currentPlanId }: Props) {
             onClick={handleUpgradeClick}
             className="w-full py-4 rounded-xl font-black text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
           >
-            {isFreeTier ? `Get Started for ${formatAmount(displayPrice)}` : `Upgrade for ${formatAmount(displayPrice)} Now`}
+            {isFreeTier ? `Get Started — View Plans` : `Upgrade to ${nextPlanMeta.name}`}
           </button>
           <button 
             onClick={onClose}
