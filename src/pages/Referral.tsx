@@ -9,7 +9,8 @@ export function Referral() {
   const queryClient = useQueryClient();
   const { formatAmount } = useCurrency();
   const [copied, setCopied] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [activeTier, setActiveTier] = useState<1 | 2 | 3>(1);
 
   // ─── TanStack Query — cached, retried, never infinite ──────────────
   const { data: referralData, isLoading } = useQuery({
@@ -17,18 +18,12 @@ export function Referral() {
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
 
-      const [walletRes, pendingTxRes, bonusTxRes, referralListRes] = await Promise.all([
+      const [walletRes, bonusTxRes] = await Promise.all([
         supabase.from('wallet_balances').select('referral_earnings').eq('user_id', user.id).maybeSingle(),
-        supabase.from('wallet_transactions').select('amount').eq('user_id', user.id).eq('type', 'referral_bonus').eq('status', 'pending'),
         supabase.from('wallet_transactions').select('amount, meta').eq('user_id', user.id).eq('type', 'referral_bonus'),
-        supabase.from('referrals')
-          .select(`created_at, referred_user_id, profiles:profiles!referrals_referred_user_id_fkey(name, avatar_url, status)`)
-          .eq('referrer_user_id', user.id).order('created_at', { ascending: false }),
       ]);
 
       const earnings = walletRes.data?.referral_earnings || 0;
-      const pendingBonus = (pendingTxRes.data || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-      const totalBonusEarned = (bonusTxRes.data || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
 
       // Per-user earnings map
       const perUserEarnings: Record<string, number> = {};
@@ -37,31 +32,65 @@ export function Referral() {
         if (refId) perUserEarnings[refId] = (perUserEarnings[refId] || 0) + Number(tx.amount || 0);
       });
 
-      // Enrich referrals with subscription data
-      let referrals = referralListRes.data || [];
-      if (!referralListRes.error && referrals.length > 0) {
-        const ids = referrals.map((r: any) => r.referred_user_id).filter(Boolean);
-        const { data: subsData } = await supabase.from('user_subscriptions').select('user_id, plan_id').in('user_id', ids);
-        const subsMap: Record<string, string> = {};
-        (subsData || []).forEach((s: any) => { subsMap[s.user_id] = s.plan_id; });
-        referrals = referrals.map((r: any) => ({ ...r, plan_id: subsMap[r.referred_user_id] || 'free' }));
-      } else if (referralListRes.error && profile?.referral_code) {
-        // Fallback
-        const { data: fallback } = await supabase.from('profiles').select('user_id, name, avatar_url, status').eq('referred_by_code', profile.referral_code);
-        referrals = (fallback || []).map((p: any) => ({ referred_user_id: p.user_id, created_at: new Date().toISOString(), profiles: p, plan_id: 'free' }));
+      // Tier 1 Fetch
+      const { data: t1Data } = await supabase.from('referrals')
+          .select(`created_at, referred_user_id, profiles:profiles!referrals_referred_user_id_fkey(name, avatar_url, status)`)
+          .eq('referrer_user_id', user.id).order('created_at', { ascending: false });
+          
+      let t1 = t1Data || [];
+      let t2: any[] = [];
+      let t3: any[] = [];
+
+      if (t1.length > 0) {
+         const t1Ids = t1.map(r => r.referred_user_id).filter(Boolean);
+         if (t1Ids.length > 0) {
+            const { data: t2Data } = await supabase.from('referrals')
+              .select(`created_at, referred_user_id, referrer_user_id, profiles:profiles!referrals_referred_user_id_fkey(name, avatar_url, status)`)
+              .in('referrer_user_id', t1Ids).order('created_at', { ascending: false });
+            t2 = t2Data || [];
+            
+            if (t2.length > 0) {
+               const t2Ids = t2.map(r => r.referred_user_id).filter(Boolean);
+               if (t2Ids.length > 0) {
+                  const { data: t3Data } = await supabase.from('referrals')
+                    .select(`created_at, referred_user_id, referrer_user_id, profiles:profiles!referrals_referred_user_id_fkey(name, avatar_url, status)`)
+                    .in('referrer_user_id', t2Ids).order('created_at', { ascending: false });
+                  t3 = t3Data || [];
+               }
+            }
+         }
       }
 
-      return { earnings, pendingBonus, totalBonusEarned, perUserEarnings, referrals };
+      // Enrich referrals with subscription data
+      const allIds = [...t1.map(r=>r.referred_user_id), ...t2.map(r=>r.referred_user_id), ...t3.map(r=>r.referred_user_id)].filter(Boolean);
+      
+      const subsMap: Record<string, string> = {};
+      if (allIds.length > 0) {
+        const { data: subsData } = await supabase.from('user_subscriptions').select('user_id, plan_id').in('user_id', allIds);
+        (subsData || []).forEach((s: any) => { subsMap[s.user_id] = s.plan_id; });
+      }
+
+      const enrich = (refs: any[]) => refs.map((r: any) => ({ ...r, plan_id: subsMap[r.referred_user_id] || 'free' }));
+
+      return { 
+        earnings, 
+        perUserEarnings, 
+        tier1: enrich(t1), 
+        tier2: enrich(t2), 
+        tier3: enrich(t3),
+        totalReferrals: t1.length + t2.length + t3.length
+      };
     },
     enabled: !!user?.id,
     staleTime: 2 * 60 * 1000,
   });
 
   const earnings = referralData?.earnings || 0;
-  const pendingBonus = referralData?.pendingBonus || 0;
-  const totalBonusEarned = referralData?.totalBonusEarned || 0;
   const perUserEarnings = referralData?.perUserEarnings || {};
-  const referrals = referralData?.referrals || [];
+  const t1List = referralData?.tier1 || [];
+  const t2List = referralData?.tier2 || [];
+  const t3List = referralData?.tier3 || [];
+  const totalCount = referralData?.totalReferrals || 0;
 
   // ─── Real-time: invalidate cache for new referrals & wallet changes ──
   useEffect(() => {
@@ -124,7 +153,8 @@ export function Referral() {
     }
   };
 
-  const displayedReferrals = referrals.slice(0, visibleCount);
+  const activeList = activeTier === 1 ? t1List : activeTier === 2 ? t2List : t3List;
+  const displayedReferrals = activeList.slice(0, visibleCount);
 
   if (isLoading && !referralData) {
     return <div className="min-h-screen bg-surface" />;
@@ -220,7 +250,7 @@ export function Referral() {
           <div className="col-span-2 bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Referrers</p>
             <div className="flex items-baseline gap-1 pt-1">
-              <span className="text-2xl font-black text-emerald-900 font-headline">{referrals.length}</span>
+              <span className="text-2xl font-black text-emerald-900 font-headline">{totalCount}</span>
               <span className="text-xs text-on-surface-variant font-medium">people referred</span>
             </div>
           </div>
@@ -270,16 +300,39 @@ export function Referral() {
         <section className="space-y-4 pb-4">
           <div className="flex justify-between items-center px-1">
             <h3 className="font-headline font-bold text-lg text-emerald-900">Your Referrals</h3>
-            <span className="text-xs text-on-surface-variant font-bold">{referrals.length} total</span>
+            <span className="text-xs text-on-surface-variant font-bold">{totalCount} total</span>
           </div>
-          <div className="space-y-3">
+          
+          {/* TIER TABS */}
+          <div className="flex gap-2 border-b border-surface-container-highest/30 pb-2 overflow-x-auto disabled-scrollbar">
+             <button 
+               onClick={() => { setActiveTier(1); setVisibleCount(10); }}
+               className={`shrink-0 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTier === 1 ? 'bg-primary text-white shadow-md' : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'}`}
+             >
+               Tier 1 <span className="opacity-75 text-xs ml-1">({t1List.length})</span>
+             </button>
+             <button 
+               onClick={() => { setActiveTier(2); setVisibleCount(10); }}
+               className={`shrink-0 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTier === 2 ? 'bg-primary text-white shadow-md' : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'}`}
+             >
+               Tier 2 <span className="opacity-75 text-xs ml-1">({t2List.length})</span>
+             </button>
+             <button 
+               onClick={() => { setActiveTier(3); setVisibleCount(10); }}
+               className={`shrink-0 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTier === 3 ? 'bg-primary text-white shadow-md' : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'}`}
+             >
+               Tier 3 <span className="opacity-75 text-xs ml-1">({t3List.length})</span>
+             </button>
+          </div>
+
+          <div className="space-y-3 pt-2">
             {displayedReferrals.length === 0 ? (
                <div className="text-center bg-surface-container-lowest p-8 border border-dashed border-outline-variant/30 rounded-2xl">
                  <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">group_off</span>
                  <p className="text-on-surface-variant font-medium mb-1">
-                   You haven't referred anyone yet.
+                   No referrals found in Tier {activeTier}.
                  </p>
-                 <p className="text-xs text-on-surface-variant">Share your link above to start!</p>
+                 {activeTier === 1 && <p className="text-xs text-on-surface-variant">Share your link above to start!</p>}
                </div>
             ) : (
               displayedReferrals.map((ref: any, index: number) => {
@@ -322,7 +375,7 @@ export function Referral() {
               })
             )}
 
-            {referrals.length > visibleCount && (
+            {activeList.length > visibleCount && (
               <div className="flex justify-center pt-4">
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 10)}

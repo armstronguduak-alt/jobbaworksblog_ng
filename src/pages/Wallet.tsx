@@ -50,7 +50,7 @@ export function Wallet() {
       };
     },
     enabled: !!user?.id,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const balance = walletData?.balance || 0;
@@ -59,7 +59,7 @@ export function Wallet() {
   const payoutMethods = walletData?.payoutMethods || [];
   const referralCount = walletData?.referralCount || 0;
 
-  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 10.00;
+  const PAYOUT_THRESHOLD = 30.00; // $30 threshold for everyone
   const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
   const walletSymbol = '$';
   
@@ -127,7 +127,7 @@ export function Wallet() {
       return;
     }
     if (Number(withdrawAmount) > displayBalance) {
-      setMessage(`Insufficient USD balance.`);
+      setMessage(`Insufficient USD balance. Swapped/Available: $${displayBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}.`);
       return;
     }
     if (!selectedMethodId) {
@@ -213,7 +213,11 @@ export function Wallet() {
           withdrawalFeePercent: exchangeRates.withdrawalFee,
           feeDeducted: fee,
           expectedAmount: youGet,
-          account_details: accountDetails
+          account_details: accountDetails,
+          currency: 'USD',
+          // Explicitly state how much to deduct from which column based on the user's region
+          deduction_amount: isGlobal ? (Number(withdrawAmount) * exchangeRate) : Number(withdrawAmount),
+          deduction_column: isGlobal ? 'balance' : 'usdt_balance'
         }
       });
 

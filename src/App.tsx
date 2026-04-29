@@ -80,6 +80,8 @@ function App() {
           <Route path="stories" element={<StoriesHub />} />
           <Route path="stories/:slug" element={<StoryDetail />} />
           <Route path="stories/read/:slug/:chapterNum" element={<StoryReader />} />
+          <Route path="blog" element={<Home />} />
+          <Route path="article/:slug" element={<PublicArticle />} />
           <Route path=":slug" element={<Home />} />
           <Route path=":categorySlug/:slug" element={<PublicArticle />} />
           <Route path="promotional" element={<Promotional />} />

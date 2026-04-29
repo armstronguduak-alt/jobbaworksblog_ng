@@ -47,7 +47,9 @@ export function AdminSettings() {
     streakNgnMin: '10',
     streakNgnMax: '500',
     streakUsdMin: '0.20',
-    streakUsdMax: '0.50'
+    streakUsdMax: '0.50',
+    streakEnabled: true,
+    streakMaxPoints: '10'
   });
 
   const [toggles, setToggles] = useState(pageToggles);
@@ -142,10 +144,10 @@ export function AdminSettings() {
         globalPrice: gs?.price?.toString() || '0',
         globalReadReward: gs?.usdReadReward?.toString() || '0',
         globalCommentReward: gs?.usdCommentReward?.toString() || '0',
-        streakNgnMin: ss?.ngnMin?.toString() || '10',
-        streakNgnMax: ss?.ngnMax?.toString() || '500',
-        streakUsdMin: ss?.usdMin?.toString() || '0.20',
-        streakUsdMax: ss?.usdMax?.toString() || '0.50'
+        weeklyTotalNgn: ss?.weeklyTotalNgn?.toString() || '700',
+        weeklyTotalUsd: ss?.weeklyTotalUsd?.toString() || '2',
+        streakEnabled: ss?.enabled !== false,
+        streakMaxPoints: ss?.maxPoints?.toString() || '10'
       });
     }
   }, [selectedTierId, selectedTier, fetchedNonNigerianPlans, fetchedStreakSettings]);
@@ -179,10 +181,10 @@ export function AdminSettings() {
       const updatedStreakSettings = {
         ...fetchedStreakSettings,
         [selectedTierId]: {
-          ngnMin: Number(tierSettings.streakNgnMin),
-          ngnMax: Number(tierSettings.streakNgnMax),
-          usdMin: Number(tierSettings.streakUsdMin),
-          usdMax: Number(tierSettings.streakUsdMax)
+          weeklyTotalNgn: Number(tierSettings.weeklyTotalNgn),
+          weeklyTotalUsd: Number(tierSettings.weeklyTotalUsd),
+          enabled: tierSettings.streakEnabled,
+          maxPoints: Number(tierSettings.streakMaxPoints)
         }
       };
       const { error: streakError } = await supabase.from('system_settings').upsert({ key: 'streak_settings', value: updatedStreakSettings });
@@ -465,21 +467,34 @@ export function AdminSettings() {
                        <span className="material-symbols-outlined text-primary">spa</span> Daily Login Streak Settings
                     </h4>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Nigerian Min Reward (₦)</label>
-                    <input type="number" value={tierSettings.streakNgnMin} onChange={(e) => setTierSettings({...tierSettings, streakNgnMin: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  <div className="col-span-full flex items-center gap-4 bg-surface-container-low p-4 rounded-2xl">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input 
+                          type="checkbox" 
+                          checked={tierSettings.streakEnabled}
+                          onChange={(e) => setTierSettings({...tierSettings, streakEnabled: e.target.checked})}
+                          className="peer sr-only" 
+                        />
+                        <div className="w-6 h-6 rounded-md border-2 border-on-surface-variant peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
+                        <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                      </div>
+                      <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">Enable Daily Streak for this Plan</span>
+                    </label>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Nigerian Max Reward (₦)</label>
-                    <input type="number" value={tierSettings.streakNgnMax} onChange={(e) => setTierSettings({...tierSettings, streakNgnMax: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Max Points / Day</label>
+                    <input type="number" value={tierSettings.streakMaxPoints} onChange={(e) => setTierSettings({...tierSettings, streakMaxPoints: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Min Reward (USD)</label>
-                    <input type="number" step="0.01" value={tierSettings.streakUsdMin} onChange={(e) => setTierSettings({...tierSettings, streakUsdMin: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Total Weekly Earning (Nigerian Users - ₦)</label>
+                    <input type="number" step="0.01" value={tierSettings.weeklyTotalNgn} onChange={(e) => setTierSettings({...tierSettings, weeklyTotalNgn: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                    <p className="text-xs text-slate-500 mt-1">This amount will be automatically split across 7 days progressively (e.g. ₦700 splits to 70, 80, 90...).</p>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Global Max Reward (USD)</label>
-                    <input type="number" step="0.01" value={tierSettings.streakUsdMax} onChange={(e) => setTierSettings({...tierSettings, streakUsdMax: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Total Weekly Earning (Global Users - $)</label>
+                    <input type="number" step="0.01" value={tierSettings.weeklyTotalUsd} onChange={(e) => setTierSettings({...tierSettings, weeklyTotalUsd: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-surface-container-low border-transparent text-sm font-bold text-on-surface" />
+                    <p className="text-xs text-slate-500 mt-1">This amount will be automatically split across 7 days progressively (e.g. $10 splits to $1.00, $1.14...).</p>
                   </div>
                 </div>
               </div>

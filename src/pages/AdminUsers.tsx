@@ -74,7 +74,7 @@ export function AdminUsers() {
       return data || [];
     },
     enabled: isAdmin,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
 

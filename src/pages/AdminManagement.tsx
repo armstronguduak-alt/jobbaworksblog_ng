@@ -77,7 +77,9 @@ export function AdminManagement() {
   }, [hasAccess, regionView, debouncedFetch]);
 
   async function fetchAdminStats() {
-    setIsLoading(true);
+    if (totalUsersCount === 0 && totalDeposits === 0) {
+      setIsLoading(true);
+    }
     try {
       let matchedUserIds: string[] | null = null;
       if (regionView !== 'all') {
@@ -255,8 +257,8 @@ export function AdminManagement() {
           <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center mb-3">
             <span className="material-symbols-outlined text-[20px] text-error">payments</span>
           </div>
-          <p className="text-on-surface-variant text-xs font-semibold mb-1">Pending Withdrawals</p>
-          <h3 className="text-on-surface text-2xl font-black font-headline">{symbol}{isLoading ? '...' : formatAdminAmount(pendingWithdrawalsSum)}</h3>
+          <p className="text-on-surface-variant text-xs font-semibold mb-1">Pending Withdrawals (USD)</p>
+          <h3 className="text-on-surface text-2xl font-black font-headline">${isLoading ? '...' : (pendingWithdrawalsSum / (exchangeRates?.dollarPrice || 1500)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           <p className="text-[10px] font-bold mt-2 text-error uppercase tracking-wider">{pendingWithdrawalsCount} requests awaiting</p>
         </div>
       </div>
@@ -295,7 +297,7 @@ export function AdminManagement() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-bold text-on-surface text-sm md:text-base">{symbol}{formatAdminAmount(Number(tx.amount))}</p>
+                    <p className="font-bold text-on-surface text-sm md:text-base">${(Number(tx.amount) / (exchangeRates?.dollarPrice || 1500)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <span className="inline-block px-2 py-0.5 md:px-3 md:py-1 bg-amber-500/10 text-amber-600 text-[10px] font-black rounded-full uppercase tracking-widest mt-1">Pending</span>
                   </div>
                 </div>

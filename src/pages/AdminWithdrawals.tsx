@@ -30,7 +30,7 @@ export function AdminWithdrawals() {
       return data || [];
     },
     enabled: hasAccess,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: withdrawals = [], isLoading, refetch: fetchWithdrawals } = useQuery({
@@ -67,7 +67,7 @@ export function AdminWithdrawals() {
       return txs.map(tx => ({ ...tx, profiles: profileMap[tx.user_id] || null }));
     },
     enabled: hasAccess,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -102,12 +102,65 @@ export function AdminWithdrawals() {
     };
 
     try {
-      const { error } = await supabase
+      const isGlobalUser = selectedTx.profiles?.is_global || false;
+      const meta = selectedTx.meta || {};
+      
+      let deductionAmount = meta.deduction_amount;
+      let deductionColumn = meta.deduction_column;
+      
+      // Fallback for older transactions
+      if (!deductionAmount) {
+         if (Math.abs(selectedTx.amount) >= 1000) {
+            // It was requested in NGN
+            deductionAmount = Math.abs(selectedTx.amount);
+            deductionColumn = 'balance';
+         } else {
+            // It was requested in USD
+            deductionAmount = isGlobalUser ? Math.abs(selectedTx.amount) * 1500 : Math.abs(selectedTx.amount);
+            deductionColumn = isGlobalUser ? 'balance' : 'usdt_balance';
+         }
+      }
+
+      // 1. Fetch current user balance
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('wallet_balances')
+        .select('balance, usdt_balance')
+        .eq('user_id', selectedTx.user_id)
+        .single();
+        
+      if (balanceError) throw balanceError;
+      
+      const currentBalance = deductionColumn === 'usdt_balance' ? (balanceData?.usdt_balance || 0) : (balanceData?.balance || 0);
+      
+      // 2. Prevent Negative Balance
+      if (currentBalance < deductionAmount) {
+        throw new Error(`User does not have enough ${deductionColumn === 'usdt_balance' ? 'USD' : 'NGN'} balance to cover this withdrawal. Current: ${currentBalance.toFixed(2)}, Required: ${deductionAmount.toFixed(2)}`);
+      }
+
+      // 3. Update Transaction Status
+      const { error: updateError } = await supabase
         .from('wallet_transactions')
         .update({ status: 'completed', meta: finalMeta })
-        .eq('id', selectedTx.id);
+        .eq('id', selectedTx.id)
+        // Add optimistic lock / safety check: only update if it's currently 'pending' to prevent double approval
+        .eq('status', 'pending');
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 4. Deduct Amount from User Wallet
+      const updatePayload = deductionColumn === 'usdt_balance' 
+        ? { usdt_balance: currentBalance - deductionAmount }
+        : { balance: currentBalance - deductionAmount };
+        
+      const { error: deductError } = await supabase
+         .from('wallet_balances')
+         .update(updatePayload)
+         .eq('user_id', selectedTx.user_id);
+         
+      if (deductError) {
+        console.error("Deduction error:", deductError);
+        throw new Error("Failed to deduct from wallet. Transaction marked as completed but balance wasn't updated.");
+      }
 
       await supabase.from('notifications').insert({
         user_id: selectedTx.user_id,
@@ -143,19 +196,11 @@ export function AdminWithdrawals() {
 
       if (error) throw error;
 
-      // If rejected, refund the balance back
-      if (newStatus === 'rejected') {
-        await supabase.rpc('increment_wallet_balance', {
-          amount: Math.abs(amount),
-          target_user: userId
-        });
-      }
-
       // Send notification to the user
       await supabase.from('notifications').insert({
         user_id: userId,
         title: 'Withdrawal Rejected ❌',
-        message: `Your withdrawal of $${Math.abs(amount).toLocaleString()} was rejected. The amount has been refunded to your wallet.`,
+        message: `Your withdrawal request of $${Math.abs(amount).toLocaleString()} was rejected. Please contact support for more details.`,
         type: 'system'
       });
 

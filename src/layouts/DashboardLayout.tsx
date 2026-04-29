@@ -87,7 +87,7 @@ export function DashboardLayout() {
     { name: 'Earnings', path: '/analytics', icon: 'monitoring', show: true },
     { name: 'Transactions', path: '/transactions', icon: 'receipt_long', show: true },
     { name: 'Wallet', path: '/wallet', icon: 'account_balance_wallet', show: pageToggles.walletEnabled },
-    { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled && profile?.is_nigerian !== false },
+    { name: 'Swap', path: '/swap', icon: 'swap_horiz', show: pageToggles.swapEnabled && !profile?.is_global },
     { name: 'Leaderboard', path: '/leaderboard', icon: 'emoji_events', show: pageToggles.leaderboardEnabled },
     { name: 'My Articles', path: '/articles', icon: 'article', show: true },
     { name: 'My Stories', path: '/dashboard/mystories', icon: 'auto_stories', show: pageToggles.storiesEnabled },

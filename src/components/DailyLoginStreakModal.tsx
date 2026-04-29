@@ -87,25 +87,29 @@ export function DailyLoginStreakModal({ isOpen, onClose }: DailyLoginStreakModal
 
   const displayStreak = claimResult ? claimResult.streak : currentStreak;
 
-  // Get reward ranges for the current plan from dynamic settings
   const planStreakSetting = streakSettings[planId] || streakSettings['free'];
-  const minReward = isGlobal ? planStreakSetting.usdMin : planStreakSetting.ngnMin;
-  const maxReward = isGlobal ? planStreakSetting.usdMax : planStreakSetting.ngnMax;
+  const totalReward = isGlobal ? (planStreakSetting.weeklyTotalUsd || 2) : (planStreakSetting.weeklyTotalNgn || 700);
   const symbol = isGlobal ? '$' : '₦';
 
   // Format reward for display in grid tiles
   const formatRewardDisplay = (amount: number) => {
     if (isGlobal) {
-      return `$${amount.toFixed(amount < 1 ? 2 : 0)}`;
+      return `$${amount.toFixed(amount < 1 ? 2 : 1)}`;
     }
     return `₦${amount >= 1000 ? (amount / 1000).toFixed(1) + 'k' : amount.toLocaleString()}`;
   };
 
-  // Generate 7 display amounts spread across the range for visual effect
+  // Arithmetic Progression over 7 days sum = Total
+  const a = totalReward * 0.1;
+  const d = totalReward / 70.0;
+
   const dayRewards = Array.from({ length: 7 }, (_, i) => {
-    const t = i / 6; // 0 to 1
-    return Math.round((minReward + t * (maxReward - minReward)) * 100) / 100;
+    const amount = a + i * d;
+    return Math.round(amount * 100) / 100;
   });
+
+  const minReward = Math.round(a * 100) / 100;
+  const maxReward = Math.round((a + 6 * d) * 100) / 100;
 
   // Format the claimed reward for display
   const formatClaimReward = (amount: number) => {

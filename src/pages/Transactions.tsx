@@ -96,7 +96,7 @@ export function Transactions() {
         {[
           { label: 'Total Earned', value: formatAmount(stats.totalEarned), icon: 'trending_up', color: 'text-emerald-600', bg: 'from-emerald-50 to-green-50' },
           ...(!isGlobal ? [{ label: 'Total Swapped', value: formatAmount(stats.totalSwapped), icon: 'swap_horiz', color: 'text-blue-600', bg: 'from-blue-50 to-indigo-50' }] : []),
-          { label: 'Total Withdrawn', value: formatAmount(stats.totalWithdrawn), icon: 'account_balance', color: 'text-rose-600', bg: 'from-rose-50 to-pink-50' },
+          { label: 'Total Withdrawn', value: `$${stats.totalWithdrawn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, icon: 'account_balance', color: 'text-rose-600', bg: 'from-rose-50 to-pink-50' },
           { label: 'Transactions', value: stats.totalTx.toString(), icon: 'receipt_long', color: 'text-slate-600', bg: 'from-slate-50 to-gray-50' },
         ].map(card => (
           <div key={card.label} className={`bg-gradient-to-br ${card.bg} rounded-2xl p-4 border border-white shadow-sm`}>
@@ -182,7 +182,7 @@ export function Transactions() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`font-black text-sm ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {isPositive ? '+' : ''}{tx.type === 'withdrawal' || tx.type === 'swap' ? '$' + Number(Math.abs(tx.amount)).toFixed(2) : formatAmount(Math.abs(tx.amount))}
+                      {isPositive ? '+' : '-'}{tx.type === 'withdrawal' ? `$${Math.abs(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}` : formatAmount(Math.abs(tx.amount))}
                     </p>
                     <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
                       tx.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :

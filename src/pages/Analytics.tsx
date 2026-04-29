@@ -121,7 +121,7 @@ export function Analytics() {
               {isLoading ? (
                 <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg mt-1"></div>
               ) : (
-                <p className="text-3xl font-headline font-black text-on-surface">
+                <p className="text-xl md:text-2xl font-headline font-black text-on-surface truncate">
                   {kpi.isCurrency ? formatAmount(kpi.val) : (kpi.formatted || kpi.val.toLocaleString())}
                 </p>
               )}
@@ -160,25 +160,25 @@ export function Analytics() {
 
         {/* Earnings Breakdown */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-primary to-primary-container p-6 rounded-3xl text-white relative overflow-hidden">
+          <div className="bg-gradient-to-br from-primary to-primary-container p-5 md:p-6 rounded-3xl text-white relative overflow-hidden">
             <div className="absolute -right-4 -bottom-4 opacity-10">
               <span className="material-symbols-outlined text-[80px]">payments</span>
             </div>
-            <p className="text-white/70 text-xs font-bold uppercase tracking-wider mb-2">Post Earnings</p>
+            <p className="text-white/70 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2">Post Earnings</p>
             {isLoading ? <div className="h-8 w-24 bg-white/20 animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline">{formatAmount(stats.postEarnings)}</p>
+              <p className="text-xl md:text-2xl font-black font-headline truncate">{formatAmount(stats.postEarnings)}</p>
             )}
           </div>
-          <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-wider mb-2">Referral Income</p>
+          <div className="bg-surface-container-lowest p-5 md:p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
+            <p className="text-on-surface-variant text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2">Referral Income</p>
             {isLoading ? <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline text-on-surface">{formatAmount(stats.referralEarnings)}</p>
+              <p className="text-xl md:text-2xl font-black font-headline text-on-surface truncate">{formatAmount(stats.referralEarnings)}</p>
             )}
           </div>
-          <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-wider mb-2">Available Balance</p>
+          <div className="bg-surface-container-lowest p-5 md:p-6 rounded-3xl shadow-sm border border-surface-container-highest/20">
+            <p className="text-on-surface-variant text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2">Available Balance</p>
             {isLoading ? <div className="h-8 w-24 bg-surface-container-high animate-pulse rounded-lg"></div> : (
-              <p className="text-2xl font-black font-headline text-primary">{formatAmount(stats.earnings)}</p>
+              <p className="text-xl md:text-2xl font-black font-headline text-primary truncate">{formatAmount(stats.earnings)}</p>
             )}
           </div>
         </section>

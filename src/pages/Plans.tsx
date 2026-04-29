@@ -26,6 +26,7 @@ export function Plans() {
 
   // Manual payment state
   const [manualPaymentPlan, setManualPaymentPlan] = useState<any | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<any | null>(null);
   const [rotationIndex, setRotationIndex] = useState(0);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function Plans() {
         .from('subscription_plans')
         .select('*')
         .eq('is_active', true)
-        .order('price', { ascending: true });
+        .order('price', { ascending: false });
 
       if (!error && data) {
         setPlans(data);
@@ -71,36 +72,37 @@ export function Plans() {
     }
   }
 
-  const handleUpgrade = async (plan: any, actualPrice: number) => {
+  const handleUpgradeClick = (plan: any, actualPrice: number) => {
     if (plan.price === 0) return;
     if (plan.id === currentPlan) return;
+    setCheckoutPlan({ ...plan, actualPrice });
+  };
 
+  const proceedWithCheckout = async () => {
+    if (!checkoutPlan) return;
+    
     if (isGlobal) {
       if (paymentGatewaySettings.gatewayType === 'nowpayments') {
-        handleNowpaymentsCheckout(plan, actualPrice);
+        handleNowpaymentsCheckout(checkoutPlan, checkoutPlan.actualPrice);
       } else {
-        setManualPaymentPlan({ ...plan, actualPrice });
+        setManualPaymentPlan(checkoutPlan);
       }
+      setCheckoutPlan(null);
       return;
     }
 
-    // Show custom dialog before Korapay payload
-    const isConfirmed = await showConfirm(
-      `You are about to subscribe to the ${plan.name} plan for ₦${Number(plan.price).toLocaleString()}. Please confirm to proceed to secure payment with Korapay.`,
-      'Confirm Subscription'
-    );
-    if (!isConfirmed) return;
-
-    setProcessingPlan(plan.id);
+    setProcessingPlan(checkoutPlan.id);
+    const planToProcess = checkoutPlan;
+    setCheckoutPlan(null);
 
     // Load Korapay checkout
     if (typeof window.Korapay === 'undefined') {
       const script = document.createElement('script');
       script.src = 'https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js';
-      script.onload = () => initKorapayCheckout(plan);
+      script.onload = () => initKorapayCheckout(planToProcess);
       document.head.appendChild(script);
     } else {
-      initKorapayCheckout(plan);
+      initKorapayCheckout(planToProcess);
     }
   };
 
@@ -370,7 +372,7 @@ export function Plans() {
                 </ul>
                 
                 <button 
-                  onClick={() => canUpgrade && handleUpgrade(plan, actualPrice)}
+                  onClick={() => canUpgrade && handleUpgradeClick(plan, actualPrice)}
                   disabled={isCurrent || isProcessing || isLowerPlan}
                   className={`w-full py-4 rounded-xl font-bold transition-all mt-auto active:scale-95
                     ${isProcessing ? 'opacity-70 cursor-wait' : ''}
@@ -535,6 +537,69 @@ export function Plans() {
           </div>
         </div>
       )}
+
+      {/* Professional Checkout Modal */}
+      {checkoutPlan && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-surface-container-lowest rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden border border-surface-container-highest/20 animate-[scaleIn_0.3s_ease-out]">
+            <div className="bg-gradient-to-br from-emerald-600 to-[#008751] p-6 relative">
+              <button 
+                onClick={() => setCheckoutPlan(null)}
+                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-sm z-10"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-white backdrop-blur-sm mb-4 shadow-inner">
+                  <span className="material-symbols-outlined text-[32px]">shopping_cart_checkout</span>
+                </div>
+                <h2 className="text-2xl font-black font-headline text-white mb-1">Confirm Subscription</h2>
+                <p className="text-emerald-100 text-sm">You are about to upgrade to the {checkoutPlan.name} plan.</p>
+              </div>
+            </div>
+
+            <div className="p-8">
+              <div className="bg-surface-container-low rounded-2xl p-5 mb-6 border border-surface-container">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-on-surface-variant font-medium text-sm">Selected Plan</span>
+                  <span className="font-bold text-on-surface">{checkoutPlan.name}</span>
+                </div>
+                <div className="flex justify-between items-center pb-3 border-b border-surface-container-high mb-3">
+                  <span className="text-on-surface-variant font-medium text-sm">Billing Cycle</span>
+                  <span className="font-bold text-on-surface">One Time</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface font-bold">Total Amount</span>
+                  <span className="text-2xl font-black text-primary tracking-tight">
+                    {formatAmount(checkoutPlan.actualPrice)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-8">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-emerald-500 text-[20px] shrink-0">check_circle</span>
+                  <p className="text-sm text-on-surface-variant">Instant activation upon successful payment.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-emerald-500 text-[20px] shrink-0">check_circle</span>
+                  <p className="text-sm text-on-surface-variant">Secure, encrypted payment processing.</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={proceedWithCheckout}
+                disabled={processingPlan !== null}
+                className="w-full py-4 rounded-xl font-black text-white bg-gradient-to-r from-emerald-600 to-[#008751] hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {processingPlan !== null ? 'Processing...' : `Pay ${formatAmount(checkoutPlan.actualPrice)} Securely`}
+                {processingPlan === null && <span className="material-symbols-outlined text-[20px]">lock</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

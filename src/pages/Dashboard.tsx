@@ -199,7 +199,7 @@ export function Dashboard() {
               Total Earnings
             </span>
             <div className="mt-3">
-              <h4 className="text-2xl font-black font-headline text-on-surface">
+              <h4 className="text-xl md:text-2xl font-black font-headline text-on-surface truncate">
                 {formatAmount(totalEarnings)}
               </h4>
               <p className="text-xs text-on-surface-variant mt-0.5">Consistency brings growth.</p>
@@ -224,14 +224,14 @@ export function Dashboard() {
             </div>
             <span className="material-symbols-outlined text-tertiary text-[20px] mb-1.5">share</span>
             <p className="text-xs font-medium text-on-surface-variant">Referral Earnings</p>
-            <h4 className="text-lg font-bold font-headline text-on-surface truncate">
+            <h4 className="text-base md:text-lg font-bold font-headline text-on-surface truncate">
               {formatAmount(referralEarnings)}
             </h4>
           </div>
-          <div className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm">
+          <div className="bg-surface-container-lowest p-4 rounded-[1.5rem] shadow-sm">
             <span className="material-symbols-outlined text-primary text-[20px] mb-1.5">article</span>
-            <p className="text-xs font-medium text-on-surface-variant">Tasks Completed</p>
-            <h4 className="text-lg font-bold font-headline text-on-surface">{articlesRead}</h4>
+            <p className="text-[11px] font-medium text-on-surface-variant">Tasks Completed</p>
+            <h4 className="text-base md:text-lg font-bold font-headline text-on-surface truncate">{articlesRead}</h4>
           </div>
         </div>
       </section>

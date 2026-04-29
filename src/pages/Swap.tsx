@@ -22,6 +22,10 @@ export function Swap() {
   const EXCHANGE_RATE = exchangeRates.dollarPrice;
   const FEE_PERCENT = exchangeRates.swapFee / 100;
 
+  if (profile && profile.is_global) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   useEffect(() => {
     if (user?.id) {
       fetchBalance(user.id);
