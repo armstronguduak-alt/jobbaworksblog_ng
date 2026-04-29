@@ -15,7 +15,7 @@ export const fetchArticleCore = async (slug: string) => {
     .select(`
       *,
       category:categories(id, name, slug),
-      author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url, is_verified)
+      author:profiles!posts_author_user_id_fkey(user_id, username, name, avatar_url)
     `)
     .eq('slug', slug)
     .eq('status', 'approved')
@@ -52,8 +52,8 @@ export const fetchArticleData = async (slug: string, userId?: string) => {
       : Promise.resolve({ data: null })
   ]);
 
-  // Apply author verification
-  let isVerified = pData.author?.is_verified || false;
+  // Apply author verification based on subscription if no column
+  let isVerified = false;
   if (subResult.data && subResult.data.plan_id !== 'free') isVerified = true;
   if (pData.author) pData.author.is_verified = isVerified;
 
@@ -232,7 +232,17 @@ export function PublicArticle() {
   const progressPercentage = timeLeft !== null && totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 100;
 
   // Extract plain text excerpt for SEO description
-  const seoExcerpt = post.content ? (() => { const tmp = document.createElement('div'); tmp.innerHTML = post.content; return tmp.textContent?.substring(0, 155) + '...' || ''; })() : post.title;
+  const getExcerpt = () => {
+    if (!post.content) return post.title;
+    try {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = post.content;
+      return tmp.textContent ? tmp.textContent.substring(0, 155) + '...' : post.title;
+    } catch(e) {
+      return post.title;
+    }
+  };
+  const seoExcerpt = post.excerpt ? post.excerpt : getExcerpt();
   const categorySlug = post.category?.slug || 'post';
 
   return (

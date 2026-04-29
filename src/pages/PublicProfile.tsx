@@ -15,7 +15,7 @@ export function PublicProfile() {
       // 1. Fetch profile
       const { data: pData } = await supabase
         .from('profiles')
-        .select('user_id, username, name, avatar_url, bio, followers_count, following_count, is_verified, gender')
+        .select('user_id, username, name, avatar_url, bio, followers_count, following_count, gender')
         .eq('username', username!)
         .maybeSingle();
       if (!pData) return null;

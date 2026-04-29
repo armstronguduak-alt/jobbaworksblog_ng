@@ -27,7 +27,7 @@ export function Home() {
         .select(`
           id, title, slug, excerpt, featured_image, reading_time_seconds, published_at, created_at,
           category:categories(name, slug),
-          author:profiles!posts_author_user_id_fkey(name, username, avatar_url, is_verified)
+          author:profiles!posts_author_user_id_fkey(name, username, avatar_url)
         `)
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
