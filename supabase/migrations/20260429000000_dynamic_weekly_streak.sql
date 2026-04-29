@@ -79,14 +79,14 @@ BEGIN
 
   -- Load exchange rates
   SELECT ss.value INTO v_exchange FROM public.system_settings ss WHERE ss.key = 'exchange_rates';
-  IF v_exchange IS NOT NULL AND jsonb_exists(v_exchange, 'dollarPrice') THEN
+  IF v_exchange IS NOT NULL AND (v_exchange->>'dollarPrice') IS NOT NULL THEN
     v_dollar_price := (v_exchange->>'dollarPrice')::numeric;
   END IF;
 
   -- Load streak settings
   SELECT ss.value INTO v_settings FROM public.system_settings ss WHERE ss.key = 'streak_settings';
 
-  IF v_settings IS NOT NULL AND jsonb_exists(v_settings, v_plan_id) THEN
+  IF v_settings IS NOT NULL AND (v_settings->v_plan_id) IS NOT NULL THEN
     v_plan_settings := v_settings->v_plan_id;
   ELSE
     v_plan_settings := COALESCE(v_settings->'free', '{"weeklyTotalNgn":320,"weeklyTotalUsd":1}'::jsonb);
@@ -217,7 +217,7 @@ DECLARE
 BEGIN
   -- Load exchange rates
   SELECT ss.value INTO v_exchange FROM public.system_settings ss WHERE ss.key = 'exchange_rates';
-  IF v_exchange IS NOT NULL AND jsonb_exists(v_exchange, 'dollarPrice') THEN
+  IF v_exchange IS NOT NULL AND (v_exchange->>'dollarPrice') IS NOT NULL THEN
     v_dollar_price := (v_exchange->>'dollarPrice')::numeric;
   END IF;
 
@@ -248,7 +248,7 @@ BEGIN
     END IF;
 
     -- Determine the plan-specific weekly total
-    IF v_settings IS NOT NULL AND jsonb_exists(v_settings, v_rec.plan_id) THEN
+    IF v_settings IS NOT NULL AND (v_settings->v_rec.plan_id) IS NOT NULL THEN
       v_plan_settings := v_settings->v_rec.plan_id;
     ELSE
       v_plan_settings := COALESCE(v_settings->'free', '{"weeklyTotalNgn":320,"weeklyTotalUsd":1}'::jsonb);
