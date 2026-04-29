@@ -20,7 +20,7 @@ DROP POLICY IF EXISTS "Authors can read analytics for their posts" ON public.pos
 -- Admins can read all
 CREATE POLICY "Admins can read all analytics" ON public.post_analytics_daily
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.user_roles WHERE user_roles.user_id = auth.uid() AND user_roles.role IN ('admin', 'superadmin', 'moderator'))
+    EXISTS (SELECT 1 FROM public.user_roles WHERE user_roles.user_id = auth.uid() AND user_roles.role IN ('admin', 'moderator'))
   );
 
 -- Authors can read their own post's analytics
