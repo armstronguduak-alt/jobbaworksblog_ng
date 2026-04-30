@@ -262,10 +262,10 @@ export function Plans() {
           ONE-TIME PAYMENT • LIFETIME ACCESS
         </span>
         <h2 className="text-4xl md:text-6xl font-headline font-extrabold text-on-surface leading-[1.1] tracking-tight mb-6">
-          Scale your earnings with <span className="text-primary italic">Kinetic Plans.</span>
+          Become a Creator & <span className="text-primary italic">Start Earning</span>
         </h2>
         <p className="text-base md:text-lg text-on-surface-variant leading-relaxed opacity-80">
-          Choose the growth path that matches your ambition. Unlock higher article rates, exclusive bonuses, and lifetime potential with no monthly fees.
+          Subscribe to a plan to unlock higher earnings, publish articles, and earn more from reading, commenting, and referrals.
         </p>
       </section>
 
@@ -273,7 +273,7 @@ export function Plans() {
       {isLoading ? (
         <div className="py-20 min-h-[400px]"></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
           {plans.map((plan) => {
             const isCurrent = currentPlan === plan.id;
             
@@ -351,10 +351,21 @@ export function Plans() {
                     <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
                     <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdCommentReward || plan.comment_reward / 1500).toFixed(2)}` : formatAmount(plan.comment_reward)}</strong> per comment</span>
                   </li>
-                  {!isFree && (
+                  {!isFree ? (
                     <li className="flex items-center gap-3 text-sm font-bold">
                       <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
                       <span>25% Referral Commission</span>
+                    </li>
+                  ) : (
+                    <li className="flex items-center gap-3 text-sm text-on-surface-variant/70">
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                      <span>No Referral Commission</span>
+                    </li>
+                  )}
+                  {!isFree && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-200' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                      <span>Weekly Streak Earning Bonus</span>
                     </li>
                   )}
                   {isVerified && (

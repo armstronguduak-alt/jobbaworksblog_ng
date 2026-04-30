@@ -10,7 +10,7 @@ export function AdminWithdrawals() {
   const hasAccess = isAdmin || (isModerator && permissions.includes('transactions'));
   const { showAlert, showConfirm } = useDialog();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'rejected' | 'failed'>('pending');
 
   // Approval Modal State
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
@@ -18,6 +18,11 @@ export function AdminWithdrawals() {
   const [paidAmount, setPaidAmount] = useState<string>('');
   const [deductionReason, setDeductionReason] = useState<string>('');
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
+  // Rejection Modal State
+  const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
 
   // Fetch all withdrawals once for analytics
   const { data: allWithdrawals = [] } = useQuery({
@@ -46,6 +51,8 @@ export function AdminWithdrawals() {
         q = q.eq('status', 'pending');
       } else if (activeTab === 'completed') {
         q = q.eq('status', 'completed');
+      } else if (activeTab === 'failed') {
+        q = q.eq('status', 'failed');
       } else {
         q = q.eq('status', 'rejected');
       }
@@ -180,35 +187,48 @@ export function AdminWithdrawals() {
     }
   };
 
-  const handleAction = async (txId: string, userId: string, newStatus: 'rejected', amount: number) => {
-    const action = 'reject';
-    const confirmed = await showConfirm(
-      `Are you sure you want to ${action} this withdrawal of $${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}?`,
-      `${action.charAt(0).toUpperCase() + action.slice(1)} Withdrawal`
-    );
-    if (!confirmed) return;
+  const openRejectionModal = (tx: any) => {
+    setSelectedTx(tx);
+    setRejectionReason('');
+    setRejectionModalOpen(true);
+  };
 
+  const submitRejection = async () => {
+    if (!selectedTx) return;
+    if (!rejectionReason) {
+       showAlert("Please provide a reason for rejection.", "Error");
+       return;
+    }
+    
+    setIsSubmittingRejection(true);
     try {
+      const finalMeta = {
+        ...(selectedTx.meta || {}),
+        deductionReason: rejectionReason
+      };
+
       const { error } = await supabase
         .from('wallet_transactions')
-        .update({ status: 'rejected' })
-        .eq('id', txId);
+        .update({ status: 'rejected', meta: finalMeta })
+        .eq('id', selectedTx.id);
 
       if (error) throw error;
 
-      // Send notification to the user
       await supabase.from('notifications').insert({
-        user_id: userId,
-        title: 'Withdrawal Rejected ❌',
-        message: `Your withdrawal request of $${Math.abs(amount).toLocaleString()} was rejected. Please contact support for more details.`,
+        user_id: selectedTx.user_id,
+        title: 'Withdrawal Failed ❌',
+        message: `Your withdrawal request of $${Math.abs(selectedTx.amount).toLocaleString()} failed. Reason: ${rejectionReason}`,
         type: 'system'
       });
 
-      showAlert(`Withdrawal ${action}d successfully.`, 'Success');
+      showAlert(`Withdrawal rejected successfully.`, 'Success');
+      setRejectionModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
       queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-stats'] });
     } catch (err: any) {
       showAlert(err.message, 'Error');
+    } finally {
+      setIsSubmittingRejection(false);
     }
   };
 
@@ -224,10 +244,10 @@ export function AdminWithdrawals() {
   // Analytics
   const pendingTotal = allWithdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + Math.abs(w.amount), 0);
   const approvedTotal = allWithdrawals.filter(w => w.status === 'completed').reduce((s, w) => s + Math.abs(w.amount), 0);
-  const rejectedTotal = allWithdrawals.filter(w => w.status === 'rejected').reduce((s, w) => s + Math.abs(w.amount), 0);
+  const rejectedTotal = allWithdrawals.filter(w => w.status === 'rejected' || w.status === 'failed').reduce((s, w) => s + Math.abs(w.amount), 0);
   const pendingCount = allWithdrawals.filter(w => w.status === 'pending').length;
   const approvedCount = allWithdrawals.filter(w => w.status === 'completed').length;
-  const rejectedCount = allWithdrawals.filter(w => w.status === 'rejected').length;
+  const rejectedCount = allWithdrawals.filter(w => w.status === 'rejected' || w.status === 'failed').length;
 
   if (authLoading) return <div className="p-10 text-center">Loading admin check...</div>;
   if (!hasAccess) return <Navigate to="/dashboard" replace />;
@@ -272,7 +292,7 @@ export function AdminWithdrawals() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1 max-w-max">
-        {(['pending', 'completed', 'rejected'] as const).map(tab => (
+        {(['pending', 'completed', 'rejected', 'failed'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -282,7 +302,7 @@ export function AdminWithdrawals() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab === 'completed' ? 'Sent' : tab}
+            {tab === 'completed' ? 'Approved' : tab}
             {tab === 'pending' && pendingCount > 0 && (
               <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{pendingCount}</span>
             )}
@@ -374,7 +394,7 @@ export function AdminWithdrawals() {
                               <span className="material-symbols-outlined text-[14px]">check</span> Approve
                             </button>
                             <button
-                              onClick={() => handleAction(tx.id, tx.user_id, 'rejected', tx.amount)}
+                              onClick={() => openRejectionModal(tx)}
                               className="bg-rose-100 text-rose-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-rose-200 flex items-center gap-1 transition-colors"
                             >
                               <span className="material-symbols-outlined text-[14px]">close</span> Reject
@@ -446,6 +466,71 @@ export function AdminWithdrawals() {
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 rounded-xl font-bold shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSubmittingApproval ? 'Processing...' : 'Confirm Approval'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {rejectionModalOpen && selectedTx && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-6 md:p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black font-headline text-rose-600">Reject Withdrawal</h3>
+                <button onClick={() => setRejectionModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
+                  <p className="text-sm text-slate-500 font-medium">Requested Amount</p>
+                  <p className="text-xl font-black text-slate-800">${Math.abs(selectedTx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Rejection Reason</label>
+                  <select
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-100 border-transparent focus:bg-slate-50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm text-slate-800 mb-4"
+                  >
+                    <option value="">Select a reason...</option>
+                    <option value="Referral requirement not met">Referral requirement not met</option>
+                    <option value="Invalid request">Invalid request</option>
+                    <option value="Suspicious activity detected">Suspicious activity detected</option>
+                    <option value="Incomplete profile">Incomplete profile</option>
+                    <option value="Other">Other (Type below)</option>
+                  </select>
+
+                  {rejectionReason === 'Other' && (
+                    <textarea
+                      autoFocus
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-100 border-transparent focus:bg-slate-50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm text-slate-700 min-h-[100px]"
+                      placeholder="Please specify the reason..."
+                    />
+                  )}
+                  <p className="text-[10px] text-slate-400 mt-1">This will be shown to the user.</p>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => setRejectionModalOpen(false)}
+                  className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRejection}
+                  disabled={isSubmittingRejection || !rejectionReason}
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-2.5 rounded-xl font-bold shadow-md shadow-rose-600/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingRejection ? 'Processing...' : 'Confirm Rejection'}
                 </button>
               </div>
             </div>

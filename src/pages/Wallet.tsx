@@ -21,6 +21,9 @@ export function Wallet() {
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successDetails, setSuccessDetails] = useState<any>(null);
+  // Failure modal state
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [failureMessage, setFailureMessage] = useState('');
   const { exchangeRates, pageToggles } = useAppSettings();
   const { isGlobal, symbol, exchangeRate } = useCurrency();
   
@@ -28,13 +31,23 @@ export function Wallet() {
     queryKey: ['wallet-data', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-      const [balanceRes, txRes, methodsRes, referralRes] = await Promise.all([
+      const [balanceRes, txRes, methodsRes, referralRes, userPlanRes] = await Promise.all([
         supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_transactions').select('*').eq('user_id', user.id).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
         supabase.from('payout_methods').select('*').eq('user_id', user.id),
-        supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_user_id', user.id)
+        supabase.from('referrals').select('referred_user_id').eq('referrer_user_id', user.id),
+        supabase.from('user_subscriptions').select('plan_id').eq('user_id', user.id).maybeSingle()
       ]);
         
+      let activeReferralsCount = 0;
+      if (referralRes.data && referralRes.data.length > 0) {
+         const referredUserIds = referralRes.data.map((r: any) => r.referred_user_id);
+         const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').in('user_id', referredUserIds).neq('plan_id', 'free');
+         if (subData) {
+            activeReferralsCount = subData.length;
+         }
+      }
+
       const methods = methodsRes.data || [];
       if (!selectedMethodId && methods.length > 0) {
         const defaultMethod = methods.find((m: any) => m.is_default);
@@ -46,7 +59,8 @@ export function Wallet() {
         usdtBalance: balanceRes.data?.usdt_balance || 0,
         transactions: txRes.data || [],
         payoutMethods: methods,
-        referralCount: referralRes.count || 0
+        referralCount: activeReferralsCount,
+        userPlanId: userPlanRes.data?.plan_id || 'free'
       };
     },
     enabled: !!user?.id,
@@ -58,8 +72,9 @@ export function Wallet() {
   const transactions = walletData?.transactions || [];
   const payoutMethods = walletData?.payoutMethods || [];
   const referralCount = walletData?.referralCount || 0;
+  const userPlanId = walletData?.userPlanId || 'free';
 
-  const PAYOUT_THRESHOLD = 30.00; // $30 threshold for everyone
+  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 20.00; // $30 for global, $20 for Nigerian
   const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
   const walletSymbol = '$';
   
@@ -111,27 +126,40 @@ export function Wallet() {
       return;
     }
     // Re-fetch referral count live at withdrawal time to ensure accuracy
-    const { count: freshReferralCount } = await supabase
+    const { data: freshReferralData } = await supabase
       .from('referrals')
-      .select('id', { count: 'exact', head: true })
+      .select('referred_user_id')
       .eq('referrer_user_id', user!.id);
-    const currentReferrals = freshReferralCount ?? referralCount;
-    setReferralCount(currentReferrals);
+      
+    let currentReferrals = 0;
+    if (freshReferralData && freshReferralData.length > 0) {
+         const referredUserIds = freshReferralData.map((r: any) => r.referred_user_id);
+         const { data: subData } = await supabase.from('user_subscriptions').select('plan_id').in('user_id', referredUserIds).neq('plan_id', 'free');
+         if (subData) {
+            currentReferrals = subData.length;
+         }
+    }
 
-    if (currentReferrals < 2) {
-      setMessage(`You need at least 2 active referrals to withdraw. You currently have ${currentReferrals}. Invite friends from the Referral page to unlock withdrawals.`);
+    const requiredReferrals = userPlanId === 'free' ? 5 : 2;
+
+    if (currentReferrals < requiredReferrals) {
+      setFailureMessage(`You need at least ${requiredReferrals} active referrals who have subscribed to a paid plan before you can withdraw. You currently have ${currentReferrals}. Upgrade your plan or refer more users to unlock withdrawals.`);
+      setShowFailureModal(true);
       return;
     }
     if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < PAYOUT_THRESHOLD) {
-      setMessage(`Please enter a valid amount (Minimum ${walletSymbol}${PAYOUT_THRESHOLD.toLocaleString()}).`);
+      setFailureMessage(`Minimum withdrawal amount is ${walletSymbol}${PAYOUT_THRESHOLD.toLocaleString()}. Please enter a valid amount.`);
+      setShowFailureModal(true);
       return;
     }
     if (Number(withdrawAmount) > displayBalance) {
-      setMessage(`Insufficient USD balance. Swapped/Available: $${displayBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}.`);
+      setFailureMessage(`Insufficient balance. Swapped/Available: $${displayBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}.`);
+      setShowFailureModal(true);
       return;
     }
     if (!selectedMethodId) {
-      setMessage('Please select a payment method.');
+      setFailureMessage('Please select a payment method before submitting your withdrawal request.');
+      setShowFailureModal(true);
       return;
     }
 
@@ -404,6 +432,25 @@ export function Wallet() {
 
 
 
+          {/* Withdrawal Validation Feedback / Checklist */}
+          <div className="bg-surface-container-lowest p-5 rounded-xl border border-surface-container-highest mt-6 mb-4">
+            <h4 className="text-sm font-bold text-on-surface mb-3 uppercase tracking-wider">Withdrawal Checklist</h4>
+            <ul className="space-y-2 text-sm text-on-surface-variant">
+              <li className="flex items-center gap-2">
+                <span className={`material-symbols-outlined text-[18px] ${numAmount >= PAYOUT_THRESHOLD && numAmount <= displayBalance ? 'text-primary' : 'text-outline'}`}>check_circle</span>
+                <span>Minimum amount reached ({walletSymbol}{PAYOUT_THRESHOLD.toLocaleString()})</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={`material-symbols-outlined text-[18px] ${referralCount >= (userPlanId === 'free' ? 5 : 2) ? 'text-primary' : 'text-outline'}`}>check_circle</span>
+                <span>Referral requirement met (Need {userPlanId === 'free' ? '5' : '2'} active paid referrals)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                <span>PIN ready</span>
+              </li>
+            </ul>
+          </div>
+
           {/* Submit Button */}
           <div className="pt-2">
             <button 
@@ -601,6 +648,35 @@ export function Wallet() {
               className="w-full py-3.5 rounded-xl font-extrabold text-white bg-gradient-to-br from-[#006b3f] to-[#008751] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/20"
             >
               Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Failure Modal */}
+      {showFailureModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-rose-200 relative animate-[fadeInUp_0.3s_ease-out]">
+            <button 
+              onClick={() => setShowFailureModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-rose-100 flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-rose-600 text-3xl">error</span>
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900 mb-2">Withdrawal Failed</h3>
+              <p className="text-sm text-slate-600">{failureMessage}</p>
+            </div>
+            
+            <button
+              onClick={() => setShowFailureModal(false)}
+              className="w-full py-3.5 rounded-xl font-extrabold text-white bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition-all shadow-lg shadow-rose-500/20"
+            >
+              Close
             </button>
           </div>
         </div>
