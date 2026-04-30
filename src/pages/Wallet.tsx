@@ -359,18 +359,6 @@ export function Wallet() {
               </button>
             </div>
             
-            {numAmount > 0 && numAmount >= PAYOUT_THRESHOLD && (
-              <div className="mt-6 space-y-3 pt-4 border-t border-surface-container-highest">
-                <div className="flex justify-between text-sm">
-                  <span className="text-on-surface-variant">Withdrawal Fee ({exchangeRates.withdrawalFee}%)</span>
-                  <span className="font-semibold text-error">-{walletSymbol}{(fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold">
-                  <span className="text-on-surface">You will receive:</span>
-                  <span className="text-primary">{walletSymbol}{(youGet).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            )}
 
             {message && (
                <p className={`mt-4 text-sm font-bold ${message.includes('pending') || message.includes('success') ? 'text-primary' : 'text-error'}`}>
@@ -431,25 +419,6 @@ export function Wallet() {
           
 
 
-
-          {/* Withdrawal Validation Feedback / Checklist */}
-          <div className="bg-surface-container-lowest p-5 rounded-xl border border-surface-container-highest mt-6 mb-4">
-            <h4 className="text-sm font-bold text-on-surface mb-3 uppercase tracking-wider">Withdrawal Checklist</h4>
-            <ul className="space-y-2 text-sm text-on-surface-variant">
-              <li className="flex items-center gap-2">
-                <span className={`material-symbols-outlined text-[18px] ${numAmount >= PAYOUT_THRESHOLD && numAmount <= displayBalance ? 'text-primary' : 'text-outline'}`}>check_circle</span>
-                <span>Minimum amount reached ({walletSymbol}{PAYOUT_THRESHOLD.toLocaleString()})</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={`material-symbols-outlined text-[18px] ${referralCount >= (userPlanId === 'free' ? 5 : 2) ? 'text-primary' : 'text-outline'}`}>check_circle</span>
-                <span>Referral requirement met (Need {userPlanId === 'free' ? '5' : '2'} active paid referrals)</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
-                <span>PIN ready</span>
-              </li>
-            </ul>
-          </div>
 
           {/* Submit Button */}
           <div className="pt-2">
@@ -522,12 +491,43 @@ export function Wallet() {
             </button>
             
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-amber-600 text-3xl">lock</span>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-emerald-600 text-3xl">lock</span>
               </div>
-              <h3 className="text-xl font-extrabold text-slate-900 mb-1">Enter Withdrawal PIN</h3>
-              <p className="text-sm text-slate-500">Enter your 4-digit PIN to confirm this withdrawal of <span className="font-bold text-slate-800">{walletSymbol}{Number(withdrawAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></p>
+              <h3 className="text-xl font-extrabold text-slate-900 mb-1">Confirm Withdrawal</h3>
+              <p className="text-sm text-slate-500">Please review your withdrawal request below.</p>
             </div>
+
+            {/* Checklist & Fee Breakdown in Modal */}
+            <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100 text-sm">
+              <ul className="space-y-2 mb-4 pb-4 border-b border-slate-200 text-slate-600">
+                <li className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span>
+                  <span>Minimum amount reached ({walletSymbol}{PAYOUT_THRESHOLD.toLocaleString()})</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span>
+                  <span>Referral requirement met (Need {userPlanId === 'free' ? '5' : '2'}, have {referralCount})</span>
+                </li>
+              </ul>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Withdrawal Amount</span>
+                  <span className="font-bold text-slate-800">{walletSymbol}{Number(withdrawAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Withdrawal Fee ({exchangeRates.withdrawalFee}%)</span>
+                  <span className="font-semibold text-rose-500">-{walletSymbol}{(Number(withdrawAmount) * exchangeRates.withdrawalFee / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center font-bold pt-2 border-t border-slate-200 mt-2">
+                  <span className="text-slate-800">You will receive</span>
+                  <span className="text-emerald-600 text-base">{walletSymbol}{(Number(withdrawAmount) - (Number(withdrawAmount) * exchangeRates.withdrawalFee / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center mb-3">Enter 4-Digit PIN to Verify</p>
             
             <div className="flex justify-center gap-3 mb-6">
               {[0, 1, 2, 3].map((i) => (
