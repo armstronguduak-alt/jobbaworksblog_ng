@@ -148,12 +148,16 @@ export function PublicArticle() {
   useEffect(() => {
     if (post?.id && !viewTracked.current) {
       viewTracked.current = true;
-      supabase.rpc('increment_post_view', {
-        p_post_id: post.id,
-        p_is_user: !!user
-      }).then(({ error }) => {
-        if (error) console.error('Failed to track view:', error);
-      });
+      try {
+        supabase.rpc('increment_post_view', {
+          p_post_id: post.id,
+          p_is_user: !!user
+        }).then(({ error }) => {
+          if (error) console.warn('Analytics view tracking unavailable:', error.message);
+        }).catch(() => {});
+      } catch (e) {
+        // Silently ignore if RPC doesn't exist yet
+      }
     }
   }, [post?.id, user]);
 

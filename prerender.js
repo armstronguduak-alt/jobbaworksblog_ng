@@ -40,7 +40,7 @@ async function run() {
   console.log('Starting SSG Prerendering for Articles...');
   
   // 1. Fetch approved posts with author & category data
-  const postsQuery = `posts?select=*,category:categories(id,name,slug),author:profiles!posts_author_user_id_fkey(user_id,username,name,avatar_url,is_verified)&status=eq.approved`;
+  const postsQuery = `posts?select=*,category:categories(id,name,slug),author:profiles!posts_author_user_id_fkey(user_id,username,name,avatar_url)&status=eq.approved`;
   const posts = await fetchFromSupabase(postsQuery);
   
   if (!posts || posts.length === 0) {
