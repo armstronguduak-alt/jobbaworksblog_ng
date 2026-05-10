@@ -75,6 +75,22 @@ const defaultPaymentGatewaySettings: PaymentGatewaySettings = {
   korapayApiKey: 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4',
 };
 
+export interface AffiliateWithdrawalSettings {
+  minWithdrawalAmount: number;
+  withdrawalFeePercent: number;
+  processingTimeHours: number;
+  requireReferrals: boolean;
+  requiredReferralCount: number;
+}
+
+const defaultAffiliateWithdrawalSettings: AffiliateWithdrawalSettings = {
+  minWithdrawalAmount: 20,
+  withdrawalFeePercent: 5,
+  processingTimeHours: 48,
+  requireReferrals: false,
+  requiredReferralCount: 0,
+};
+
 export function useAppSettings() {
   const { data: pageToggles, isLoading: isLoadingToggles, refetch: refetchToggles } = useQuery({
     queryKey: ['systemSettings', 'page_toggles'],
@@ -213,6 +229,21 @@ export function useAppSettings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: affiliateWithdrawalSettings, refetch: refetchAffiliateWithdrawalSettings } = useQuery({
+    queryKey: ['systemSettings', 'affiliate_withdrawal_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'affiliate_withdrawal_settings')
+        .maybeSingle();
+      
+      if (error || !data) return defaultAffiliateWithdrawalSettings;
+      return { ...defaultAffiliateWithdrawalSettings, ...(data.value as Partial<AffiliateWithdrawalSettings>) } as AffiliateWithdrawalSettings;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return {
     pageToggles: pageToggles || defaultToggles,
     usdtAddresses: usdtAddresses || ["TRxxxxxxxxx1", "TRxxxxxxxxx2", "TRxxxxxxxxx3", "TRxxxxxxxxx4", "TRxxxxxxxxx5"],
@@ -225,6 +256,7 @@ export function useAppSettings() {
     streakSettings: streakSettings || defaultStreakSettings,
     platformLockdown: platformLockdown || { locked: false },
     paymentGatewaySettings: paymentGatewaySettings || defaultPaymentGatewaySettings,
+    affiliateWithdrawalSettings: affiliateWithdrawalSettings || defaultAffiliateWithdrawalSettings,
     isLoadingToggles,
     refetchToggles,
     refetchUsdtAddresses,
@@ -234,6 +266,7 @@ export function useAppSettings() {
     refetchReferralSettings,
     refetchStreakSettings,
     refetchPlatformLockdown,
-    refetchPaymentGatewaySettings
+    refetchPaymentGatewaySettings,
+    refetchAffiliateWithdrawalSettings
   };
 }

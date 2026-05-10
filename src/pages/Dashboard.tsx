@@ -18,23 +18,38 @@ export function Dashboard() {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [streakChecked, setStreakChecked] = useState(false);
 
+  const [showTierBreakdown, setShowTierBreakdown] = useState(false);
+
   // TanStack Query — cached, retried, never infinite
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
       
-      const [walletRes, tasksRes, promoRes] = await Promise.all([
+      const [walletRes, tasksRes, promoRes, referralTiersRes] = await Promise.all([
         supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('user_tasks').select('*', { count: 'exact', head: true })
           .eq('user_id', user.id).eq('completed', true),
-        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })
+        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('referral_commissions').select('tier, amount').eq('referrer_user_id', user.id)
       ]);
+      
+      // Calculate tier breakdowns
+      const tierBreakdown = { tier1: 0, tier2: 0, tier3: 0 };
+      if (referralTiersRes.data) {
+        referralTiersRes.data.forEach((rc: any) => {
+          const tier = rc.tier || 1;
+          if (tier === 1) tierBreakdown.tier1 += Number(rc.amount || 0);
+          else if (tier === 2) tierBreakdown.tier2 += Number(rc.amount || 0);
+          else if (tier === 3) tierBreakdown.tier3 += Number(rc.amount || 0);
+        });
+      }
         
       return {
         wallet: walletRes.data || { balance: 0, total_earnings: 0, referral_earnings: 0 },
         articlesRead: tasksRes.count ?? 0,
         promotions: promoRes.data || [],
+        tierBreakdown,
       };
     },
     enabled: !!user?.id,
@@ -64,6 +79,7 @@ export function Dashboard() {
   const walletData = dashData?.wallet;
   const articlesRead = dashData?.articlesRead || 0;
   const promotions = dashData?.promotions || [];
+  const tierBreakdown = dashData?.tierBreakdown || { tier1: 0, tier2: 0, tier3: 0 };
 
   // Carousel auto-slide
   useEffect(() => {
@@ -79,8 +95,11 @@ export function Dashboard() {
   const totalEarnings = walletData?.total_earnings || 0;
   const referralEarnings = walletData?.referral_earnings || 0;
   const usdtBalance = walletData?.usdt_balance || 0;
+  const referralBalance = walletData?.referral_balance || 0;
+  const referralUsdtBalance = walletData?.referral_usdt_balance || 0;
   
-  const displayBalance = isGlobal ? usdtBalance : balance;
+  const displayActivityBalance = isGlobal ? usdtBalance : balance;
+  const displayReferralBalance = isGlobal ? referralUsdtBalance : referralBalance;
 
   // Check login streak on mount — auto-open modal if not claimed today
   useEffect(() => {
@@ -104,45 +123,124 @@ export function Dashboard() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full">
-      {/* Value Shield (Wallet Section) */}
-      <section className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-primary to-primary-container p-5 md:p-7 text-on-primary-container shadow-[0px_16px_32px_rgba(0,33,16,0.08)]">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <div className="relative z-10">
-          <div className="flex justify-between items-start mb-5">
-            <div>
-              <p className="text-on-primary-container/80 font-medium tracking-wide uppercase text-[10px] mb-1">
-                Available Balance
-              </p>
-              <h2 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight mb-1.5">
-                {symbol}{displayBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h2>
-              {/* USD Balance from swap wallet — exact value, not converted */}
-              {!isGlobal && (
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-1.5 inline-flex items-center gap-2 mt-1">
-                  <span className="w-5 h-5 bg-blue-700 rounded-full flex items-center justify-center text-[8px] text-white font-bold">USD</span>
-                  <span className="font-bold text-sm text-white">${usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  <span className="text-white/50 text-[10px] font-medium">USDT</span>
+      {/* Dual Wallet Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Activity Wallet */}
+        <section className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-primary to-primary-container p-5 md:p-6 text-on-primary-container shadow-[0px_16px_32px_rgba(0,33,16,0.08)]">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="material-symbols-outlined text-[16px] text-on-primary-container/70">work</span>
+                  <p className="text-on-primary-container/80 font-semibold tracking-wide uppercase text-[9px]">Activity Wallet</p>
                 </div>
+                <h2 className="text-xl md:text-2xl font-extrabold font-headline tracking-tight">
+                  {symbol}{displayActivityBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </h2>
+                {!isGlobal && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1 inline-flex items-center gap-1.5 mt-1">
+                    <span className="w-4 h-4 bg-blue-700 rounded-full flex items-center justify-center text-[7px] text-white font-bold">$</span>
+                    <span className="font-bold text-xs text-white">${usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+              <div className="bg-white/20 backdrop-blur-md rounded-xl p-2">
+                <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
+              </div>
+            </div>
+            <p className="text-on-primary-container/60 text-[10px] mb-3">Earnings from reading, tasks, streaks & writing</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Link to="/wallet?source=activity" className={`flex items-center justify-center gap-1.5 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-2 rounded-xl active:scale-95 transition-transform text-xs ${!showSwap ? 'col-span-2' : ''}`}>
+                <span className="material-symbols-outlined text-[16px]">payments</span>
+                Withdraw
+              </Link>
+              {showSwap && (
+                <Link to="/swap?source=activity" className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2 rounded-xl active:scale-95 transition-transform text-xs">
+                  <span className="material-symbols-outlined text-[16px]">swap_horiz</span>
+                  Swap
+                </Link>
               )}
             </div>
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-2.5">
-              <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
+          </div>
+        </section>
+
+        {/* Referral Wallet */}
+        <section className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-[#6b21a8] to-[#a855f7] p-5 md:p-6 text-white shadow-[0px_16px_32px_rgba(107,33,168,0.12)]">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="material-symbols-outlined text-[16px] text-white/70">group_add</span>
+                  <p className="text-white/80 font-semibold tracking-wide uppercase text-[9px]">Affiliate Wallet</p>
+                </div>
+                <h2 className="text-xl md:text-2xl font-extrabold font-headline tracking-tight">
+                  {symbol}{displayReferralBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </h2>
+                {!isGlobal && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1 inline-flex items-center gap-1.5 mt-1">
+                    <span className="w-4 h-4 bg-blue-700 rounded-full flex items-center justify-center text-[7px] text-white font-bold">$</span>
+                    <span className="font-bold text-xs text-white">${referralUsdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+              <div className="bg-white/20 backdrop-blur-md rounded-xl p-2">
+                <span className="material-symbols-outlined text-xl">diversity_3</span>
+              </div>
+            </div>
+            <p className="text-white/60 text-[10px] mb-3">Earnings from affiliate referral commissions</p>
+            
+            {/* Tier Breakdown Toggle */}
+            <button 
+              onClick={() => setShowTierBreakdown(!showTierBreakdown)}
+              className="w-full flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2 mb-3 text-xs font-semibold text-white/80 hover:bg-white/15 transition-all active:scale-[0.98]"
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">analytics</span>
+                Affiliate Earnings Breakdown
+              </span>
+              <span className={`material-symbols-outlined text-[16px] transition-transform duration-300 ${showTierBreakdown ? 'rotate-180' : ''}`}>expand_more</span>
+            </button>
+            
+            {showTierBreakdown && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-3 space-y-2 animate-[fadeIn_0.2s_ease-out]">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-white/70">All-Time Total</span>
+                  <span className="font-bold text-white">{formatAmount(referralEarnings)}</span>
+                </div>
+                <div className="h-px bg-white/15"></div>
+                {[
+                  { label: 'Tier 1 (Direct)', amount: tierBreakdown.tier1, color: 'bg-emerald-400' },
+                  { label: 'Tier 2 (2nd Level)', amount: tierBreakdown.tier2, color: 'bg-sky-400' },
+                  { label: 'Tier 3 (3rd Level)', amount: tierBreakdown.tier3, color: 'bg-amber-400' },
+                ].map(t => (
+                  <div key={t.label} className="flex justify-between items-center text-[11px]">
+                    <span className="flex items-center gap-1.5 text-white/70">
+                      <span className={`w-1.5 h-1.5 rounded-full ${t.color}`}></span>
+                      {t.label}
+                    </span>
+                    <span className="font-bold text-white">{formatAmount(t.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Link to="/wallet?source=referral" className={`flex items-center justify-center gap-1.5 bg-white/25 hover:bg-white/30 backdrop-blur-sm text-white font-bold py-2 rounded-xl active:scale-95 transition-transform text-xs ${!showSwap ? 'col-span-2' : ''}`}>
+                <span className="material-symbols-outlined text-[16px]">payments</span>
+                Withdraw
+              </Link>
+              {showSwap && (
+                <Link to="/swap?source=referral" className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2 rounded-xl active:scale-95 transition-transform text-xs">
+                  <span className="material-symbols-outlined text-[16px]">swap_horiz</span>
+                  Swap
+                </Link>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-6">
-            <Link to="/wallet" className={`flex items-center justify-center gap-2 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold py-2.5 md:py-3 rounded-xl active:scale-95 transition-transform text-sm ${!showSwap ? 'col-span-2' : ''}`}>
-              <span className="material-symbols-outlined text-[20px]">payments</span>
-              Withdraw
-            </Link>
-            {showSwap && (
-              <Link to="/swap" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2.5 md:py-3 rounded-xl active:scale-95 transition-transform text-sm">
-                <span className="material-symbols-outlined text-[20px]">swap_horiz</span>
-                Swap
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       {/* Category Filter */}
       <nav className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-3 scrollbar-hide px-1">

@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppSettings } from '../hooks/useAppSettings';
 import confetti from 'canvas-confetti';
 
+type WalletSource = 'activity' | 'referral';
+
 export function Swap() {
   const { user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialSource = (searchParams.get('source') === 'referral' ? 'referral' : 'activity') as WalletSource;
+  const [walletSource, setWalletSource] = useState<WalletSource>(initialSource);
 
   // Swap page is now enabled for non-Nigerian users too as per request
   const [balance, setBalance] = useState<number>(0);
   const [usdtBalance, setUsdtBalance] = useState<number>(0);
+  const [referralBalance, setReferralBalance] = useState<number>(0);
+  const [referralUsdtBalance, setReferralUsdtBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [swapAmount, setSwapAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +53,8 @@ export function Swap() {
           if (payload.new) {
             setBalance((payload.new as any).balance || 0);
             setUsdtBalance((payload.new as any).usdt_balance || 0);
+            setReferralBalance((payload.new as any).referral_balance || 0);
+            setReferralUsdtBalance((payload.new as any).referral_usdt_balance || 0);
           }
         }
       )
@@ -61,13 +70,15 @@ export function Swap() {
       if (balance === 0 && usdtBalance === 0) setIsLoading(true);
       const { data } = await supabase
         .from('wallet_balances')
-        .select('balance, usdt_balance')
+        .select('balance, usdt_balance, referral_balance, referral_usdt_balance')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (data) {
         setBalance(data.balance);
         setUsdtBalance(data.usdt_balance || 0);
+        setReferralBalance(data.referral_balance || 0);
+        setReferralUsdtBalance(data.referral_usdt_balance || 0);
       }
     } catch (err) {
       console.error("Error fetching balance:", err);
@@ -87,12 +98,16 @@ export function Swap() {
     if (data) setSwapHistory(data);
   };
 
+  const isReferralSource = walletSource === 'referral';
+  const activeNgnBalance = isReferralSource ? referralBalance : balance;
+  const activeUsdBalance = isReferralSource ? referralUsdtBalance : usdtBalance;
+
   const numAmount = Number(swapAmount) || 0;
   const fee = numAmount * FEE_PERCENT;
   const actualUsd = (numAmount - fee) / EXCHANGE_RATE;
 
   const handleMaxClick = () => {
-    setSwapAmount(balance.toString());
+    setSwapAmount(activeNgnBalance.toString());
   };
 
   const handleSwap = async () => {
@@ -104,7 +119,7 @@ export function Swap() {
       setMessage('Minimum swap amount is ₦1,000.');
       return;
     }
-    if (numAmount > balance) {
+    if (numAmount > activeNgnBalance) {
       setMessage('Insufficient balance to swap.');
       return;
     }
@@ -112,7 +127,8 @@ export function Swap() {
     setIsSubmitting(true);
     setMessage('');
 
-    const { data, error } = await supabase.rpc('execute_swap', {
+    const rpcName = isReferralSource ? 'execute_referral_swap' : 'execute_swap';
+    const { data, error } = await supabase.rpc(rpcName, {
       _amount: numAmount
     });
 
@@ -149,22 +165,52 @@ export function Swap() {
           </p>
         </div>
 
+        {/* Wallet Source Tabs */}
+        <div className="flex gap-2 mb-6 bg-white/10 backdrop-blur-sm rounded-2xl p-1.5">
+          <button
+            onClick={() => { setWalletSource('activity'); setSwapAmount(''); setMessage(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              walletSource === 'activity'
+                ? 'bg-white/20 text-white shadow-md'
+                : 'text-white/60 hover:text-white/80'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">work</span>
+            Activity
+          </button>
+          <button
+            onClick={() => { setWalletSource('referral'); setSwapAmount(''); setMessage(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              walletSource === 'referral'
+                ? 'bg-white/20 text-white shadow-md'
+                : 'text-white/60 hover:text-white/80'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">group_add</span>
+            Referral
+          </button>
+        </div>
+
         {/* Value Shield: Balance Display */}
         <section className="relative overflow-hidden bg-primary p-8 rounded-3xl shadow-[0px_20px_40px_rgba(0,33,16,0.06)]">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <div className="relative z-10 space-y-4">
             <div>
-              <span className="text-primary-fixed text-sm font-medium tracking-wide uppercase">Naira Balance</span>
+              <span className="text-primary-fixed text-sm font-medium tracking-wide uppercase">
+                {isReferralSource ? 'Referral Naira Balance' : 'Activity Naira Balance'}
+              </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-headline font-black text-on-primary">
-                  ₦{isLoading ? '...' : balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₦{isLoading ? '...' : activeNgnBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 flex items-center justify-between">
               <div>
-                <span className="text-white/60 text-xs font-medium">USDT Balance</span>
-                <p className="text-white font-bold">${usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <span className="text-white/60 text-xs font-medium">
+                  {isReferralSource ? 'Referral USDT Balance' : 'Activity USDT Balance'}
+                </span>
+                <p className="text-white font-bold">${activeUsdBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <span className="material-symbols-outlined text-tertiary-fixed-dim" style={{ fontVariationSettings: "'FILL' 1" }}>
                 verified_user
@@ -180,7 +226,7 @@ export function Swap() {
             <div className="flex justify-between items-center px-1">
               <label className="text-sm font-semibold text-on-surface-variant">From</label>
               <button onClick={handleMaxClick} className="text-xs text-primary font-bold cursor-pointer hover:underline hover:text-emerald-700">
-                Max: ₦{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                Max: ₦{activeNgnBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </button>
             </div>
             <div className="bg-surface-container-low rounded-2xl p-4 flex items-center justify-between group focus-within:bg-surface-container-lowest transition-all duration-300 border border-transparent focus-within:border-primary-fixed-dim/40">

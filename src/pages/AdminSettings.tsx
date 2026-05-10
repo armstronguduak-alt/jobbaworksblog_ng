@@ -29,7 +29,9 @@ export function AdminSettings() {
     platformLockdown,
     refetchPlatformLockdown,
     paymentGatewaySettings: fetchedPaymentGatewaySettings,
-    refetchPaymentGatewaySettings
+    refetchPaymentGatewaySettings,
+    affiliateWithdrawalSettings: fetchedAffiliateSettings,
+    refetchAffiliateWithdrawalSettings
   } = useAppSettings();
 
   const [selectedTierId, setSelectedTierId] = useState('free');
@@ -74,6 +76,15 @@ export function AdminSettings() {
     korapayApiKey: fetchedPaymentGatewaySettings?.korapayApiKey || 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4'
   });
 
+  // Affiliate Withdrawal Settings State
+  const [affSettings, setAffSettings] = useState({
+    minWithdrawalAmount: fetchedAffiliateSettings?.minWithdrawalAmount?.toString() || '20',
+    withdrawalFeePercent: fetchedAffiliateSettings?.withdrawalFeePercent?.toString() || '5',
+    processingTimeHours: fetchedAffiliateSettings?.processingTimeHours?.toString() || '48',
+    requireReferrals: fetchedAffiliateSettings?.requireReferrals || false,
+    requiredReferralCount: fetchedAffiliateSettings?.requiredReferralCount?.toString() || '0',
+  });
+
   useEffect(() => {
     setToggles(prev => JSON.stringify(prev) === JSON.stringify(pageToggles) ? prev : pageToggles);
   }, [pageToggles]);
@@ -114,6 +125,18 @@ export function AdminSettings() {
       });
     }
   }, [fetchedPaymentGatewaySettings]);
+
+  useEffect(() => {
+    if (fetchedAffiliateSettings) {
+      setAffSettings({
+        minWithdrawalAmount: fetchedAffiliateSettings.minWithdrawalAmount?.toString() || '20',
+        withdrawalFeePercent: fetchedAffiliateSettings.withdrawalFeePercent?.toString() || '5',
+        processingTimeHours: fetchedAffiliateSettings.processingTimeHours?.toString() || '48',
+        requireReferrals: fetchedAffiliateSettings.requireReferrals || false,
+        requiredReferralCount: fetchedAffiliateSettings.requiredReferralCount?.toString() || '0',
+      });
+    }
+  }, [fetchedAffiliateSettings]);
 
   const { data: tiersMaster, isLoading: isTiersLoading } = useQuery({
     queryKey: ['admin_subscription_plans'],
@@ -922,6 +945,114 @@ export function AdminSettings() {
                   className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all"
                 >
                   Save Referral Settings
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Affiliate Withdrawal Settings */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-surface-container-low/50 relative">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                <span className="material-symbols-outlined">account_balance_wallet</span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold font-headline text-[#111928]">Affiliate Withdrawal Settings</h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">Configure withdrawal rules for the affiliate/referral wallet separately from activity wallet.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-gray-100 mb-4 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Min Withdrawal ($)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">$</span>
+                    <input 
+                      type="number" step="0.01"
+                      value={affSettings.minWithdrawalAmount}
+                      onChange={(e) => setAffSettings(prev => ({...prev, minWithdrawalAmount: e.target.value}))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Withdrawal Fee (%)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af] font-black">%</span>
+                    <input 
+                      type="number" step="0.1"
+                      value={affSettings.withdrawalFeePercent}
+                      onChange={(e) => setAffSettings(prev => ({...prev, withdrawalFeePercent: e.target.value}))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Processing Time (hrs)</label>
+                  <input 
+                    type="number"
+                    value={affSettings.processingTimeHours}
+                    onChange={(e) => setAffSettings(prev => ({...prev, processingTimeHours: e.target.value}))}
+                    className="w-full px-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-2xl border bg-surface-container-low border-surface-container">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-purple-100 text-purple-600">
+                    <span className="material-symbols-outlined text-[18px]">group_add</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-on-surface">Require Referrals for Affiliate Withdrawal</p>
+                    <p className="text-[11px] text-on-surface-variant">If enabled, users must have active referrals to withdraw affiliate earnings.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAffSettings(prev => ({...prev, requireReferrals: !prev.requireReferrals}))}
+                  className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 ml-3 ${affSettings.requireReferrals ? 'bg-emerald-500 shadow-inner' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${affSettings.requireReferrals ? 'translate-x-6' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {affSettings.requireReferrals && (
+                <div>
+                  <label className="block text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Required Referral Count</label>
+                  <input 
+                    type="number" min="0"
+                    value={affSettings.requiredReferralCount}
+                    onChange={(e) => setAffSettings(prev => ({...prev, requiredReferralCount: e.target.value}))}
+                    className="w-full max-w-xs px-4 py-3 rounded-xl bg-white focus:ring-2 focus:ring-purple-500/20 border border-gray-200 outline-none transition-all text-[#111928] font-bold"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase.from('system_settings').upsert({
+                        key: 'affiliate_withdrawal_settings',
+                        value: {
+                          minWithdrawalAmount: Number(affSettings.minWithdrawalAmount),
+                          withdrawalFeePercent: Number(affSettings.withdrawalFeePercent),
+                          processingTimeHours: Number(affSettings.processingTimeHours),
+                          requireReferrals: affSettings.requireReferrals,
+                          requiredReferralCount: Number(affSettings.requiredReferralCount),
+                        }
+                      });
+                      if (error) throw error;
+                      refetchAffiliateWithdrawalSettings();
+                      showAlert('Affiliate withdrawal settings saved successfully.');
+                    } catch (err: any) {
+                      showAlert(`Error: ${err.message}`, 'Error');
+                    }
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all"
+                >
+                  Save Affiliate Settings
                 </button>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { supabase } from '../lib/supabase';
+import { useQuery } from '@tanstack/react-query';
 
 interface Promotion {
   id: string;
@@ -12,6 +13,9 @@ interface Promotion {
   cta_text: string;
   cta_url: string;
   is_active: boolean;
+  is_share_task?: boolean;
+  share_reward_amount?: number;
+  share_caption?: string;
 }
 
 export function AdminPromotions() {
@@ -29,10 +33,41 @@ export function AdminPromotions() {
     imageUrl: '',
     ctaText: 'Promote now',
     ctaUrl: '',
-    description: ''
+    description: '',
+    isShareTask: false,
+    shareRewardAmount: '300',
+    shareCaption: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Share Task Analytics
+  const { data: shareAnalytics } = useQuery({
+    queryKey: ['admin_share_analytics'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [totalRes, todayRes, recentUsersRes] = await Promise.all([
+        supabase.from('promotion_shares').select('*', { count: 'exact', head: true }),
+        supabase.from('promotion_shares').select('*', { count: 'exact', head: true }).eq('share_date', today),
+        supabase.from('promotion_shares')
+          .select(`
+            id, shared_at, reward_amount, share_date,
+            profiles:user_id (name, username)
+          `)
+          .order('shared_at', { ascending: false })
+          .limit(20)
+      ]);
+
+      return {
+        totalShares: totalRes.count || 0,
+        todayShares: todayRes.count || 0,
+        recentShares: recentUsersRes.data || []
+      };
+    },
+    enabled: !!hasAccess,
+    staleTime: 30 * 1000,
+  });
 
   useEffect(() => {
     if (hasAccess) fetchPromotions();
@@ -54,7 +89,10 @@ export function AdminPromotions() {
       imageUrl: promo.image_url,
       ctaText: promo.cta_text,
       ctaUrl: promo.cta_url,
-      description: promo.description || ''
+      description: promo.description || '',
+      isShareTask: promo.is_share_task || false,
+      shareRewardAmount: (promo.share_reward_amount || 300).toString(),
+      shareCaption: promo.share_caption || ''
     });
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -97,30 +135,31 @@ export function AdminPromotions() {
 
       if (!finalImageUrl) throw new Error('Please provide an image URL or upload a file');
 
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        image_url: finalImageUrl,
+        cta_text: formData.ctaText,
+        cta_url: formData.ctaUrl,
+        is_share_task: formData.isShareTask,
+        share_reward_amount: Number(formData.shareRewardAmount) || 300,
+        share_caption: formData.shareCaption,
+      };
+
       if (editingId) {
-        const { error } = await supabase.from('promotions').update({
-          title: formData.title,
-          description: formData.description,
-          image_url: finalImageUrl,
-          cta_text: formData.ctaText,
-          cta_url: formData.ctaUrl,
-        }).eq('id', editingId);
+        const { error } = await supabase.from('promotions').update(payload).eq('id', editingId);
         if (error) throw error;
         showAlert('Promotion updated!', 'Success');
       } else {
         const { error } = await supabase.from('promotions').insert({
-          title: formData.title,
-          description: formData.description,
-          image_url: finalImageUrl,
-          cta_text: formData.ctaText,
-          cta_url: formData.ctaUrl,
+          ...payload,
           created_by_user_id: profile.id
         });
         if (error) throw error;
         showAlert('Promotion added successfully!', 'Success');
       }
 
-      setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
+      setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '', isShareTask: false, shareRewardAmount: '300', shareCaption: '' });
       setImageFile(null);
       setEditingId(null);
       fetchPromotions();
@@ -145,9 +184,62 @@ export function AdminPromotions() {
           Promotional Campaigns
         </h1>
         <p className="text-outline text-sm md:text-base">
-          Manage and monitor all active promotions globally visible to users.
+          Manage promotions and daily share tasks visible to users.
         </p>
       </div>
+
+      {/* Share Task Analytics */}
+      {shareAnalytics && (shareAnalytics.totalShares > 0 || shareAnalytics.todayShares > 0) && (
+        <div className="mb-8">
+          <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Daily Share Task Analytics</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-2xl border border-emerald-100">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-emerald-600 text-[18px]">share</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Total Shares</span>
+              </div>
+              <p className="text-2xl font-black text-emerald-700">{shareAnalytics.totalShares.toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-blue-600 text-[18px]">today</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600">Today's Shares</span>
+              </div>
+              <p className="text-2xl font-black text-blue-700">{shareAnalytics.todayShares.toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-5 rounded-2xl border border-purple-100 col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-purple-600 text-[18px]">payments</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-purple-600">Total Paid Out</span>
+              </div>
+              <p className="text-2xl font-black text-purple-700">₦{(shareAnalytics.totalShares * 300).toLocaleString()}</p>
+            </div>
+          </div>
+          
+          {/* Recent shares list */}
+          {shareAnalytics.recentShares.length > 0 && (
+            <div className="bg-white rounded-2xl border border-surface-container-low overflow-hidden">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <h4 className="text-xs font-bold text-slate-600 uppercase tracking-widest">Recent Share Completions</h4>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-60 overflow-y-auto">
+                {shareAnalytics.recentShares.map((share: any) => (
+                  <div key={share.id} className="flex justify-between items-center px-5 py-3 text-sm">
+                    <div>
+                      <span className="font-bold text-slate-800">{share.profiles?.name || 'Unknown'}</span>
+                      <span className="text-slate-400 ml-2 text-xs">@{share.profiles?.username || 'user'}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-emerald-600 font-bold text-xs">₦{Number(share.reward_amount).toLocaleString()}</span>
+                      <span className="text-slate-400 text-[11px]">{new Date(share.shared_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -161,7 +253,7 @@ export function AdminPromotions() {
               <button 
                 onClick={() => {
                   setEditingId(null);
-                  setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '' });
+                  setFormData({ title: '', imageUrl: '', ctaText: 'Promote now', ctaUrl: '', description: '', isShareTask: false, shareRewardAmount: '300', shareCaption: '' });
                 }}
                 className="text-xs font-bold text-outline hover:text-primary transition-colors"
               >
@@ -210,6 +302,50 @@ export function AdminPromotions() {
               ></textarea>
             </div>
 
+            {/* Share Task Settings */}
+            <div className="border-t border-surface-container-low pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#25D366] text-[18px]">share</span>
+                  <span className="text-sm font-bold text-on-surface">Enable as Daily Share Task</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({...prev, isShareTask: !prev.isShareTask}))}
+                  className={`w-11 h-6 rounded-full transition-all relative flex items-center px-0.5 ${formData.isShareTask ? 'bg-[#25D366]' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${formData.isShareTask ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              
+              {formData.isShareTask && (
+                <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Share Reward (₦)</label>
+                    <input 
+                      type="number" min="0" step="50"
+                      value={formData.shareRewardAmount} 
+                      onChange={(e) => setFormData({...formData, shareRewardAmount: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-lg bg-white border border-emerald-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">WhatsApp Share Caption</label>
+                    <textarea 
+                      rows={2} 
+                      value={formData.shareCaption}
+                      onChange={(e) => setFormData({...formData, shareCaption: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-lg bg-white border border-emerald-200 text-sm font-medium text-slate-800 resize-none focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                      placeholder="Text users will share on WhatsApp..."
+                    ></textarea>
+                  </div>
+                  <p className="text-[10px] text-emerald-700/70 leading-relaxed">
+                    Users can claim ₦{Number(formData.shareRewardAmount || 300).toLocaleString()} once per day by sharing this promo on WhatsApp Status.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <button 
               type="submit" disabled={isSubmitting}
               className="w-full bg-[#008751] hover:bg-[#006b3f] text-white py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-transform shadow-sm disabled:opacity-50 mt-2"
@@ -244,6 +380,13 @@ export function AdminPromotions() {
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
                     </div>
+                    {/* Share Task Badge */}
+                    {promo.is_share_task && (
+                      <div className="absolute top-2 left-2 bg-[#25D366] text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1 shadow">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                        Share Task
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -256,6 +399,12 @@ export function AdminPromotions() {
                       </button>
                     </div>
                     <p className="text-xs text-outline line-clamp-2 leading-snug">{promo.description}</p>
+                    {promo.is_share_task && (
+                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#25D366]">
+                        <span className="material-symbols-outlined text-[14px]">monetization_on</span>
+                        ₦{Number(promo.share_reward_amount || 300).toLocaleString()}/share
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

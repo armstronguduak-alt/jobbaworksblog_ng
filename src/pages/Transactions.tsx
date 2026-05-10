@@ -52,6 +52,7 @@ export function Transactions() {
       case 'login_reward': return { icon: 'local_fire_department', color: 'text-orange-600', bg: 'bg-orange-50' };
       case 'task_reward': return { icon: 'task_alt', color: 'text-cyan-600', bg: 'bg-cyan-50' };
       case 'subscription_fee': return { icon: 'rocket_launch', color: 'text-violet-600', bg: 'bg-violet-50' };
+      case 'share_reward': return { icon: 'share', color: 'text-green-600', bg: 'bg-green-50' };
       default: return { icon: 'payments', color: 'text-emerald-600', bg: 'bg-emerald-50' };
     }
   };
@@ -70,6 +71,7 @@ export function Transactions() {
       case 'login_reward': return 'Daily Login Streak';
       case 'task_reward': return 'Task Reward';
       case 'subscription_fee': return 'Plan Subscription';
+      case 'share_reward': return 'Promo Share Reward';
       case 'earning': return 'Earning';
       default: return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -155,6 +157,13 @@ export function Transactions() {
                       </p>
                       {tx.type === 'swap' && meta.usd_amount && (
                         <p className="text-[10px] text-blue-500 font-bold mt-0.5">Received ${Number(meta.usd_amount).toFixed(2)} USD at ₦{meta.rate}/$ rate</p>
+                      )}
+                      {tx.type === 'withdrawal' && tx.meta?.wallet_source && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block ${
+                          tx.meta.wallet_source === 'referral' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {tx.meta.wallet_source === 'referral' ? 'Affiliate Wallet' : 'Activity Wallet'}
+                        </span>
                       )}
                       {tx.type === 'withdrawal' && (
                         <div className="flex flex-col gap-0.5 mt-0.5">

@@ -4,6 +4,11 @@ import { Link } from 'react-router-dom';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /**
+   * If provided, the error boundary resets when this key changes.
+   * Useful for route-based error boundaries that should reset on navigation.
+   */
+  resetKey?: string;
 }
 
 interface State {
@@ -25,6 +30,13 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('ErrorBoundary caught:', error, info);
   }
 
+  componentDidUpdate(prevProps: Props) {
+    // Auto-reset when the resetKey changes (e.g., route navigation)
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: undefined });
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
@@ -41,10 +53,16 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
             <div className="flex gap-3 justify-center pt-2">
               <button
-                onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+                onClick={() => { this.setState({ hasError: false, error: undefined }); }}
                 className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-emerald-800 transition-colors"
               >
                 Try Again
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-5 py-2.5 bg-surface-container text-on-surface rounded-xl font-bold text-sm hover:bg-surface-container-high transition-colors"
+              >
+                Reload Page
               </button>
               <Link to="/" className="px-5 py-2.5 bg-surface-container text-on-surface rounded-xl font-bold text-sm hover:bg-surface-container-high transition-colors">
                 Go Home

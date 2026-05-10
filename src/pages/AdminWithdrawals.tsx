@@ -131,13 +131,19 @@ export function AdminWithdrawals() {
       // 1. Fetch current user balance
       const { data: balanceData, error: balanceError } = await supabase
         .from('wallet_balances')
-        .select('balance, usdt_balance')
+        .select('balance, usdt_balance, referral_balance, referral_usdt_balance')
         .eq('user_id', selectedTx.user_id)
         .single();
         
       if (balanceError) throw balanceError;
       
-      const currentBalance = deductionColumn === 'usdt_balance' ? (balanceData?.usdt_balance || 0) : (balanceData?.balance || 0);
+      const colMap: Record<string, number> = {
+        balance: balanceData?.balance || 0,
+        usdt_balance: balanceData?.usdt_balance || 0,
+        referral_balance: balanceData?.referral_balance || 0,
+        referral_usdt_balance: balanceData?.referral_usdt_balance || 0,
+      };
+      const currentBalance = colMap[deductionColumn] ?? 0;
       
       // 2. Prevent Negative Balance
       if (currentBalance < deductionAmount) {
@@ -155,10 +161,9 @@ export function AdminWithdrawals() {
       if (updateError) throw updateError;
 
       // 4. Deduct Amount from User Wallet
-      const updatePayload = deductionColumn === 'usdt_balance' 
-        ? { usdt_balance: currentBalance - deductionAmount }
-        : { balance: currentBalance - deductionAmount };
-        
+      const updatePayload: Record<string, number> = {
+        [deductionColumn]: currentBalance - deductionAmount
+      };
       const { error: deductError } = await supabase
          .from('wallet_balances')
          .update(updatePayload)
@@ -348,6 +353,13 @@ export function AdminWithdrawals() {
                       </td>
                       <td className="p-4">
                         <span className="font-black text-lg text-slate-900">${Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        {meta.wallet_source && (
+                          <span className={`block mt-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-fit ${
+                            meta.wallet_source === 'referral' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {meta.wallet_source === 'referral' ? 'Referral Wallet' : 'Activity Wallet'}
+                          </span>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="text-xs space-y-0.5">

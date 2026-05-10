@@ -13,6 +13,7 @@ export function Earn() {
   const { formatAmount, isGlobal } = useCurrency();
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [sharingPromoId, setSharingPromoId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['earnData', user?.id],
@@ -20,7 +21,7 @@ export function Earn() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
-      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes, totalReferralsRes, referralCommissionsRes] = await Promise.all([
+      const [readCountRes, taskCountRes, walletDataRes, counterDataRes, subDataRes, readPostIdsRes, activeTasksRes, userTasksDoneDataRes, totalReferralsRes, referralCommissionsRes, sharePromoRes, todayShareRes] = await Promise.all([
         supabase.from('post_reads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
         supabase.from('user_tasks').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('completed', true),
         supabase.from('wallet_balances').select('balance, total_earnings').eq('user_id', user!.id).maybeSingle(),
@@ -30,7 +31,10 @@ export function Earn() {
         supabase.from('tasks').select('*').eq('status', 'active'),
         supabase.from('user_tasks').select('task_id, completed').eq('user_id', user!.id),
         supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_user_id', user!.id),
-        supabase.from('referral_commissions').select('plan_id').eq('referrer_user_id', user!.id)
+        supabase.from('referral_commissions').select('plan_id').eq('referrer_user_id', user!.id),
+        // Daily share promo task
+        supabase.from('promotions').select('*').eq('is_active', true).eq('is_share_task', true).order('created_at', { ascending: false }).limit(1),
+        supabase.from('promotion_shares').select('id').eq('user_id', user!.id).eq('share_date', today).maybeSingle()
       ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
@@ -86,7 +90,10 @@ export function Earn() {
         availableTasks: availableTasks || [],
         walletData: walletDataRes.data,
         planReferralCounts,
-        planDetails
+        planDetails,
+        // Daily share promo
+        sharePromo: (sharePromoRes.data && sharePromoRes.data.length > 0) ? sharePromoRes.data[0] : null,
+        hasSharedToday: !!todayShareRes.data
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -168,6 +175,46 @@ export function Earn() {
   const stats = data?.stats || { tasksCompleted: 0, totalEarned: 0, dailyReadsLeft: 0, dailyCommentsLeft: 0 };
   const availablePosts = data?.availablePosts || [];
   const availableTasks = data?.availableTasks || [];
+  const sharePromo = data?.sharePromo;
+  const hasSharedToday = data?.hasSharedToday || false;
+
+  // Handle WhatsApp share + claim
+  const handleShareAndClaim = async (promo: any) => {
+    if (sharingPromoId || hasSharedToday) return;
+    setSharingPromoId(promo.id);
+    setMessage('');
+
+    // Build WhatsApp share URL
+    const shareText = promo.share_caption || promo.description || promo.title || 'Check this out!';
+    const shareUrl = promo.cta_url ? `\n${promo.cta_url}` : '';
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + shareUrl)}`;
+    
+    // Open WhatsApp in new tab
+    window.open(whatsappUrl, '_blank');
+
+    // Small delay to simulate share completion, then claim
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    try {
+      const { data: claimResult, error } = await supabase.rpc('claim_promotion_share', { 
+        p_promotion_id: promo.id 
+      });
+
+      if (error) {
+        setMessage(error.message);
+      } else if (claimResult) {
+        setMessage(claimResult.message);
+        if (claimResult.success) {
+          confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+          queryClient.invalidateQueries({ queryKey: ['earnData', user?.id] });
+        }
+      }
+    } catch (err) {
+      setMessage('Error claiming share reward.');
+    } finally {
+      setSharingPromoId(null);
+    }
+  };
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
@@ -238,6 +285,80 @@ export function Earn() {
           <div className="grid gap-5">
             {/* Community Task Module */}
             <CommunityTaskCard />
+
+            {/* Daily Promotion Share Task */}
+            {sharePromo && (
+              <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 overflow-hidden">
+                {/* Flyer Preview */}
+                {sharePromo.image_url && (
+                  <div className="relative h-40 overflow-hidden">
+                    <img 
+                      src={sharePromo.image_url} 
+                      alt={sharePromo.title} 
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute bottom-3 left-4 right-4 flex justify-between items-end">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400">Daily Task</span>
+                        <h4 className="text-white font-bold text-sm line-clamp-1 mt-0.5">{sharePromo.title}</h4>
+                      </div>
+                      <div className="bg-emerald-500 text-white font-black text-xs px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
+                        ₦{Number(sharePromo.share_reward_amount || 300).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="p-5 space-y-4">
+                  {/* Promo Text */}
+                  {(sharePromo.share_caption || sharePromo.description) && (
+                    <p className="text-on-surface-variant text-[13px] leading-relaxed line-clamp-3">
+                      {sharePromo.share_caption || sharePromo.description}
+                    </p>
+                  )}
+                  
+                  {/* Reward Info */}
+                  <div className="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-xl">
+                    <span className="material-symbols-outlined text-emerald-600 text-[18px]">monetization_on</span>
+                    <span className="text-xs font-bold text-emerald-700">
+                      Earn ₦{Number(sharePromo.share_reward_amount || 300).toLocaleString()} by sharing to WhatsApp Status daily
+                    </span>
+                  </div>
+
+                  {/* Share / Claimed Button */}
+                  {hasSharedToday ? (
+                    <div className="w-full py-3 bg-emerald-100 text-emerald-700 font-bold rounded-xl flex items-center justify-center gap-2 text-sm">
+                      <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                      Completed Today — Come Back Tomorrow
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleShareAndClaim(sharePromo)}
+                      disabled={!!sharingPromoId}
+                      className={`w-full py-3.5 font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm shadow-md ${
+                        sharingPromoId 
+                          ? 'bg-surface-variant text-on-surface-variant' 
+                          : 'bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-[#25D366]/30'
+                      }`}
+                    >
+                      {sharingPromoId ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Claiming Reward...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.204 0-4.249-.711-5.91-1.918l-.412-.31-2.674.896.896-2.674-.31-.412A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                          Share on WhatsApp Status to Earn
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Dynamic DB Bounties */}
             {availableTasks.map((task: any) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import confetti from 'canvas-confetti';
@@ -6,7 +7,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useCurrency } from '../hooks/useCurrency';
 
+type WalletSource = 'activity' | 'referral';
+
 export function Wallet() {
+  const [searchParams] = useSearchParams();
+  const initialSource = (searchParams.get('source') === 'referral' ? 'referral' : 'activity') as WalletSource;
+  const [walletSource, setWalletSource] = useState<WalletSource>(initialSource);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -24,7 +30,7 @@ export function Wallet() {
   // Failure modal state
   const [showFailureModal, setShowFailureModal] = useState(false);
   const [failureMessage, setFailureMessage] = useState('');
-  const { exchangeRates, pageToggles } = useAppSettings();
+  const { exchangeRates, pageToggles, affiliateWithdrawalSettings } = useAppSettings();
   const { isGlobal, symbol, exchangeRate } = useCurrency();
   
   const { data: walletData, isLoading, refetch } = useQuery({
@@ -32,7 +38,7 @@ export function Wallet() {
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
       const [balanceRes, txRes, methodsRes, referralRes, userPlanRes] = await Promise.all([
-        supabase.from('wallet_balances').select('balance, usdt_balance').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_balances').select('balance, usdt_balance, referral_balance, referral_usdt_balance').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_transactions').select('*').eq('user_id', user.id).eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(5),
         supabase.from('payout_methods').select('*').eq('user_id', user.id),
         supabase.from('referrals').select('referred_user_id').eq('referrer_user_id', user.id),
@@ -57,6 +63,8 @@ export function Wallet() {
       return {
         balance: balanceRes.data?.balance || 0,
         usdtBalance: balanceRes.data?.usdt_balance || 0,
+        referralBalance: balanceRes.data?.referral_balance || 0,
+        referralUsdtBalance: balanceRes.data?.referral_usdt_balance || 0,
         transactions: txRes.data || [],
         payoutMethods: methods,
         referralCount: activeReferralsCount,
@@ -69,16 +77,26 @@ export function Wallet() {
 
   const balance = walletData?.balance || 0;
   const usdtBalance = walletData?.usdtBalance || 0;
+  const referralBalance = walletData?.referralBalance || 0;
+  const referralUsdtBalance = walletData?.referralUsdtBalance || 0;
   const transactions = walletData?.transactions || [];
   const payoutMethods = walletData?.payoutMethods || [];
   const referralCount = walletData?.referralCount || 0;
   const userPlanId = walletData?.userPlanId || 'free';
 
-  const PAYOUT_THRESHOLD = isGlobal ? 30.00 : 20.00; // $30 for global, $20 for Nigerian
-  const displayBalance = isGlobal ? (balance / exchangeRate) : usdtBalance;
+  const isReferralSource = walletSource === 'referral';
+  const PAYOUT_THRESHOLD = isReferralSource 
+    ? affiliateWithdrawalSettings.minWithdrawalAmount 
+    : (isGlobal ? 30.00 : 20.00);
+  const currentFeePercent = isReferralSource 
+    ? affiliateWithdrawalSettings.withdrawalFeePercent 
+    : exchangeRates.withdrawalFee;
+  const activeBalance = isReferralSource ? referralBalance : balance;
+  const activeUsdtBalance = isReferralSource ? referralUsdtBalance : usdtBalance;
+  const displayBalance = isGlobal ? (activeBalance / exchangeRate) : activeUsdtBalance;
   const walletSymbol = '$';
   
-  const widthdrawalFeePercent = exchangeRates.withdrawalFee / 100;
+  const widthdrawalFeePercent = currentFeePercent / 100;
   const numAmount = Number(withdrawAmount) || 0;
   const fee = numAmount * widthdrawalFeePercent;
   const youGet = numAmount - fee;
@@ -140,10 +158,17 @@ export function Wallet() {
          }
     }
 
-    const requiredReferrals = userPlanId === 'free' ? 5 : 2;
+    // For referral/affiliate wallet, skip the referral requirement
+    if (!isReferralSource) {
+      const requiredReferrals = userPlanId === 'free' ? 5 : 2;
 
-    if (currentReferrals < requiredReferrals) {
-      setFailureMessage(`You need at least ${requiredReferrals} active referrals who have subscribed to a paid plan before you can withdraw. You currently have ${currentReferrals}. Upgrade your plan or refer more users to unlock withdrawals.`);
+      if (currentReferrals < requiredReferrals) {
+        setFailureMessage(`You need at least ${requiredReferrals} active referrals who have subscribed to a paid plan before you can withdraw. You currently have ${currentReferrals}. Upgrade your plan or refer more users to unlock withdrawals.`);
+        setShowFailureModal(true);
+        return;
+      }
+    } else if (affiliateWithdrawalSettings.requireReferrals && currentReferrals < affiliateWithdrawalSettings.requiredReferralCount) {
+      setFailureMessage(`Affiliate withdrawals require at least ${affiliateWithdrawalSettings.requiredReferralCount} active referrals. You currently have ${currentReferrals}.`);
       setShowFailureModal(true);
       return;
     }
@@ -231,21 +256,27 @@ export function Wallet() {
         network: selectedPm.network || null,
       } : {};
 
+      // Determine deduction column based on wallet source and region
+      const deductionColumn = isReferralSource 
+        ? (isGlobal ? 'referral_balance' : 'referral_usdt_balance')
+        : (isGlobal ? 'balance' : 'usdt_balance');
+      const deductionAmount = isGlobal ? (Number(withdrawAmount) * exchangeRate) : Number(withdrawAmount);
+
       const { error } = await supabase.from('wallet_transactions').insert({
         user_id: user!.id,
         type: 'withdrawal',
         amount: Number(withdrawAmount),
         status: 'pending',
-        description: `Withdrawal request via ${selectedPm?.method || 'payout method'}`,
+        description: `Withdrawal request via ${selectedPm?.method || 'payout method'} (${isReferralSource ? 'Affiliate' : 'Activity'} Wallet)`,
         meta: { 
           withdrawalFeePercent: exchangeRates.withdrawalFee,
           feeDeducted: fee,
           expectedAmount: youGet,
           account_details: accountDetails,
           currency: 'USD',
-          // Explicitly state how much to deduct from which column based on the user's region
-          deduction_amount: isGlobal ? (Number(withdrawAmount) * exchangeRate) : Number(withdrawAmount),
-          deduction_column: isGlobal ? 'balance' : 'usdt_balance'
+          wallet_source: walletSource,
+          deduction_amount: deductionAmount,
+          deduction_column: deductionColumn
         }
       });
 
@@ -287,7 +318,7 @@ export function Wallet() {
     <div className="bg-surface text-on-surface min-h-[calc(100vh-80px)] font-body">
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-8 md:py-12 pb-32">
         {/* Status Indicator / Page Context */}
-        <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-on-surface tracking-tight leading-tight font-headline">Withdraw Funds</h1>
             <p className="text-on-surface-variant mt-1 text-sm">Move your earnings to your bank or crypto wallet.</p>
@@ -296,6 +327,32 @@ export function Wallet() {
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
             <span className="text-xs font-semibold text-on-secondary-fixed-variant uppercase tracking-wider">Verified Account</span>
           </div>
+        </div>
+
+        {/* Wallet Source Tabs */}
+        <div className="flex gap-2 mb-8 bg-[#f1f3f4] rounded-2xl p-1.5">
+          <button
+            onClick={() => { setWalletSource('activity'); setWithdrawAmount(''); setMessage(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              walletSource === 'activity'
+                ? 'bg-white text-[#006b3f] shadow-md'
+                : 'text-[#5f6368] hover:text-[#3c4043]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">work</span>
+            Activity
+          </button>
+          <button
+            onClick={() => { setWalletSource('referral'); setWithdrawAmount(''); setMessage(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              walletSource === 'referral'
+                ? 'bg-white text-[#6b21a8] shadow-md'
+                : 'text-[#5f6368] hover:text-[#3c4043]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">group_add</span>
+            Affiliate
+          </button>
         </div>
 
         <section className="space-y-6">
@@ -308,9 +365,16 @@ export function Wallet() {
           ) : (
             <>
               {/* AdSense Style Earnings Card */}
-          <div className="bg-white p-6 md:p-8 rounded-xl border border-surface-container-highest/40 shadow-sm">
+           <div className={`bg-white p-6 md:p-8 rounded-xl border shadow-sm ${isReferralSource ? 'border-purple-200' : 'border-surface-container-highest/40'}`}>
             <div className="text-center mb-8">
-              <h3 className="text-[22px] font-body text-[#3c4043] mb-2 font-medium">Your earnings</h3>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className={`material-symbols-outlined text-xl ${isReferralSource ? 'text-purple-600' : 'text-[#006b3f]'}`}>
+                  {isReferralSource ? 'diversity_3' : 'account_balance_wallet'}
+                </span>
+                <h3 className="text-[22px] font-body text-[#3c4043] font-medium">
+                  {isReferralSource ? 'Affiliate Earnings' : 'Activity Earnings'}
+                </h3>
+              </div>
               <p className="text-[15px] font-body text-[#5f6368]">
                 Paid weekly if the total is at least {walletSymbol}{PAYOUT_THRESHOLD.toLocaleString(undefined, {minimumFractionDigits: 2})} (your payout threshold)
               </p>
@@ -322,7 +386,7 @@ export function Wallet() {
             <div className="space-y-3 mt-10">
               <div className="h-6 bg-[#f1f3f4] w-full relative">
                 <div 
-                  className="h-full bg-gradient-to-r from-[#006b3f] to-[#008751] transition-all duration-1000" 
+                  className={`h-full transition-all duration-1000 ${isReferralSource ? 'bg-gradient-to-r from-[#6b21a8] to-[#a855f7]' : 'bg-gradient-to-r from-[#006b3f] to-[#008751]'}`} 
                   style={{ width: `${Math.min((displayBalance / PAYOUT_THRESHOLD) * 100, 100)}%` }}
                 ></div>
               </div>
@@ -507,8 +571,14 @@ export function Wallet() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span>
+                  <span>{isReferralSource ? 'Affiliate' : 'Activity'} wallet withdrawal</span>
+                </li>
+                {!isReferralSource && (
+                <li className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span>
                   <span>Referral requirement met (Need {userPlanId === 'free' ? '5' : '2'}, have {referralCount})</span>
                 </li>
+                )}
               </ul>
               
               <div className="space-y-2">
@@ -517,12 +587,12 @@ export function Wallet() {
                   <span className="font-bold text-slate-800">{walletSymbol}{Number(withdrawAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-600">
-                  <span>Withdrawal Fee ({exchangeRates.withdrawalFee}%)</span>
-                  <span className="font-semibold text-rose-500">-{walletSymbol}{(Number(withdrawAmount) * exchangeRates.withdrawalFee / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span>Withdrawal Fee ({currentFeePercent}%)</span>
+                  <span className="font-semibold text-rose-500">-{walletSymbol}{(Number(withdrawAmount) * currentFeePercent / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center font-bold pt-2 border-t border-slate-200 mt-2">
                   <span className="text-slate-800">You will receive</span>
-                  <span className="text-emerald-600 text-base">{walletSymbol}{(Number(withdrawAmount) - (Number(withdrawAmount) * exchangeRates.withdrawalFee / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="text-emerald-600 text-base">{walletSymbol}{(Number(withdrawAmount) - (Number(withdrawAmount) * currentFeePercent / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>

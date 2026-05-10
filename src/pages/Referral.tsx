@@ -19,7 +19,7 @@ export function Referral() {
       if (!user?.id) throw new Error('Not authenticated');
 
       const [walletRes, bonusTxRes] = await Promise.all([
-        supabase.from('wallet_balances').select('referral_earnings').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_balances').select('referral_earnings, referral_balance, referral_usdt_balance').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_transactions').select('amount, meta').eq('user_id', user.id).eq('type', 'referral_bonus'),
       ]);
 
@@ -74,6 +74,8 @@ export function Referral() {
 
       return { 
         earnings, 
+        referralBalance: walletRes.data?.referral_balance || 0,
+        referralUsdtBalance: walletRes.data?.referral_usdt_balance || 0,
         perUserEarnings, 
         tier1: enrich(t1), 
         tier2: enrich(t2), 
@@ -86,6 +88,8 @@ export function Referral() {
   });
 
   const earnings = referralData?.earnings || 0;
+  const referralWalletBalance = referralData?.referralBalance || 0;
+  const referralUsdtBal = referralData?.referralUsdtBalance || 0;
   const perUserEarnings = referralData?.perUserEarnings || {};
   const t1List = referralData?.tier1 || [];
   const t2List = referralData?.tier2 || [];
@@ -247,7 +251,24 @@ export function Referral() {
               </div>
             </div>
           </div>
-          <div className="col-span-2 bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
+          {/* Withdrawable Referral Balance */}
+          <div className="bg-gradient-to-br from-[#6b21a8]/10 to-[#a855f7]/10 p-5 rounded-3xl shadow-sm border border-purple-200/30 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Available to Withdraw</p>
+                <h3 className="text-xl font-black text-purple-800 font-headline">
+                  {formatAmount(referralWalletBalance)}
+                </h3>
+                {referralUsdtBal > 0 && (
+                  <p className="text-[10px] font-bold text-blue-600">${referralUsdtBal.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDT</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="bg-surface-container-lowest p-5 rounded-3xl shadow-sm border border-surface-container-highest/20">
             <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Referrers</p>
             <div className="flex items-baseline gap-1 pt-1">
               <span className="text-2xl font-black text-emerald-900 font-headline">{totalCount}</span>
