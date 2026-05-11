@@ -84,6 +84,8 @@ export function BlogLayout() {
               <div className="hidden lg:flex items-center bg-surface-container-low px-3 py-1.5 rounded-full w-56 border border-surface-container focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-100 transition-all">
                 <Search size={15} className="text-on-surface-variant mr-2" />
                 <input 
+                  id="desktop-search-input"
+                  name="desktop-search"
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -149,6 +151,8 @@ export function BlogLayout() {
             <div className="flex items-center bg-surface-container px-3 py-2 rounded-full border border-surface-container">
               <Search size={15} className="text-on-surface-variant mr-2" />
               <input 
+                id="mobile-search-input"
+                name="mobile-search"
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
