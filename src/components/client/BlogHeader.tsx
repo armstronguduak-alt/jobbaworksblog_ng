@@ -1,0 +1,254 @@
+'use client'
+
+import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { useAuth } from '@/components/client/AuthProvider'
+import { Menu, X, Search } from 'lucide-react'
+
+interface BlogHeaderProps {
+  categories: { id: string; name: string; slug: string }[]
+  storiesEnabled: boolean
+}
+
+export function BlogHeader({ categories, storiesEnabled }: BlogHeaderProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const { user, profile, signOut } = useAuth()
+  const menuRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
+  const router = useRouter()
+
+  // Hide search bar on article/story pages
+  const pathParts = pathname.split('/').filter(Boolean)
+  const isArticlePage = pathParts.length >= 2 || pathname.startsWith('/stories/') || pathname.startsWith('/author/')
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Close drawer on route change
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
+
+  return (
+    <>
+      <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-surface-container shadow-sm">
+        <div className="flex justify-between items-center w-full px-4 md:px-6 py-2.5 md:py-3 max-w-7xl mx-auto">
+          {/* Left: Menu + Logo */}
+          <div className="flex items-center gap-2 md:gap-4">
+            <button
+              className="lg:hidden text-emerald-950 p-1.5 bg-emerald-50 rounded-xl"
+              onClick={() => setIsMenuOpen(true)}
+            >
+              <Menu size={18} />
+            </button>
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/logo.png" alt="JobbaWorks Logo" className="w-7 h-7 md:w-9 md:h-9 rounded-lg object-contain bg-primary" />
+              <span className="text-lg md:text-2xl font-black text-emerald-950 font-headline tracking-tighter">JobbaWorks</span>
+            </Link>
+          </div>
+
+          {/* Center: Desktop Categories */}
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 flex-1 px-4 justify-center overflow-hidden whitespace-nowrap">
+            <Link href="/" className="text-emerald-700 font-bold font-headline text-[11px] xl:text-xs shrink-0">Home</Link>
+            {storiesEnabled && (
+              <Link href="/stories" className="text-primary font-bold font-headline text-[11px] xl:text-xs shrink-0">Stories✨</Link>
+            )}
+            {categories.map(cat => (
+              <Link
+                key={cat.id}
+                href={`/${cat.slug}`}
+                className="text-on-surface-variant hover:text-emerald-700 font-semibold transition-colors text-[10px] xl:text-[11px] shrink-0 truncate max-w-[80px] xl:max-w-[120px]"
+                title={cat.name}
+              >
+                {cat.name}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right: Search + Auth */}
+          <div className="flex items-center gap-2">
+            {!isArticlePage && (
+              <div className="hidden lg:flex items-center bg-surface-container-low px-3 py-1.5 rounded-full w-56 border border-surface-container focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-100 transition-all">
+                <Search size={15} className="text-on-surface-variant mr-2" />
+                <input
+                  id="desktop-search-input"
+                  name="desktop-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      router.push(`/?search=${encodeURIComponent(searchQuery.trim())}`)
+                    }
+                  }}
+                  placeholder="Search articles..."
+                  className="bg-transparent border-none outline-none text-sm w-full text-on-surface placeholder:text-on-surface-variant font-medium"
+                />
+              </div>
+            )}
+
+            {user ? (
+              <>
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm focus:border-emerald-200 transition-all ml-1"
+                  >
+                    <img src={profile?.avatar_url || 'https://api.dicebear.com/7.x/notionists/svg?seed=Felix'} alt="Avatar" className="w-full h-full object-cover" />
+                  </button>
+
+                  {isProfileOpen && (
+                    <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-surface-container p-2 transform origin-top-right transition-all">
+                      <div className="p-3 border-b border-surface-container mb-2">
+                        <p className="font-bold text-emerald-950 font-headline truncate">{profile?.name || 'User'}</p>
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Member</p>
+                      </div>
+                      <Link href="/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">person</span>
+                        Dashboard
+                      </Link>
+                      <Link href="/plans" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-950 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">credit_card</span>
+                        Plans
+                      </Link>
+                      <button onClick={() => { signOut(); setIsProfileOpen(false) }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition-colors mt-1">
+                        <span className="material-symbols-outlined text-[18px]">logout</span>
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex gap-2 ml-1">
+                <Link href="/login" className="text-sm font-bold text-emerald-800 px-3 py-1.5 hover:bg-emerald-50 rounded-full transition-colors hidden md:block">Login</Link>
+                <Link href="/signup" className="text-sm font-bold text-white bg-primary px-3 py-1.5 hover:bg-emerald-800 rounded-full shadow-md transition-colors hidden md:block">Sign Up</Link>
+                <Link href="/login" className="text-sm font-bold text-white bg-primary px-3 py-1.5 hover:bg-emerald-800 rounded-full shadow-md transition-colors md:hidden">Sign In</Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Search */}
+        {!isArticlePage && (
+          <div className="lg:hidden px-4 pb-2.5">
+            <div className="flex items-center bg-surface-container px-3 py-2 rounded-full border border-surface-container">
+              <Search size={15} className="text-on-surface-variant mr-2" />
+              <input
+                id="mobile-search-input"
+                name="mobile-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    router.push(`/?search=${encodeURIComponent(searchQuery.trim())}`)
+                  }
+                }}
+                placeholder="Search articles..."
+                className="bg-transparent border-none outline-none text-sm w-full text-on-surface"
+              />
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Overlay for drawer */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] lg:hidden"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
+      {/* Left Slide-In Drawer */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-[70] w-[280px] bg-white shadow-2xl flex flex-col
+        transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] lg:hidden
+        ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex items-center justify-between p-4 border-b border-surface-container bg-emerald-50">
+          <Link href="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
+            <img src="/logo.png" alt="JobbaWorks Logo" className="w-7 h-7 rounded-lg object-contain bg-primary" />
+            <span className="text-lg font-black text-emerald-950 font-headline tracking-tighter">JobbaWorks</span>
+          </Link>
+          <button onClick={() => setIsMenuOpen(false)} className="p-1.5 text-emerald-950 bg-white rounded-xl shadow-sm">
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
+          <Link href="/" onClick={() => setIsMenuOpen(false)} className={`font-bold px-4 py-3 rounded-xl flex items-center gap-3 transition-colors ${pathname === '/' ? 'bg-emerald-50 text-emerald-700' : 'text-emerald-950 hover:bg-surface-container'}`}>
+            <span className="material-symbols-outlined text-[18px]">home</span>
+            All Feeds
+          </Link>
+
+          {storiesEnabled && (
+            <Link href="/stories" onClick={() => setIsMenuOpen(false)} className={`font-bold px-4 py-3 rounded-xl flex items-center gap-3 transition-colors ${pathname === '/stories' ? 'bg-amber-50 text-amber-800' : 'text-amber-700 hover:bg-amber-50'}`}>
+              <span className="material-symbols-outlined text-[18px]">auto_stories</span>
+              Stories ✨
+            </Link>
+          )}
+
+          <p className="px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-outline">Categories</p>
+
+          {categories.map(cat => (
+            <Link
+              key={cat.id}
+              href={`/${cat.slug}`}
+              onClick={() => setIsMenuOpen(false)}
+              className={`font-semibold px-4 py-2.5 rounded-xl flex items-center gap-3 transition-colors ${pathname === `/${cat.slug}` ? 'bg-emerald-50 text-emerald-700' : 'text-emerald-950 hover:bg-surface-container'}`}
+            >
+              <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+              {cat.name}
+            </Link>
+          ))}
+
+          <div className="mt-4 pt-3 border-t border-surface-container">
+            <Link href="/plans" onClick={() => setIsMenuOpen(false)} className="font-bold px-4 py-3 rounded-xl flex items-center gap-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-md">
+              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+              View Plans & Pricing
+            </Link>
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-surface-container">
+          {user ? (
+            <div className="space-y-2">
+              <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-surface-container text-on-surface font-semibold transition-colors">
+                <span className="material-symbols-outlined text-[18px]">dashboard</span>
+                Dashboard
+              </Link>
+              <button onClick={() => { signOut(); setIsMenuOpen(false) }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold transition-colors">
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Link href="/login" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold shadow-md">
+                <span className="material-symbols-outlined text-[18px]">login</span>
+                Sign In
+              </Link>
+              <Link href="/signup" onClick={() => setIsMenuOpen(false)} className="w-full flex items-center justify-center gap-2 border border-surface-container py-3 rounded-xl font-bold text-emerald-950">
+                <span className="material-symbols-outlined text-[18px]">person_add</span>
+                Create Free Account
+              </Link>
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  )
+}

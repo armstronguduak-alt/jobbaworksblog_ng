@@ -124,9 +124,11 @@ export async function fetchRelatedArticles(categoryId: string, excludeId: string
 
 /**
  * Fetch all approved article slugs for generateStaticParams.
+ * Uses build-time client (no cookies) since this runs at build time.
  */
 export async function fetchAllArticleSlugs() {
-  const supabase = await createClient()
+  const { createBuildClient } = await import('@/lib/supabase/static')
+  const supabase = createBuildClient()
 
   const { data } = await supabase
     .from('posts')
@@ -140,3 +142,4 @@ export async function fetchAllArticleSlugs() {
     categorySlug: p.category?.slug || 'post',
   }))
 }
+

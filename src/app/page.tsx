@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { fetchArticleFeed } from '@/lib/data/articles'
+import Link from 'next/link'
 
-export const revalidate = 60 // ISR: revalidate every 60 seconds
+export const revalidate = 60
 
 export default async function HomePage() {
   const { categories, featuredPosts, latestPosts } = await fetchArticleFeed()
@@ -20,16 +20,10 @@ export default async function HomePage() {
               Your daily platform for professional growth and passive earnings. Explore quality articles and start earning today.
             </p>
             <div className="flex gap-3">
-              <Link
-                href="/signup"
-                className="bg-white text-primary hover:bg-surface-container-lowest transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-xl active:scale-95 duration-200"
-              >
+              <Link href="/signup" className="bg-white text-primary hover:bg-surface-container-lowest transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-xl active:scale-95 duration-200">
                 Get Started
               </Link>
-              <Link
-                href="/login"
-                className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg backdrop-blur-sm"
-              >
+              <Link href="/login" className="bg-transparent border-2 border-white/30 text-white hover:bg-white/10 transition-all px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg backdrop-blur-sm">
                 Login
               </Link>
             </div>
@@ -46,30 +40,17 @@ export default async function HomePage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredPosts.slice(0, 3).map((post: any) => (
-              <Link
-                key={post.id}
-                href={`/${post.category?.slug || 'post'}/${post.slug}`}
-                className="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-surface-container"
-              >
+              <Link key={post.id} href={`/${post.category?.slug || 'post'}/${post.slug}`} className="group bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-surface-container">
                 {post.cover_image && (
                   <div className="aspect-[16/10] overflow-hidden">
-                    <img
-                      src={post.cover_image}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
+                    <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                   </div>
                 )}
                 <div className="p-4">
                   {post.category?.name && (
-                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                      {post.category.name}
-                    </span>
+                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{post.category.name}</span>
                   )}
-                  <h3 className="text-base font-bold text-on-surface mt-2 line-clamp-2 group-hover:text-primary transition-colors">
-                    {post.title}
-                  </h3>
+                  <h3 className="text-base font-bold text-on-surface mt-2 line-clamp-2 group-hover:text-primary transition-colors">{post.title}</h3>
                   <p className="text-xs text-on-surface-variant mt-1.5 line-clamp-2">{post.excerpt}</p>
                   <div className="flex items-center gap-2 mt-3 text-xs text-on-surface-variant">
                     <span>{post.author?.name || 'Anonymous'}</span>
@@ -86,52 +67,29 @@ export default async function HomePage() {
       {/* Categories */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 pb-4">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-          <span className="shrink-0 px-4 py-2 bg-primary text-white rounded-full text-xs font-bold">
-            All Feed
-          </span>
+          <span className="shrink-0 px-4 py-2 bg-primary text-white rounded-full text-xs font-bold">All Feed</span>
           {categories.map((cat: any) => (
-            <Link
-              key={cat.id}
-              href={`/${cat.slug}`}
-              className="shrink-0 px-4 py-2 bg-surface-container rounded-full text-xs font-bold text-on-surface hover:bg-surface-container-high transition-colors"
-            >
-              {cat.name}
-            </Link>
+            <Link key={cat.id} href={`/${cat.slug}`} className="shrink-0 px-4 py-2 bg-surface-container rounded-full text-xs font-bold text-on-surface hover:bg-surface-container-high transition-colors">{cat.name}</Link>
           ))}
         </div>
       </section>
 
       {/* Latest Articles */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 py-8">
-        <h2 className="text-2xl font-black font-headline text-on-surface mb-6">
-          Latest Articles
-        </h2>
+        <h2 className="text-2xl font-black font-headline text-on-surface mb-6">Latest Articles</h2>
         <div className="space-y-4">
           {latestPosts.map((post: any) => (
-            <Link
-              key={post.id}
-              href={`/${post.category?.slug || 'post'}/${post.slug}`}
-              className="group flex gap-4 bg-surface-container-lowest rounded-2xl overflow-hidden border border-surface-container hover:shadow-md transition-shadow p-3"
-            >
+            <Link key={post.id} href={`/${post.category?.slug || 'post'}/${post.slug}`} className="group flex gap-4 bg-surface-container-lowest rounded-2xl overflow-hidden border border-surface-container hover:shadow-md transition-shadow p-3">
               {post.cover_image && (
                 <div className="w-[120px] h-[90px] shrink-0 rounded-xl overflow-hidden">
-                  <img
-                    src={post.cover_image}
-                    alt={post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
+                  <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 {post.category?.name && (
-                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                    {post.category.name}
-                  </span>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider">{post.category.name}</span>
                 )}
-                <h3 className="text-sm font-bold text-on-surface line-clamp-2 group-hover:text-primary transition-colors mt-0.5">
-                  {post.title}
-                </h3>
+                <h3 className="text-sm font-bold text-on-surface line-clamp-2 group-hover:text-primary transition-colors mt-0.5">{post.title}</h3>
                 <div className="flex items-center gap-2 mt-2 text-xs text-on-surface-variant">
                   <span>{post.author?.name || 'Anonymous'}</span>
                   <span>·</span>
@@ -143,7 +101,6 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
-
         {latestPosts.length === 0 && (
           <div className="py-16 text-center">
             <span className="material-symbols-outlined text-5xl text-outline mb-3">article</span>
@@ -151,51 +108,6 @@ export default async function HomePage() {
           </div>
         )}
       </section>
-
-      {/* Footer */}
-      <footer className="w-full bg-[#0a1a10] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="max-w-7xl mx-auto px-4 md:px-6 relative z-10">
-          <div className="py-8 grid grid-cols-2 md:grid-cols-4 gap-6 border-b border-white/10">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base font-black text-white font-headline tracking-tight">JobbaWorks</span>
-              </div>
-              <p className="text-white/50 text-xs leading-relaxed max-w-[200px]">
-                Your daily platform for professional growth and passive earnings.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-widest mb-3">Explore</h4>
-              <div className="flex flex-col gap-2">
-                <Link href="/" className="text-white/50 hover:text-white transition-colors text-xs">All Articles</Link>
-                <Link href="/promotional" className="text-white/50 hover:text-white transition-colors text-xs">Promotional</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-widest mb-3">Platform</h4>
-              <div className="flex flex-col gap-2">
-                <Link href="/plans" className="text-white/50 hover:text-white transition-colors text-xs">Plans & Pricing</Link>
-                <Link href="/dashboard" className="text-white/50 hover:text-white transition-colors text-xs">Dashboard</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-widest mb-3">Legal</h4>
-              <div className="flex flex-col gap-2">
-                <Link href="/privacy-policy" className="text-white/50 hover:text-white transition-colors text-xs">Privacy Policy</Link>
-                <Link href="/terms-of-service" className="text-white/50 hover:text-white transition-colors text-xs">Terms of Service</Link>
-              </div>
-            </div>
-          </div>
-          <div className="py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-white/30 text-[11px]">© {new Date().getFullYear()} JobbaWorks. All Rights Reserved.</p>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-white/30 text-[11px]">All systems operational</span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </main>
   )
 }
