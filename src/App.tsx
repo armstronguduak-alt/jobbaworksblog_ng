@@ -60,11 +60,13 @@ const EmailVerified = lazy(() => import('./pages/EmailVerified').then(module => 
 const AdminLogin = lazy(() => import('./pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
 
 import { FeatureGuard } from './components/FeatureGuard';
+import { useLocation } from 'react-router-dom';
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
+  
   return (
-    <ErrorBoundary>
-    <BrowserRouter>
+    <ErrorBoundary resetKey={location.pathname}>
       <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -131,12 +133,18 @@ function App() {
           </Route>
         </Route>
 
-        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
-    </BrowserRouter>
     </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

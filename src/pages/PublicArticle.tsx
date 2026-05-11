@@ -10,7 +10,7 @@ import { ShareButton } from '../components/ShareButton';
 
 // FAST: Fetch only the core article data (title, content, image, author) — 1 network call
 export const fetchArticleCore = async (slug: string) => {
-  const { data: pData } = await supabase
+  const { data: pData, error } = await supabase
     .from('posts')
     .select(`
       *,
@@ -21,6 +21,10 @@ export const fetchArticleCore = async (slug: string) => {
     .eq('status', 'approved')
     .single();
 
+  if (error) {
+    console.error("fetchArticleCore error:", error);
+    throw new Error(error.message);
+  }
   if (!pData) return null;
   return pData;
 };
@@ -121,14 +125,19 @@ export function PublicArticle() {
   };
 
   // Phase 1: Fetch article IMMEDIATELY — don't wait for auth
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['article', slug, user?.id],
     enabled: !!slug,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    retry: 2,
     initialData: getInitialArticleData(),
     placeholderData: (prev: any) => prev, // Keep old data visible during refetch
-    queryFn: () => fetchArticleData(slug!, user?.id)
+    queryFn: async () => {
+      const res = await fetchArticleData(slug!, user?.id);
+      if (res === null) throw new Error("Article not found");
+      return res;
+    }
   });
 
   // Phase 2: Refetch with userId when auth resolves (to get follow/read status)
@@ -244,6 +253,23 @@ export function PublicArticle() {
   if (isLoading && !data) {
     return <div className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 min-h-screen" />;
   }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center p-6 space-y-4">
+        <span className="material-symbols-outlined text-6xl text-rose-300">warning</span>
+        <h2 className="text-xl font-bold text-slate-800">Article temporarily unavailable</h2>
+        <p className="text-sm text-slate-500">{error instanceof Error ? error.message : 'A network error occurred.'}</p>
+        <button 
+          onClick={() => refetch()} 
+          className="mt-4 px-6 py-2 bg-primary text-white font-bold rounded-full hover:bg-emerald-800 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   if (!post) return <div className="min-h-screen flex items-center justify-center text-error font-bold">Article not found.</div>;
 
   const totalTime = totalTimeValue;
@@ -251,13 +277,13 @@ export function PublicArticle() {
 
   // Extract plain text excerpt for SEO description
   const getExcerpt = () => {
-    if (!post.content) return post.title;
+    if (!post.content) return post.title || 'JobbaWorks Article';
     try {
       const tmp = document.createElement('div');
       tmp.innerHTML = post.content;
-      return tmp.textContent ? tmp.textContent.substring(0, 155) + '...' : post.title;
+      return tmp.textContent ? tmp.textContent.substring(0, 155) + '...' : post.title || 'Article';
     } catch(e) {
-      return post.title;
+      return post.title || 'Article';
     }
   };
   const seoExcerpt = post.excerpt ? post.excerpt : getExcerpt();

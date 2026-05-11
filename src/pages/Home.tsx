@@ -17,7 +17,7 @@ export function Home() {
   const queryClient = useQueryClient();
 
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['publicPosts'],
     queryFn: async () => {
       const { data: categories } = await supabase.from('categories').select('*');
@@ -78,8 +78,8 @@ export function Home() {
 
   const filteredLatest = (activeCategory === 'All Feed'
     ? latestPosts
-    : latestPosts.filter(p => p.category?.name === activeCategory))
-    .filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery) || p.excerpt?.toLowerCase().includes(searchQuery));
+    : latestPosts.filter((p: any) => p.category?.name === activeCategory))
+    .filter((p: any) => !searchQuery || p.title?.toLowerCase()?.includes(searchQuery) || p.excerpt?.toLowerCase()?.includes(searchQuery));
 
   const timeAgo = (date: string) => {
     if (!date) return '';
@@ -263,7 +263,13 @@ export function Home() {
           </h2>
         </div>
         
-        {isLoading ? (
+        {isError ? (
+          <div className="py-16 text-center bg-rose-50 rounded-3xl border border-rose-100 flex flex-col items-center justify-center gap-4">
+            <span className="material-symbols-outlined text-5xl text-rose-300">warning</span>
+            <p className="text-rose-800 font-bold">Failed to load articles. Please check your connection.</p>
+            <button onClick={() => refetch()} className="px-6 py-2 bg-rose-600 text-white font-bold rounded-full hover:bg-rose-700 transition-colors">Try Again</button>
+          </div>
+        ) : isLoading ? (
           <div className="space-y-6">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-surface-container-low h-32 w-full rounded-3xl animate-pulse" />
