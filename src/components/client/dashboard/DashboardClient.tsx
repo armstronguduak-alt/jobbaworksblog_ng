@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DailyLoginStreakModalClient } from './DailyLoginStreakModalClient'
 import { useCurrency } from '@/lib/hooks/useCurrency'
+import { UpgradeCard } from './UpgradeCard'
+import { SponsorShareTask } from './SponsorShareTask'
+import { PageTransition, FadeIn, StaggerList, StaggerItem, FloatingCard, AnimatedButton, AnimatedCounter } from '@/components/client/motion'
 
 interface DashboardClientProps {
   referralSettings: any
@@ -31,12 +34,13 @@ export function DashboardClient({ referralSettings, streakSettings }: DashboardC
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated')
       
-      const [walletRes, tasksRes, promoRes, referralTiersRes] = await Promise.all([
+      const [walletRes, tasksRes, promoRes, referralTiersRes, subRes] = await Promise.all([
         supabase.from('wallet_balances').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('user_tasks').select('*', { count: 'exact', head: true })
           .eq('user_id', user.id).eq('completed', true),
         supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('referral_commissions').select('tier, amount').eq('referrer_user_id', user.id)
+        supabase.from('referral_commissions').select('tier, amount').eq('referrer_user_id', user.id),
+        supabase.from('user_subscriptions').select('plan_id').eq('user_id', user.id).maybeSingle()
       ])
       
       // Calculate tier breakdowns
@@ -55,6 +59,7 @@ export function DashboardClient({ referralSettings, streakSettings }: DashboardC
         articlesRead: tasksRes.count ?? 0,
         promotions: promoRes.data || [],
         tierBreakdown,
+        plan: subRes.data?.plan_id || 'free',
       }
     },
     enabled: !!user?.id,
@@ -123,7 +128,10 @@ export function DashboardClient({ referralSettings, streakSettings }: DashboardC
   }, [user?.id, streakChecked, supabase])
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full">
+    <PageTransition className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full">
+      {/* Upgrade Card */}
+      {dashData?.plan && <UpgradeCard currentPlan={dashData.plan} />}
+
       {/* Dual Wallet Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Activity Wallet */}
@@ -412,11 +420,14 @@ export function DashboardClient({ referralSettings, streakSettings }: DashboardC
         )}
       </section>
 
+      {/* Sponsor Share Task */}
+      <SponsorShareTask taskId="daily-sponsor-share" promoImages={promotions.map(p => p.image_url)} />
+
       <DailyLoginStreakModalClient
         isOpen={showStreakModal}
         onClose={() => setShowStreakModal(false)}
         streakSettings={streakSettings}
       />
-    </main>
+    </PageTransition>
   )
 }

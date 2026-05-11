@@ -7,13 +7,16 @@ import { useAuth } from '@/components/client/AuthProvider'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+import { TaskBadge } from './UpgradeCard'
+
 interface DashboardMobileMenuProps {
   isOpen: boolean
   onClose: () => void
   pageToggles: any
+  availableTasks?: number
 }
 
-export function DashboardMobileMenu({ isOpen, onClose, pageToggles }: DashboardMobileMenuProps) {
+export function DashboardMobileMenu({ isOpen, onClose, pageToggles, availableTasks = 0 }: DashboardMobileMenuProps) {
   const { user } = useAuth()
   const pathname = usePathname()
   const [profile, setProfile] = useState<any>(null)
@@ -56,9 +59,10 @@ export function DashboardMobileMenu({ isOpen, onClose, pageToggles }: DashboardM
           </Link>
           
           {pageToggles.earningsEnabled && (
-            <Link href="/earn" onClick={onClose} style={{ animationDelay: '200ms' }} className={`animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl transition-colors ${pathname?.includes('/earn') ? 'bg-emerald-50 dark:bg-emerald-900/30 text-primary' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300'}`}>
+            <Link href="/earn" onClick={onClose} style={{ animationDelay: '200ms' }} className={`relative animate-fade-in-left opacity-0 fill-mode-forwards flex items-center gap-3 p-3 rounded-xl transition-colors ${pathname?.includes('/earn') ? 'bg-emerald-50 dark:bg-emerald-900/30 text-primary' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300'}`}>
               <Coins size={20} className="text-emerald-600" />
               <span className="font-semibold px-2 font-body">Earn</span>
+              <div className="ml-auto"><TaskBadge count={availableTasks} /></div>
             </Link>
           )}
           

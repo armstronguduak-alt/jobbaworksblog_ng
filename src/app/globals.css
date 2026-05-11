@@ -247,3 +247,33 @@ body {
 .article-content p {
   margin-bottom: 1rem;
 }
+
+/* ══════════════════════════════════════════════════════════
+   COMPACT TYPOGRAPHY — reduced sizes for tighter, modern UI
+   ══════════════════════════════════════════════════════════ */
+html {
+  font-size: 15px; /* down from 16px browser default */
+}
+
+h1 { font-size: 1.75rem; } /* was 2.25rem */
+h2 { font-size: 1.35rem; } /* was 1.5rem */
+h3 { font-size: 1.1rem; }  /* was 1.25rem */
+h4, h5, h6 { font-size: 0.95rem; }
+
+/* Dashboard stat cards */
+.stat-value { font-size: 1.5rem; }
+.stat-label { font-size: 0.65rem; letter-spacing: 0.06em; }
+
+/* Navigation items */
+nav a, nav button { font-size: 0.8rem; }
+
+/* Cards */
+.card-title { font-size: 0.9rem; }
+.card-subtitle { font-size: 0.7rem; }
+
+@media (min-width: 768px) {
+  html { font-size: 15.5px; }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+}
+

@@ -7,6 +7,7 @@ import { Menu, X } from 'lucide-react'
 import { useAuth } from '@/components/client/AuthProvider'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardMobileMenu } from './DashboardMobileMenu'
+import { TaskBadge } from './UpgradeCard'
 
 interface DashboardNavigationProps {
   pageToggles: any
@@ -17,6 +18,7 @@ export function DashboardNavigation({ pageToggles }: DashboardNavigationProps) {
   const pathname = usePathname()
   const { user } = useAuth()
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [availableTasks, setAvailableTasks] = useState(0)
   const supabase = createClient()
 
   const isDashboardOrWallet = pathname?.includes('/leaderboard') || pathname?.includes('/wallet') || pathname?.includes('/dashboard') || pathname?.includes('/earn')
@@ -41,8 +43,27 @@ export function DashboardNavigation({ pageToggles }: DashboardNavigationProps) {
       })
       .subscribe()
 
+    // Fetch available tasks count
+    const fetchTasksCount = async () => {
+      const { count } = await supabase.from('user_tasks').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('completed', false)
+      if (count !== null) setAvailableTasks(count)
+    }
+    fetchTasksCount()
+
+    // Listen to task updates to decrement badge
+    const taskChannel = supabase
+      .channel('nav-task-updates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'user_tasks', filter: `user_id=eq.${user.id}` }, (payload: any) => {
+        if (payload.new?.completed === true && payload.old?.completed === false) {
+          setAvailableTasks(prev => Math.max(0, prev - 1))
+        }
+      })
+      .subscribe()
+
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(taskChannel)
     }
   }, [user?.id, supabase])
 
@@ -67,7 +88,10 @@ export function DashboardNavigation({ pageToggles }: DashboardNavigationProps) {
           <nav className="hidden md:flex items-center gap-8">
             <Link href="/" className="text-emerald-700 dark:text-emerald-400 font-bold font-headline tracking-tight">Home</Link>
             {pageToggles.earningsEnabled && (
-              <Link href="/earn" className={`hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium ${pathname?.includes('/earn') ? 'text-primary bg-emerald-50 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>Earn</Link>
+              <Link href="/earn" className={`relative hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium ${pathname?.includes('/earn') ? 'text-primary bg-emerald-50 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
+                Earn
+                <TaskBadge count={availableTasks} />
+              </Link>
             )}
             <Link href="/articles" className="text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors px-3 py-2 rounded-lg font-body font-medium">Articles</Link>
             {pageToggles.leaderboardEnabled && (
@@ -92,6 +116,7 @@ export function DashboardNavigation({ pageToggles }: DashboardNavigationProps) {
         isOpen={isMenuOpen} 
         onClose={() => setIsMenuOpen(false)} 
         pageToggles={pageToggles}
+        availableTasks={availableTasks}
       />
     </>
   )
