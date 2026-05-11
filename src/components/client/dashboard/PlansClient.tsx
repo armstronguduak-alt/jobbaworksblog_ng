@@ -1,0 +1,619 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/client/AuthProvider';
+import { useDialog } from '../contexts/DialogContext';
+import { useCurrency } from '@/lib/hooks/useCurrency';
+import { useAppSettings } from '@/lib/hooks/useAppSettings';
+// @ts-ignore
+import confetti from 'canvas-confetti';
+
+declare global {
+  interface Window {
+    Korapay: any;
+  }
+}
+
+export function PlansClient() {
+  const supabase = createClient();
+  const { user, profile } = useAuth();
+  const { showAlert, showConfirm } = useDialog();
+  const { isGlobal, formatAmount } = useCurrency();
+  const { nonNigerianPlans, usdtAddresses, paymentGatewaySettings } = useAppSettings();
+
+  const [plans, setPlans] = useState<any[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<string>('free');
+  const [isLoading, setIsLoading] = useState(true);
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+
+  // Manual payment state
+  const [manualPaymentPlan, setManualPaymentPlan] = useState<any | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<any | null>(null);
+  const [rotationIndex, setRotationIndex] = useState(0);
+
+  useEffect(() => {
+    fetchPlans();
+    if (user?.id) fetchCurrentPlan(user.id);
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.id && usdtAddresses?.length) {
+      // Create a deterministic pseudo-random index per user attempt
+      const charSum = user.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      setRotationIndex((charSum + Date.now()) % usdtAddresses.length);
+    }
+  }, [user?.id, usdtAddresses]);
+
+  async function fetchPlans() {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: false });
+
+      if (!error && data) {
+        setPlans(data);
+      }
+    } catch (err) {
+      console.error('Error fetching plans:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function fetchCurrentPlan(userId: string) {
+    const { data } = await supabase
+      .from('user_subscriptions')
+      .select('plan_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data) {
+      setCurrentPlan(data.plan_id);
+    }
+  }
+
+  const handleUpgradeClick = (plan: any, actualPrice: number) => {
+    if (plan.price === 0) return;
+    if (plan.id === currentPlan) return;
+    setCheckoutPlan({ ...plan, actualPrice });
+  };
+
+  const proceedWithCheckout = async () => {
+    if (!checkoutPlan) return;
+    
+    if (isGlobal) {
+      if (paymentGatewaySettings.gatewayType === 'nowpayments') {
+        handleNowpaymentsCheckout(checkoutPlan, checkoutPlan.actualPrice);
+      } else {
+        setManualPaymentPlan(checkoutPlan);
+      }
+      setCheckoutPlan(null);
+      return;
+    }
+
+    setProcessingPlan(checkoutPlan.id);
+    const planToProcess = checkoutPlan;
+    setCheckoutPlan(null);
+
+    // Load Korapay checkout
+    if (typeof window.Korapay === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js';
+      script.onload = () => initKorapayCheckout(planToProcess);
+      document.head.appendChild(script);
+    } else {
+      initKorapayCheckout(planToProcess);
+    }
+  };
+
+  const initKorapayCheckout = (plan: any) => {
+    const email = user?.email || profile?.email || 'user@jobbaworks.com';
+    const name = profile?.name || 'User';
+    const KORAPAY_PUBLIC_KEY = paymentGatewaySettings.korapayApiKey || 'pk_live_SrX8jJfmtdHtbf4HUueSQjMi8Hm7qUGZ5o9LQWP4';
+
+    const processBackendUpgrade = async (reference: string) => {
+      try {
+        await supabase.rpc('process_plan_upgrade', {
+          _user_id: user?.id,
+          _new_plan_id: plan.id,
+        });
+
+        await supabase.from('wallet_transactions').insert({
+          user_id: user?.id,
+          amount: plan.price,
+          type: 'subscription_fee',
+          status: 'completed',
+          description: `Upgraded to ${plan.name} plan`,
+          meta: { plan_id: plan.id, reference },
+        });
+
+        // Trigger beautiful success flowers / confetti
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#008751', '#FFD700', '#ffffff', '#00e479']
+        });
+
+        setCurrentPlan(plan.id);
+        showAlert(`Successfully upgraded to ${plan.name}!`, 'Success');
+      } catch (err) {
+        console.error('Error updating subscription:', err);
+        showAlert('Payment received but there was an error updating your plan. Please contact support.', 'Error');
+      } finally {
+        setProcessingPlan(null);
+      }
+    };
+
+    window.Korapay.initialize({
+      key: KORAPAY_PUBLIC_KEY,
+      reference: `jw_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      amount: Number(plan.price),
+      currency: 'NGN',
+      customer: {
+        name: name,
+        email: email,
+      },
+      notification_url: '',
+      onClose: () => {
+        setProcessingPlan(null);
+      },
+      onSuccess: async (data: any) => {
+        console.log('Payment successful:', data);
+        await processBackendUpgrade(data.reference);
+      },
+      onFailed: (data: any) => {
+        console.error('Payment failed:', data);
+        setProcessingPlan(null);
+        showAlert('Payment failed. Please try again.', 'Payment Failed');
+      },
+    });
+  };
+
+  const handleManualConfirmation = async () => {
+    if (!manualPaymentPlan || !user) return;
+    
+    setProcessingPlan(manualPaymentPlan.id);
+    
+    try {
+      const { error } = await supabase.from('wallet_transactions').insert({
+        user_id: user.id,
+        amount: manualPaymentPlan.actualPrice * 1500, // Converting back to standard system NGN equivalent
+        type: 'deposit',
+        status: 'pending',
+        description: `Manual Plan Purchase: ${manualPaymentPlan.name}`,
+        meta: { 
+          plan_id: manualPaymentPlan.id, 
+          currency: 'USD',
+          deposit_address: usdtAddresses[rotationIndex]
+        },
+      });
+
+      if (error) throw error;
+      showAlert(`Your payment has been logged. Admin will review and upgrade your account shortly.`, 'Pending Review');
+    } catch (err) {
+      console.error(err);
+      showAlert('Error logging payment. Please contact support.', 'Error');
+    } finally {
+      setProcessingPlan(null);
+      setManualPaymentPlan(null);
+    }
+  };
+
+  const handleNowpaymentsCheckout = async (plan: any, actualPrice: number) => {
+    setProcessingPlan(plan.id);
+    try {
+      const apiKey = paymentGatewaySettings.nowpaymentsApiKey;
+      if (!apiKey) {
+        showAlert('Payment gateway not configured. Please contact admin.', 'Error');
+        setProcessingPlan(null);
+        return;
+      }
+      
+      const response = await fetch('https://api.nowpayments.io/v1/invoice', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price_amount: actualPrice,
+          price_currency: 'usd',
+          order_id: `${user?.id}_${plan.id}_${Date.now()}`,
+          order_description: `Upgrade to ${plan.name} plan`,
+          success_url: `${window.location.origin}/plans?payment=success`,
+          cancel_url: `${window.location.origin}/plans?payment=cancelled`,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.invoice_url) {
+        // Also log this as a pending transaction in DB so admin knows
+        await supabase.from('wallet_transactions').insert({
+          user_id: user?.id,
+          amount: actualPrice * 1500, // Converting back to standard system NGN equivalent
+          type: 'deposit',
+          status: 'pending',
+          description: `NOWPayments Plan Purchase: ${plan.name}`,
+          meta: { 
+            plan_id: plan.id, 
+            currency: 'USD',
+            invoice_id: data.id,
+            gateway: 'nowpayments'
+          },
+        });
+        
+        window.location.href = data.invoice_url;
+      } else {
+        throw new Error(data.message || 'Failed to create invoice');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showAlert(`Payment error: ${err.message}`, 'Error');
+      setProcessingPlan(null);
+    }
+  };
+
+  return (
+    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
+      {/* Hero Section */}
+      <section className="mb-16 text-center md:text-left max-w-3xl">
+        <span className="bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant px-4 py-1.5 rounded-full text-xs md:text-sm font-bold tracking-wider mb-6 inline-block">
+          ONE-TIME PAYMENT • LIFETIME ACCESS
+        </span>
+        <h2 className="text-4xl md:text-6xl font-headline font-extrabold text-on-surface leading-[1.1] tracking-tight mb-6">
+          Become a Creator & <span className="text-primary italic">Start Earning</span>
+        </h2>
+        <p className="text-base md:text-lg text-on-surface-variant leading-relaxed opacity-80">
+          Subscribe to a plan to unlock higher earnings, publish articles, and earn more from reading, commenting, and referrals.
+        </p>
+      </section>
+
+      {/* Plans Comparison Grid */}
+      {isLoading ? (
+        <div className="py-20 min-h-[400px]"></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {plans.map((plan) => {
+            const isCurrent = currentPlan === plan.id;
+            
+            const nAiraPrice = plan.price;
+            const globalPrice = nonNigerianPlans[plan.id]?.price || Number((nAiraPrice / 1500).toFixed(2));
+            const actualPrice = isGlobal ? globalPrice : nAiraPrice;
+            const displayPrice = isGlobal ? `$${actualPrice}` : `₦${Number(actualPrice).toLocaleString()}`;
+            
+            const currentPlanData = plans.find(p => p.id === currentPlan);
+            const currentPlanPrice = currentPlanData ? (isGlobal ? (nonNigerianPlans[currentPlan]?.price || 0) : currentPlanData.price) : 0;
+            const isLowerPlan = actualPrice < currentPlanPrice;
+            const isFree = actualPrice === 0;
+            const isPopular = plan.id === 'pro' || plan.id === 'elite' || plan.id === 'executive';
+            const canUpgrade = !isFree && !isCurrent && !isLowerPlan;
+            const isProcessing = processingPlan === plan.id;
+            
+            // New Plan Logic
+            const isVerified = plan.id !== 'free';
+            let contentBoost = '';
+            if (plan.id === 'starter') contentBoost = '10% Content Boost';
+            else if (plan.id === 'pro') contentBoost = '25% Content Boost';
+            else if (plan.id === 'elite') contentBoost = '50% Content Boost';
+            else if (plan.id === 'vip') contentBoost = '75% Content Boost';
+            else if (plan.id === 'executive' || plan.id === 'platinum') contentBoost = '100% Boost + Priority Rank';
+
+            return (
+              <div 
+                key={plan.id}
+                className={`relative flex flex-col p-6 rounded-3xl shadow-sm transition-all duration-300 hover:-translate-y-2
+                  ${isPopular 
+                    ? 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-xl ring-4 ring-tertiary-fixed-dim/20 md:scale-105 z-10' 
+                    : 'bg-surface-container-lowest text-on-surface border border-surface-container-highest/30 hover:shadow-lg'
+                  }
+                  ${isCurrent ? 'ring-2 ring-primary border-primary' : ''}
+                `}
+              >
+                {isPopular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-4 py-1 rounded-full text-[10px] font-black tracking-widest uppercase shadow-md whitespace-nowrap">
+                    RECOMMENDED
+                  </div>
+                )}
+                
+                <div className={`mb-6 ${isPopular ? 'pt-2' : ''}`}>
+                  <h3 className={`text-2xl font-headline font-extrabold mb-1 ${isPopular ? 'text-white' : 'text-emerald-950'}`}>
+                    {plan.name}
+                  </h3>
+                  <p className={`text-sm ${isPopular ? 'text-white/80' : 'text-on-surface-variant'}`}>
+                    {isFree ? 'Get started for free' : 'Maximize your capacity'}
+                  </p>
+                </div>
+                
+                <div className="mb-8 flex items-baseline gap-1">
+                  <span className="text-4xl font-black">
+                    {displayPrice}
+                  </span>
+                  <span className={`text-sm font-medium ${isPopular ? 'text-white/70' : 'text-on-surface-variant'}`}>
+                    one-time
+                  </span>
+                </div>
+                
+                <ul className="space-y-4 mb-auto pb-8">
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong className="font-bold">{plan.daily_read_limit}</strong> daily reads</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong className="font-bold">{plan.daily_comment_limit}</strong> daily comments</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdReadReward || plan.read_reward / 1500).toFixed(2)}` : formatAmount(plan.read_reward)}</strong> per article read</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
+                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdCommentReward || plan.comment_reward / 1500).toFixed(2)}` : formatAmount(plan.comment_reward)}</strong> per comment</span>
+                  </li>
+                  {!isFree ? (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                      <span>25% Referral Commission</span>
+                    </li>
+                  ) : (
+                    <li className="flex items-center gap-3 text-sm text-on-surface-variant/70">
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                      <span>No Referral Commission</span>
+                    </li>
+                  )}
+                  {!isFree && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-200' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                      <span>Weekly Streak Earning Bonus</span>
+                    </li>
+                  )}
+                  {isVerified && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-blue-300' : 'text-blue-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                      <span>Verified Profile Badge</span>
+                    </li>
+                  )}
+                  {contentBoost && (
+                    <li className="flex items-center gap-3 text-sm font-bold">
+                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-300' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
+                      <span>{contentBoost}</span>
+                    </li>
+                  )}
+                </ul>
+                
+                <button 
+                  onClick={() => canUpgrade && handleUpgradeClick(plan, actualPrice)}
+                  disabled={isCurrent || isProcessing || isLowerPlan}
+                  className={`w-full py-4 rounded-xl font-bold transition-all mt-auto active:scale-95
+                    ${isProcessing ? 'opacity-70 cursor-wait' : ''}
+                    ${isCurrent ? 'bg-surface-container text-on-surface-variant cursor-default' : 
+                      isLowerPlan ? 'bg-surface-container-highest/20 text-on-surface-variant/50 cursor-not-allowed opacity-50' :
+                      isPopular 
+                      ? 'bg-white text-emerald-800 shadow-md hover:bg-emerald-50' 
+                      : 'bg-primary text-white shadow-md hover:bg-emerald-800'
+                    }
+                  `}
+                >
+                  {isProcessing
+                    ? 'Processing...'
+                    : isCurrent
+                    ? 'Current Plan'
+                    : isLowerPlan
+                    ? 'Unavailable'
+                    : isFree
+                    ? 'Basic Access'
+                    : currentPlan !== 'free'
+                    ? 'Upgrade'
+                    : 'Subscribe Now'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Asymmetric Value Section */}
+      <section className="mt-16 md:mt-24 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">
+        <div className="md:col-span-7 bg-surface-container-low rounded-3xl p-6 md:p-12 overflow-hidden relative">
+          <div className="bg-white/40 absolute -right-20 -bottom-20 w-80 h-80 rounded-full blur-3xl hidden md:block"></div>
+          <div className="relative z-10">
+            <h3 className="text-2xl md:text-3xl font-headline font-bold mb-8 text-on-primary-fixed-variant">Why upgrade?</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-container rounded-2xl flex items-center justify-center text-on-primary-container">
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
+                </div>
+                <h4 className="font-bold text-base md:text-lg">Pay Once, Earn Forever</h4>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  No recurring charges. Your one-time payment unlocks lifetime access to higher earning rates and exclusive features.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-secondary-container rounded-2xl flex items-center justify-center text-on-secondary-container">
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>speed</span>
+                </div>
+                <h4 className="font-bold text-base md:text-lg">Unlimited Velocity</h4>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Higher plans unlock more daily reads and comments, meaning you can earn significantly more every day.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="md:col-span-5 hidden md:block">
+          <div className="rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
+            <img 
+              alt="Premium Access" 
+              className="w-full aspect-square object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAE8kqNLHrgYs_wuhNxAksUEaSFuK6qRaXpBUG0Ixel61-AmVKGUBZY_mKFli3Ml-UMRExyMl-AamMJz6ebZ6NHaHrw_-BpMEHXRQT_zMikQRLsot742DXE5ci945ahx1SaZco9A8Sj8sDz39Ny8f0NGuhY8ho8QplsxOi3z5DqORazMiwY60TmikSQT3XpBmQUe4GuMSIc9Kme6_Tbl0nA5fuZcS7zH4QY0xAmCgwMCoyehnmO4h390ZW7Nz95UMdBIue_2Jodwk" 
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Manual Payment Modal Redesign */}
+      {manualPaymentPlan && isGlobal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white max-w-lg w-full rounded-[2rem] shadow-2xl overflow-hidden relative animate-[fadeInUp_0.4s_ease-out] border border-gray-100">
+            {/* Header */}
+            <div className="bg-emerald-900 px-8 py-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+              <button 
+                onClick={() => setManualPaymentPlan(null)}
+                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-sm z-10"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white backdrop-blur-sm">
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>currency_bitcoin</span>
+                  </div>
+                  <h2 className="text-2xl font-black font-headline text-white">Crypto Checkout</h2>
+                </div>
+                <p className="text-emerald-100/80 text-sm">You are upgrading to the <strong className="text-white">{manualPaymentPlan.name}</strong> plan.</p>
+              </div>
+            </div>
+
+            <div className="p-8">
+              {/* Steps */}
+              <div className="space-y-6">
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">1</div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-900">Amount to send</h4>
+                    <p className="text-3xl font-black text-gray-900 mt-1 tracking-tight">${manualPaymentPlan.actualPrice} <span className="text-base text-gray-500 font-bold">USDT</span></p>
+                    <p className="text-xs text-amber-600 font-bold mt-1 bg-amber-50 px-2 py-1 rounded inline-block">Important: Send EXACTLY this amount. Exclude network fees.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">2</div>
+                  <div className="flex-1 w-full">
+                    <h4 className="font-bold text-gray-900">Destination Address</h4>
+                    <div className="flex items-center gap-2 mt-1 mb-2">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-widest rounded">TRC20 Network Only</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 relative group flex items-center justify-between gap-4">
+                      <p className="text-sm font-mono font-bold text-gray-800 break-all select-all">
+                        {usdtAddresses && usdtAddresses.length > 0 ? usdtAddresses[rotationIndex] : 'Loading address...'}
+                      </p>
+                      <button 
+                        onClick={() => {
+                          if (usdtAddresses && usdtAddresses.length > 0) {
+                            navigator.clipboard.writeText(usdtAddresses[rotationIndex]);
+                            showAlert('Address copied to clipboard!', 'Success');
+                          }
+                        }}
+                        className="shrink-0 w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:border-emerald-200 transition-all active:scale-95"
+                        title="Copy Address"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0 text-sm border-2 border-white shadow-sm mt-0.5">3</div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-900">Confirm Payment</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed mt-1">
+                      Once your wallet indicates the transaction is successful, click the confirmation button below. Your account will be upgraded after admin verification.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <button 
+                  onClick={handleManualConfirmation}
+                  disabled={processingPlan === manualPaymentPlan.id}
+                  className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl shadow-xl shadow-gray-900/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {processingPlan === manualPaymentPlan.id ? 'Verifying Transfer...' : 'I Have Transferred The Funds'}
+                  {processingPlan !== manualPaymentPlan.id && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
+                </button>
+                <button 
+                  onClick={() => setManualPaymentPlan(null)}
+                  className="w-full mt-3 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors py-2"
+                >
+                  Cancel Transaction
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Professional Checkout Modal */}
+      {checkoutPlan && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-surface-container-lowest rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden border border-surface-container-highest/20 animate-[scaleIn_0.3s_ease-out]">
+            <div className="bg-gradient-to-br from-emerald-600 to-[#008751] p-6 relative">
+              <button 
+                onClick={() => setCheckoutPlan(null)}
+                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-sm z-10"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-white backdrop-blur-sm mb-4 shadow-inner">
+                  <span className="material-symbols-outlined text-[32px]">shopping_cart_checkout</span>
+                </div>
+                <h2 className="text-2xl font-black font-headline text-white mb-1">Confirm Subscription</h2>
+                <p className="text-emerald-100 text-sm">You are about to upgrade to the {checkoutPlan.name} plan.</p>
+              </div>
+            </div>
+
+            <div className="p-8">
+              <div className="bg-surface-container-low rounded-2xl p-5 mb-6 border border-surface-container">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-on-surface-variant font-medium text-sm">Selected Plan</span>
+                  <span className="font-bold text-on-surface">{checkoutPlan.name}</span>
+                </div>
+                <div className="flex justify-between items-center pb-3 border-b border-surface-container-high mb-3">
+                  <span className="text-on-surface-variant font-medium text-sm">Billing Cycle</span>
+                  <span className="font-bold text-on-surface">One Time</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface font-bold">Total Amount</span>
+                  <span className="text-2xl font-black text-primary tracking-tight">
+                    {formatAmount(checkoutPlan.actualPrice)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-8">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-emerald-500 text-[20px] shrink-0">check_circle</span>
+                  <p className="text-sm text-on-surface-variant">Instant activation upon successful payment.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-emerald-500 text-[20px] shrink-0">check_circle</span>
+                  <p className="text-sm text-on-surface-variant">Secure, encrypted payment processing.</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={proceedWithCheckout}
+                disabled={processingPlan !== null}
+                className="w-full py-4 rounded-xl font-black text-white bg-gradient-to-r from-emerald-600 to-[#008751] hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {processingPlan !== null ? 'Processing...' : `Pay ${formatAmount(checkoutPlan.actualPrice)} Securely`}
+                {processingPlan === null && <span className="material-symbols-outlined text-[20px]">lock</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </main>
+  );
+}
