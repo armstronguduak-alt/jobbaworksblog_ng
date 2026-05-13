@@ -26,11 +26,40 @@ ALTER TABLE promotions ADD COLUMN IF NOT EXISTS is_share_task BOOLEAN DEFAULT fa
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS share_reward_amount NUMERIC(12,2) DEFAULT 300;
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS share_caption TEXT;
 
--- 3. RPC to claim a daily promotion share reward
-CREATE OR REPLACE FUNCTION claim_promotion_share(p_promotion_id UUID)
+-- 3. RLS Policies for promotion_shares
+ALTER TABLE promotion_shares ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own shares
+DROP POLICY IF EXISTS "promotion_shares_select_own" ON promotion_shares;
+CREATE POLICY "promotion_shares_select_own"
+ON promotion_shares FOR SELECT TO authenticated
+USING (auth.uid() = user_id);
+
+-- Users can insert their own shares (handled by RPC, but needed for direct queries)
+DROP POLICY IF EXISTS "promotion_shares_insert_own" ON promotion_shares;
+CREATE POLICY "promotion_shares_insert_own"
+ON promotion_shares FOR INSERT TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+-- Admin can view all
+DROP POLICY IF EXISTS "promotion_shares_admin_all" ON promotion_shares;
+CREATE POLICY "promotion_shares_admin_all"
+ON promotion_shares FOR ALL TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.app_role))
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+-- 4. Add share_reward to transaction_type enum if not present
+DO $$ BEGIN
+  ALTER TYPE public.transaction_type ADD VALUE IF NOT EXISTS 'share_reward';
+EXCEPTION WHEN duplicate_object THEN NULL;
+         WHEN undefined_object  THEN NULL; END $$;
+
+-- 5. RPC to claim a daily promotion share reward
+CREATE OR REPLACE FUNCTION public.claim_promotion_share(p_promotion_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_user_id UUID;
@@ -66,7 +95,7 @@ BEGIN
   v_reward := COALESCE(v_promo.share_reward_amount, 300);
 
   -- Determine user region
-  SELECT country = 'Nigeria' INTO v_is_nigerian
+  SELECT COALESCE(country = 'Nigeria', true) INTO v_is_nigerian
   FROM profiles WHERE user_id = v_user_id;
 
   -- Insert share record
@@ -105,3 +134,6 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'message', 'Share reward claimed! ₦' || v_reward::TEXT || ' credited.', 'reward', v_reward);
 END;
 $$;
+
+-- 6. Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.claim_promotion_share(UUID) TO authenticated;

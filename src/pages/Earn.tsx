@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,8 @@ export function Earn() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [sharingPromoId, setSharingPromoId] = useState<string | null>(null);
+  // Force re-render when tab/page regains focus so localStorage reads are fresh
+  const [renderKey, setRenderKey] = useState(0);
 
   const { data, isLoading } = useQuery({
     queryKey: ['earnData', user?.id],
@@ -32,9 +34,9 @@ export function Earn() {
         supabase.from('user_tasks').select('task_id, completed').eq('user_id', user!.id),
         supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_user_id', user!.id),
         supabase.from('referral_commissions').select('plan_id').eq('referrer_user_id', user!.id),
-        // Daily share promo task
-        supabase.from('promotions').select('*').eq('is_active', true).eq('is_share_task', true).order('created_at', { ascending: false }).limit(1),
-        supabase.from('promotion_shares').select('id').eq('user_id', user!.id).eq('share_date', today).maybeSingle()
+        // Daily share promo task — use separate try/catch so failures don't block the rest
+        supabase.from('promotions').select('*').eq('is_active', true).eq('is_share_task', true).order('created_at', { ascending: false }).limit(1).then(r => r).catch(() => ({ data: [], error: null })),
+        supabase.from('promotion_shares').select('id').eq('user_id', user!.id).eq('share_date', today).maybeSingle().then(r => r).catch(() => ({ data: null, error: null }))
       ]);
 
       let planDetails = { daily_read_limit: 5, daily_comment_limit: 4, read_reward: 10, comment_reward: 10 };
@@ -98,6 +100,24 @@ export function Earn() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  // Re-render when tab regains focus so localStorage "read" flags are detected
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setRenderKey(k => k + 1);
+        if (user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['earnData', user.id] });
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', () => setRenderKey(k => k + 1));
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', () => setRenderKey(k => k + 1));
+    };
+  }, [user?.id, queryClient]);
 
   // Real-time subscriptions updating the React Query Cache
   useEffect(() => {
@@ -492,7 +512,8 @@ export function Earn() {
                       <span className="text-[10px] text-outline uppercase font-bold tracking-tighter">Per Article</span>
                     </div>
                   </div>
-                  {localStorage.getItem(`jobbaworks_read_${post.id}`) === 'true' ? (
+                  {/* renderKey forces re-evaluation of localStorage after returning from article */}
+                  {(renderKey >= 0 && localStorage.getItem(`jobbaworks_read_${post.id}`) === 'true') ? (
                     <button
                       onClick={() => handleClaimRead(post.id)}
                       disabled={claimingId === post.id}
