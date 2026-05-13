@@ -112,26 +112,31 @@ export function AdminContent() {
         .eq('id', post.id);
 
       if (!error) {
-        if (newStatus === 'approved') {
-          // Trigger Follower Notifications
-          await supabase.rpc('create_article_notifications', {
-            p_article_id: post.id,
-            p_author_id: post.author_user_id,
-            p_title: post.title
-          });
-        } else if (newStatus === 'rejected') {
-          await supabase.rpc('send_notification', {
-            _user_id: post.author_user_id,
-            _message: `Your article "${post.title}" was rejected. Reason: ${rejectionReason}`,
-            _type: 'warning'
-          });
+        // Fire-and-forget notifications — never block approval
+        try {
+          if (newStatus === 'approved') {
+            await supabase.rpc('create_article_notifications', {
+              p_article_id: post.id,
+              p_author_id: post.author_user_id,
+              p_title: post.title
+            }).catch(() => {}); // swallow notification errors
+          } else if (newStatus === 'rejected') {
+            await supabase.rpc('send_notification', {
+              _user_id: post.author_user_id,
+              _message: `Your article "${post.title}" was rejected. Reason: ${rejectionReason}`,
+              _type: 'warning'
+            }).catch(() => {}); // swallow notification errors
+          }
+        } catch (_notifErr) {
+          console.warn('Notification dispatch failed (non-blocking):', _notifErr);
         }
         
         setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: newStatus } : p).filter(p => newStatus !== 'approved' && newStatus !== 'rejected' || p.id !== post.id));
         showAlert(`Article ${newStatus} successfully.`);
         if (selectedPost && selectedPost.id === post.id) setSelectedPost(null);
       } else {
-        showAlert('Failed to update article status.', 'Error');
+        console.error('Post update error:', error);
+        showAlert(`Failed to update article status: ${error.message}`, 'Error');
       }
     } catch (err) {
       console.error(err);

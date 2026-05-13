@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchArticleData } from './PublicArticle';
 import { SEO } from '../components/SEO';
+import { ArticleFeedSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 
 
@@ -98,7 +100,12 @@ export function Home() {
         url={slug ? `/${slug}` : '/'}
         breadcrumbs={slug ? [{ name: 'Home', url: '/' }, { name: activeCategory, url: `/${slug}` }] : undefined}
       />
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
+    <motion.main
+      className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Hero Section */}
       {!user && !slug && (
         <section className="relative overflow-hidden mb-20 rounded-3xl shadow-xl">
@@ -270,11 +277,7 @@ export function Home() {
             <button onClick={() => refetch()} className="px-6 py-2 bg-rose-600 text-white font-bold rounded-full hover:bg-rose-700 transition-colors">Try Again</button>
           </div>
         ) : isLoading ? (
-          <div className="space-y-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-surface-container-low h-32 w-full rounded-3xl animate-pulse" />
-            ))}
-          </div>
+          <ArticleFeedSkeleton count={4} />
         ) : filteredLatest.length === 0 ? (
           <div className="py-16 text-center bg-surface-container-lowest rounded-3xl shadow-sm border border-surface-container">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">article</span>
@@ -337,7 +340,7 @@ export function Home() {
         {/* Ad: After Latest Posts */}
 
       </section>
-    </main>
+    </motion.main>
     </>
   );
 }

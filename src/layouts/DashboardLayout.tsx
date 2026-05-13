@@ -118,7 +118,7 @@ export function DashboardLayout() {
           </Link>
           <NotificationsDropdown />
           <Link to="/profile" className="w-[38px] h-[38px] rounded-xl overflow-hidden shadow-sm border border-surface-container">
-            <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="User Avatar" className="w-full h-full object-cover" />
+            <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(profile?.name || profile?.username || 'user')}`} alt="User Avatar" className="w-full h-full object-cover" />
           </Link>
         </div>
       </div>
@@ -258,7 +258,7 @@ export function DashboardLayout() {
                 </span>
               </div>
               <Link to="/profile" className="w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 border-white hover:border-emerald-100 transition-colors bg-surface-container">
-                <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="User Avatar" className="w-full h-full object-cover" />
+                <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(profile?.name || profile?.username || 'user')}`} alt="User Avatar" className="w-full h-full object-cover" />
               </Link>
             </div>
           </div>

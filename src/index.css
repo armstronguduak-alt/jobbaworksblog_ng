@@ -189,3 +189,10 @@ body {
 .article-content p {
   margin-bottom: 1rem;
 }
+
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

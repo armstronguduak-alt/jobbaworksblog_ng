@@ -28,7 +28,8 @@ if (!token) {
 const PROJECT_REF = 'klidnyqyjvbvzmplwdfl';
 
 const migrationFiles = [
-  'supabase/migrations/20260421000000_apply_platform_lockdown.sql',
+  'supabase/migrations/20260513000000_fix_claim_and_approval.sql',
+  'supabase/migrations/20260513000001_fix_validate_post_submission.sql',
 ];
 
 function executeSQL(sql) {

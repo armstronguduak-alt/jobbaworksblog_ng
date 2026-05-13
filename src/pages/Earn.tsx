@@ -6,11 +6,23 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CommunityTaskCard } from '../components/CommunityTaskCard';
 import confetti from 'canvas-confetti';
 import { useCurrency } from '../hooks/useCurrency';
+import { useDialog } from '../contexts/DialogContext';
+import { motion, AnimatePresence } from 'framer-motion';
+
+import { EarnPageSkeleton } from '../components/Skeletons';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } }),
+};
+const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } };
+const cardItem = { hidden: { opacity: 0, y: 16, scale: 0.97 }, visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: 'easeOut' } } };
 
 export function Earn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { formatAmount, isGlobal } = useCurrency();
+  const { showSuccess, showError } = useDialog();
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [sharingPromoId, setSharingPromoId] = useState<string | null>(null);
@@ -157,15 +169,20 @@ export function Earn() {
 
       if (error) {
         setMessage(error.message);
+        showError(error.message);
       } else if (claimData) {
         setMessage(claimData.message);
         if (claimData.success && user?.id) {
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
           queryClient.invalidateQueries({ queryKey: ['earnData', user.id] });
+          showSuccess(claimData.message, 'Reward Claimed!');
+        } else {
+          showError(claimData.message, 'Cannot Claim');
         }
       }
     } catch (err) {
       setMessage('An error occurred while claiming.');
+      showError('An error occurred while claiming.');
     } finally {
       setClaimingId(null);
     }
@@ -178,15 +195,19 @@ export function Earn() {
     setClaimingId(task.id);
     setMessage('');
     try {
-      const { error } = await supabase.rpc('claim_task_reward', { p_task_id: task.id });
+      const { error, data: taskResult } = await supabase.rpc('claim_task_reward', { p_task_id: task.id });
       if (error) {
         setMessage(error.message);
+        showError(error.message);
       } else {
-        setMessage('Task submission received for verification!');
+        const msg = (taskResult as any)?.message || 'Task reward claimed successfully!';
+        setMessage(msg);
         queryClient.invalidateQueries({ queryKey: ['earnData', user?.id] });
+        showSuccess(msg, 'Task Complete!');
       }
     } catch (err: any) {
       setMessage('Error verifying task.');
+      showError('Error verifying task.');
     } finally {
       setClaimingId(null);
     }
@@ -222,24 +243,43 @@ export function Earn() {
 
       if (error) {
         setMessage(error.message);
+        showError(error.message);
       } else if (claimResult) {
         setMessage(claimResult.message);
         if (claimResult.success) {
           confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
           queryClient.invalidateQueries({ queryKey: ['earnData', user?.id] });
+          showSuccess(claimResult.message, 'Share Reward Claimed!');
+        } else {
+          showError(claimResult.message, 'Share Not Available');
         }
       }
     } catch (err) {
       setMessage('Error claiming share reward.');
+      showError('Error claiming share reward.');
     } finally {
       setSharingPromoId(null);
     }
   };
 
+  if (!data && isLoading) {
+    return (
+      <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
+        <EarnPageSkeleton />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-[calc(100vh-80px)]">
-      <main className="max-w-xl mx-auto px-4 md:px-6 py-8 space-y-8">
+      <motion.main
+        className="max-w-xl mx-auto px-4 md:px-6 py-8 space-y-8"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Daily Progress Card */}
+        <motion.div variants={fadeUp} custom={0}>
         <Link to="/analytics" className="block relative bg-gradient-to-br from-[#006b3f] to-[#008751] rounded-[2rem] p-8 overflow-hidden shadow-xl transition-transform hover:scale-[1.02] active:scale-[0.98]">
           <div className="absolute top-[-20%] right-[-10%] opacity-10 pointer-events-none">
             <span className="material-symbols-outlined text-[180px]">spa</span>
@@ -285,24 +325,33 @@ export function Earn() {
             </div>
           </div>
         </Link>
+        </motion.div>
 
         {/* Message Banner */}
+        <AnimatePresence>
         {message && (
-          <div className={`p-4 rounded-2xl text-sm font-bold text-center ${
-            message.includes('earned') || message.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-          }`}>
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 0 }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className={`p-4 rounded-2xl text-sm font-bold text-center ${
+              message.includes('earned') || message.includes('success') || message.includes('claimed') ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}
+          >
             {message}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Action Bounties / Platform Tasks */}
-        <section className="space-y-6">
+        <motion.section className="space-y-6" variants={fadeUp} custom={1}>
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xl font-bold font-headline text-on-surface">Platform Bounties</h3>
             <span className="text-[#008751] text-sm font-semibold">{availableTasks.length + 1} bounties</span>
           </div>
           
-          <div className="grid gap-5">
+          <motion.div className="grid gap-5" variants={stagger}>
             {/* Community Task Module */}
             <CommunityTaskCard />
 
@@ -380,6 +429,147 @@ export function Earn() {
               </div>
             )}
 
+            {/* ═══ Multi-Platform Social Share Tasks ═══ */}
+            {sharePromo && (
+              <motion.div variants={cardItem} className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="material-symbols-outlined text-[18px] text-blue-600">share</span>
+                  <h4 className="text-sm font-bold text-on-surface">Share on Social Media</h4>
+                  <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase tracking-wider">Daily</span>
+                </div>
+
+                {/* Facebook Share — ₦200 */}
+                <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-highest/20 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#1877F2] flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-sm text-on-surface">Share on Facebook</h5>
+                        <p className="text-[11px] text-on-surface-variant">Post the promotion to your timeline</p>
+                      </div>
+                    </div>
+                    <span className="text-emerald-600 font-black text-sm">₦200</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const text = encodeURIComponent(sharePromo.share_caption || sharePromo.description || sharePromo.title);
+                      const url = encodeURIComponent(sharePromo.cta_url || 'https://jobbaworks.com');
+                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
+                      // After sharing, auto-claim
+                      setTimeout(() => handleShareAndClaim(sharePromo), 3000);
+                    }}
+                    disabled={hasSharedToday || !!sharingPromoId}
+                    className={`w-full py-2.5 font-bold rounded-xl text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                      hasSharedToday ? 'bg-emerald-100 text-emerald-700' : 'bg-[#1877F2] text-white hover:bg-[#166fe5] shadow-sm'
+                    }`}
+                  >
+                    {hasSharedToday ? (
+                      <><span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Done Today</>
+                    ) : (
+                      <><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> Share & Earn ₦200</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Twitter/X Share — ₦200 */}
+                <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-highest/20 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-sm text-on-surface">Share on X (Twitter)</h5>
+                        <p className="text-[11px] text-on-surface-variant">Tweet about the promotion</p>
+                      </div>
+                    </div>
+                    <span className="text-emerald-600 font-black text-sm">₦200</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const text = encodeURIComponent((sharePromo.share_caption || sharePromo.description || sharePromo.title) + '\n\n' + (sharePromo.cta_url || 'https://jobbaworks.com'));
+                      window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'width=600,height=400');
+                      setTimeout(() => handleShareAndClaim(sharePromo), 3000);
+                    }}
+                    disabled={hasSharedToday || !!sharingPromoId}
+                    className={`w-full py-2.5 font-bold rounded-xl text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                      hasSharedToday ? 'bg-emerald-100 text-emerald-700' : 'bg-black text-white hover:bg-gray-800 shadow-sm'
+                    }`}
+                  >
+                    {hasSharedToday ? (
+                      <><span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Done Today</>
+                    ) : (
+                      <><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> Tweet & Earn ₦200</>
+                    )}
+                  </button>
+                </div>
+
+                {/* TikTok Video Task — ₦1,000 (Submit for review) */}
+                <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-highest/20 p-4 relative overflow-hidden">
+                  <div className="absolute top-2 right-2">
+                    <span className="text-[8px] font-black bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full uppercase tracking-wider">Premium</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff0050] via-[#00f2ea] to-black flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.75a8.18 8.18 0 004.76 1.52V6.84a4.83 4.83 0 01-1-.15z"/></svg>
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-sm text-on-surface">TikTok Video Review</h5>
+                        <p className="text-[11px] text-on-surface-variant">Create a promo video & submit for review</p>
+                      </div>
+                    </div>
+                    <span className="text-amber-600 font-black text-sm">₦1,000</span>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-3">
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      <strong>How it works:</strong> Make a short TikTok video promoting JobbaWorks, post it on your TikTok account, then submit the link below. Our team will review & approve within 24hrs.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="Paste your TikTok video link..."
+                      id="tiktok-link-input"
+                      className="flex-1 px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container-highest/30 text-sm focus:border-primary outline-none"
+                    />
+                    <button
+                      onClick={async () => {
+                        const input = document.getElementById('tiktok-link-input') as HTMLInputElement;
+                        const link = input?.value?.trim();
+                        if (!link || !link.includes('tiktok')) {
+                          showError('Please paste a valid TikTok video link.', 'Invalid Link');
+                          return;
+                        }
+                        setClaimingId('tiktok-submit');
+                        try {
+                          const { error } = await supabase.from('community_tasks').upsert({
+                            user_id: user!.id,
+                            task_name: 'TikTok Promotion Video',
+                            status: 'pending_review',
+                            reward_claimed: false
+                          }, { onConflict: 'user_id,task_name' });
+                          if (error) throw error;
+                          input.value = '';
+                          showSuccess('Your TikTok video has been submitted for review! You\'ll earn ₦1,000 once approved.', 'Submitted Successfully');
+                        } catch (err: any) {
+                          showError(err?.message || 'Failed to submit. Please try again.');
+                        } finally {
+                          setClaimingId(null);
+                        }
+                      }}
+                      disabled={claimingId === 'tiktok-submit'}
+                      className="px-4 py-2.5 bg-gradient-to-r from-[#ff0050] to-[#00f2ea] text-white font-bold rounded-xl text-sm active:scale-95 transition-all shadow-sm disabled:opacity-50 shrink-0"
+                    >
+                      {claimingId === 'tiktok-submit' ? 'Submitting...' : 'Submit'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Dynamic DB Bounties */}
             {availableTasks.map((task: any) => {
               const isReferral = task.task_type === 'referrals';
@@ -438,17 +628,17 @@ export function Earn() {
                 </div>
               );
             })}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
         {/* Available Articles to Read & Earn */}
-        <section className="space-y-6">
+        <motion.section className="space-y-6" variants={fadeUp} custom={2}>
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xl font-bold font-headline text-on-surface">Available to Read</h3>
             <span className="text-primary text-sm font-semibold">{availablePosts.length} available</span>
           </div>
 
-          <div className="grid gap-5">
+          <motion.div className="grid gap-5" variants={stagger}>
             {isLoading && !data ? (
               <div className="py-10" />
             ) : stats.dailyReadsLeft === 0 && availablePosts.length > 0 ? (
@@ -490,7 +680,7 @@ export function Earn() {
               </>
             ) : availablePosts.length > 0 ? (
               availablePosts.map((post) => (
-                <div key={post.id} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
+                <motion.div key={post.id} variants={cardItem} className="bg-surface-container-lowest p-5 rounded-[1.5rem] shadow-sm border border-surface-container-highest/20 flex flex-col gap-4">
                   <div className="flex justify-between items-start">
                     <div className="flex gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-secondary-container overflow-hidden flex items-center justify-center shrink-0">
@@ -537,7 +727,7 @@ export function Earn() {
                       Read Content First
                     </Link>
                   )}
-                </div>
+                </motion.div>
               ))
             ) : (
               <div className="text-center bg-surface-container-lowest p-8 border border-dashed border-outline-variant/30 rounded-2xl space-y-2">
@@ -568,11 +758,11 @@ export function Earn() {
                 Invite Contacts
               </Link>
             </div>
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
 
-      </main>
+      </motion.main>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DailyLoginStreakModal } from '../components/DailyLoginStreakModal';
 import { useCurrency } from '../hooks/useCurrency';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -21,7 +23,7 @@ export function Dashboard() {
   const [showTierBreakdown, setShowTierBreakdown] = useState(false);
 
   // TanStack Query — cached, retried, never infinite
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading: isDashLoading } = useQuery({
     queryKey: ['dashboard', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
@@ -119,10 +121,18 @@ export function Dashboard() {
     })();
   }, [user?.id, streakChecked]);
 
-  // No loading gate — show content immediately with fallback zeros
+  // Show professional skeleton while initial data loads
+  if (!dashData && isDashLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full">
+    <motion.main
+      className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-12 space-y-6 w-full"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+    >
       {/* Dual Wallet Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Activity Wallet */}
@@ -418,6 +428,6 @@ export function Dashboard() {
         isOpen={showStreakModal}
         onClose={() => setShowStreakModal(false)}
       />
-    </main>
+    </motion.main>
   );
 }

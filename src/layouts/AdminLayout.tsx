@@ -92,7 +92,7 @@ export function AdminLayout() {
         <div className="flex items-center gap-3">
           <NotificationsDropdown />
           <Link to="/profile" className="w-[38px] h-[38px] rounded-xl overflow-hidden shadow-sm border border-error/20">
-            <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Admin"} alt="Admin Avatar" className="w-full h-full object-cover" />
+            <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(profile?.name || 'Admin')}`} alt="Admin Avatar" className="w-full h-full object-cover" />
           </Link>
         </div>
       </div>
@@ -209,7 +209,7 @@ export function AdminLayout() {
                 </span>
               </div>
               <div className={`w-[42px] h-[42px] rounded-full overflow-hidden shadow-sm border-2 ${isAdmin ? 'border-error/50' : 'border-primary/50'}`}>
-                <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Admin"} alt="Admin Avatar" className="w-full h-full object-cover" />
+                <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(profile?.name || 'Admin')}`} alt="Admin Avatar" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>

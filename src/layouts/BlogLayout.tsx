@@ -110,7 +110,7 @@ export function BlogLayout() {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-white shadow-sm focus:border-emerald-200 transition-all ml-1"
                   >
-                    <img src={profile?.avatar_url || "https://api.dicebear.com/7.x/notionists/svg?seed=Felix"} alt="Avatar" className="w-full h-full object-cover" />
+                    <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(profile?.name || profile?.username || 'user')}`} alt="Avatar" className="w-full h-full object-cover" />
                   </button>
                   
                   {isProfileOpen && (
