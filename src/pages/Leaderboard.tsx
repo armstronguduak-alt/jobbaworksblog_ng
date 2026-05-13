@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../hooks/useCurrency';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 export function Leaderboard() {
   const { user } = useAuth();
@@ -67,7 +69,8 @@ export function Leaderboard() {
   };
 
   return (
-    <div className="bg-surface text-on-surface font-body min-h-[calc(100vh-80px)] selection:bg-primary-fixed-dim selection:text-on-primary-fixed pt-6 pb-32">
+    <motion.div className="bg-surface text-on-surface font-body min-h-[calc(100vh-80px)] selection:bg-primary-fixed-dim selection:text-on-primary-fixed pt-6 pb-32"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <main className="max-w-5xl mx-auto px-4 md:px-6 flex flex-col items-center">
         
         {/* Editorial Header */}
@@ -97,7 +100,7 @@ export function Leaderboard() {
         </section>
 
         {isLoading ? (
-          <div className="p-12 min-h-[400px] w-full"></div>
+          <DashboardSkeleton />
         ) : topEarners.length > 0 ? (
           <>
             {/* Top 3 Asymmetric Card Podium */}
@@ -342,6 +345,6 @@ export function Leaderboard() {
           </div>
         )}
       </main>
-    </div>
+    </motion.div>
   );
 }

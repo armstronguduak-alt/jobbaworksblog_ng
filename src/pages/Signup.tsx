@@ -3,6 +3,8 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { COUNTRIES } from '../lib/countries';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { useDialog } from '../contexts/DialogContext';
+import { motion } from 'framer-motion';
 
 export function Signup() {
   const [searchParams] = useSearchParams();
@@ -18,6 +20,7 @@ export function Signup() {
   
   const { pageToggles } = useAppSettings();
   const globalRegistrationEnabled = pageToggles?.globalRegistrationEnabled !== false;
+  const { showSuccess, showError } = useDialog();
   
 
 
@@ -84,6 +87,7 @@ export function Signup() {
     
     if (!formData.agreeTerms) {
       setErrorMsg('You must agree to the Terms of Service.');
+      showError('You must agree to the Terms of Service.', 'Missing Agreement');
       return;
     }
     
@@ -164,13 +168,19 @@ export function Signup() {
       
     } catch (err: any) {
       setErrorMsg(err.message || 'An error occurred during sign up.');
+      showError(err.message || 'An error occurred during sign up.', 'Signup Failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
+    <motion.div
+      className="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <header className="w-full top-0 sticky z-50 bg-[#f8f9fa] dark:bg-[#191c1d]">
         <div className="flex items-center justify-between px-6 h-16 w-full max-w-screen-xl mx-auto">
           <Link to="/" className="flex items-center gap-2">
@@ -448,6 +458,6 @@ export function Signup() {
           </div>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 }

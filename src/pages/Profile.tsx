@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useDialog } from '../contexts/DialogContext';
+import { motion } from 'framer-motion';
 
 export function Profile() {
   const navigate = useNavigate();
@@ -91,7 +92,8 @@ export function Profile() {
   };
 
   return (
-    <div className="bg-surface text-on-surface font-body min-h-[calc(100vh-80px)] selection:bg-primary-fixed-dim selection:text-on-primary-fixed my-8 md:my-12">
+    <motion.div className="bg-surface text-on-surface font-body min-h-[calc(100vh-80px)] selection:bg-primary-fixed-dim selection:text-on-primary-fixed my-8 md:my-12"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <main className="max-w-3xl mx-auto px-4 md:px-6 space-y-8">
         {/* Header Action */}
         <div className="flex items-center gap-4 mb-8">
@@ -235,6 +237,6 @@ export function Profile() {
         </form>
 
       </main>
-    </div>
+    </motion.div>
   );
 }

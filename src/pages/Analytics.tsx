@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrency } from '../hooks/useCurrency';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 interface PostData {
   id: string;
@@ -84,8 +86,11 @@ export function Analytics() {
   const dailyCounters = data?.dailyCounters || { readCount: 0, commentCount: 0 };
   const topPosts = data?.topPosts || [];
 
+  if (!data && isLoading) return <DashboardSkeleton />;
+
   return (
-    <div className="bg-surface font-body text-on-surface min-h-[calc(100vh-80px)]">
+    <motion.div className="bg-surface font-body text-on-surface min-h-[calc(100vh-80px)]"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <main className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-8">
 
         {/* Header section */}
@@ -226,6 +231,6 @@ export function Analytics() {
         </section>
 
       </main>
-    </div>
+    </motion.div>
   );
 }

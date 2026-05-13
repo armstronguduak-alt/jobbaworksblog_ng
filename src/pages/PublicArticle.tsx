@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { SEO } from '../components/SEO';
 import { ShareButton } from '../components/ShareButton';
+import { ArticleFeedSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 
 // FAST: Fetch only the core article data (title, content, image, author) — 1 network call
@@ -251,7 +253,7 @@ export function PublicArticle() {
   };
 
   if (isLoading && !data) {
-    return <div className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 min-h-screen" />;
+    return <ArticleFeedSkeleton />;
   }
 
   if (isError) {
@@ -308,7 +310,8 @@ export function PublicArticle() {
         { name: post.title, url: `/${categorySlug}/${post.slug}` },
       ]}
     />
-    <article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 relative">
+    <motion.article className="max-w-4xl mx-auto px-4 md:px-6 pt-12 pb-32 relative"
+      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       
       {/* Floating Pie Countdown — only for logged in users */}
       {user && timeLeft !== null && !readCompleted && (
@@ -587,7 +590,7 @@ export function PublicArticle() {
           </div>
         </section>
       )}
-    </article>
+    </motion.article>
     </>
   );
 }

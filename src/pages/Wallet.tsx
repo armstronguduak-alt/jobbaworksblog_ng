@@ -6,6 +6,8 @@ import confetti from 'canvas-confetti';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useCurrency } from '../hooks/useCurrency';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 type WalletSource = 'activity' | 'referral';
 
@@ -314,8 +316,11 @@ export function Wallet() {
     }
   };
 
+  if (!walletData && isLoading) return <DashboardSkeleton />;
+
   return (
-    <div className="bg-surface text-on-surface min-h-[calc(100vh-80px)] font-body">
+    <motion.div className="bg-surface text-on-surface min-h-[calc(100vh-80px)] font-body"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-8 md:py-12 pb-32">
         {/* Status Indicator / Page Context */}
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -751,6 +756,6 @@ export function Wallet() {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

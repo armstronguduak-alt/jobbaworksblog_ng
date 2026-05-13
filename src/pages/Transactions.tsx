@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrency } from '../hooks/useCurrency';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 type TxFilter = 'all' | 'swap' | 'withdrawal' | 'earning' | 'comment_bonus' | 'referral';
 
@@ -86,8 +88,11 @@ export function Transactions() {
     { key: 'referral', label: 'Referrals' },
   ];
 
+  if (!data && isLoading) return <DashboardSkeleton />;
+
   return (
-    <div className="pt-8 pb-32 px-4 md:px-6 max-w-4xl mx-auto space-y-8">
+    <motion.div className="pt-8 pb-32 px-4 md:px-6 max-w-4xl mx-auto space-y-8"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <div>
         <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-primary-fixed-variant">Transaction History</h2>
         <p className="text-on-surface-variant mt-1">Complete breakdown of all your account activity.</p>
@@ -211,6 +216,6 @@ export function Transactions() {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useDialog } from '../contexts/DialogContext';
+import { motion } from 'framer-motion';
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,6 +11,7 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
+  const { showSuccess, showError } = useDialog();
 
   // 2FA / MFA state
   const [mfaStep, setMfaStep] = useState(false);
@@ -52,6 +55,7 @@ export function Login() {
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid login credentials.');
+      showError(err.message || 'Invalid login credentials.', 'Login Failed');
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +106,7 @@ export function Login() {
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid OTP code. Please try again.');
+      showError(err.message || 'Invalid OTP code.', 'Verification Failed');
       setOtpCode(['', '', '', '', '', '']);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } finally {
@@ -110,7 +115,12 @@ export function Login() {
   };
 
   return (
-    <div className="bg-surface text-on-surface font-body min-h-screen flex flex-col relative overflow-hidden">
+    <motion.div
+      className="bg-surface text-on-surface font-body min-h-screen flex flex-col relative overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Top Navigation Shell */}
       <header className="w-full top-0 sticky bg-surface z-20 shadow-sm">
         <div className="flex items-center justify-between px-6 h-16 w-full max-w-screen-xl mx-auto">
@@ -266,6 +276,6 @@ export function Login() {
           shield
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -7,6 +7,7 @@ import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { TwoFactorModal } from '../components/TwoFactorModal';
 import { PaymentMethodModal } from '../components/PaymentMethodModal';
 import { SetPinModal } from '../components/SetPinModal';
+import { motion } from 'framer-motion';
 
 export function Settings() {
   const { user, profile, signOut } = useAuth();
@@ -85,7 +86,8 @@ export function Settings() {
     }
   };
   return (
-    <main className="w-full max-w-2xl mx-auto px-4 md:px-6 pt-8 pb-32 space-y-8">
+    <motion.main className="w-full max-w-2xl mx-auto px-4 md:px-6 pt-8 pb-32 space-y-8"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       {/* Profile Section: Asymmetric Editorial Layout */}
       <section className="relative">
         <div className="grid grid-cols-12 gap-6 items-center">
@@ -312,6 +314,6 @@ export function Settings() {
         onClose={() => setIsPinModalOpen(false)} 
         onSuccess={() => {}} 
       />
-    </main>
+    </motion.main>
   );
 }

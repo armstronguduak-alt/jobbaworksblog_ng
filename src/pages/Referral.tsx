@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrency } from '../hooks/useCurrency';
+import { DashboardSkeleton } from '../components/Skeletons';
+import { motion } from 'framer-motion';
 
 export function Referral() {
   const { user, profile } = useAuth();
@@ -161,11 +163,12 @@ export function Referral() {
   const displayedReferrals = activeList.slice(0, visibleCount);
 
   if (isLoading && !referralData) {
-    return <div className="min-h-screen bg-surface" />;
+    return <DashboardSkeleton />;
   }
 
   return (
-    <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-screen">
+    <motion.div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim min-h-screen"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <main className="pt-8 pb-32 px-4 max-w-2xl mx-auto space-y-6">
         {/* Hero Section */}
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary-container p-6 text-on-primary-container shadow-xl">
@@ -410,6 +413,6 @@ export function Referral() {
           </div>
         </section>
       </main>
-    </div>
+    </motion.div>
   );
 }

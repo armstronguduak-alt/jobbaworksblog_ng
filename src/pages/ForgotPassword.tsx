@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useDialog } from '../contexts/DialogContext';
+import { motion } from 'framer-motion';
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const { showSuccess, showError } = useDialog();
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,15 +24,18 @@ export function ForgotPassword() {
 
       if (error) throw error;
       setMessage('Password reset link sent! Check your email.');
+      showSuccess('Password reset link sent! Check your email inbox.', 'Email Sent');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to send reset link.');
+      showError(err.message || 'Failed to send reset link.', 'Error');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-surface text-on-surface font-body min-h-screen flex flex-col relative overflow-hidden">
+    <motion.div className="bg-surface text-on-surface font-body min-h-screen flex flex-col relative overflow-hidden"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       {/* Top Navigation Shell */}
       <header className="w-full top-0 sticky bg-[#f8f9fa] z-20 shadow-sm">
         <div className="flex items-center justify-between px-6 h-16 w-full max-w-screen-xl mx-auto">
@@ -107,6 +113,6 @@ export function ForgotPassword() {
           password
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 }

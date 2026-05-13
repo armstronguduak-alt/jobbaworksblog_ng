@@ -58,9 +58,9 @@ export default {
         "secondary-fixed-dim":        "var(--color-secondary-fixed-dim, #a6d0b2)",
       },
       fontFamily: {
-        "headline": ["Plus Jakarta Sans", "sans-serif"],
-        "body": ["Inter", "sans-serif"],
-        "label": ["Inter", "sans-serif"]
+        "headline": ["DM Sans", "system-ui", "sans-serif"],
+        "body": ["DM Sans", "system-ui", "sans-serif"],
+        "label": ["DM Sans", "system-ui", "sans-serif"]
       },
       borderRadius: {
         "DEFAULT": "0.25rem",

@@ -71,14 +71,18 @@
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }
   
-  /* Global font size optimization — slightly smaller across all pages */
+  /* Global font size optimization — compact modern sizing */
   html {
-    font-size: 15px;
+    font-size: 13.5px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   
   @media (min-width: 768px) {
     html {
-      font-size: 15.5px;
+      font-size: 14px;
     }
   }
 }
