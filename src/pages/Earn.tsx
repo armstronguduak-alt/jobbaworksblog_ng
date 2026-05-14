@@ -98,6 +98,20 @@ export function Earn() {
         });
       }
 
+      // Daily share promo — fallback to default if none in DB
+      const dbSharePromo = (sharePromoRes.data && sharePromoRes.data.length > 0) ? sharePromoRes.data[0] : null;
+      const defaultSharePromo = {
+        id: 'default_share',
+        title: 'Share JobbaWorks & Earn Daily',
+        description: 'Share our platform on social media and earn rewards every day!',
+        share_caption: 'Join JobbaWorks and start earning money by reading, commenting, and sharing! Sign up today 👉 https://jobbaworks.com',
+        cta_url: 'https://jobbaworks.com',
+        image_url: '',
+        share_reward_amount: 300,
+        is_share_task: true,
+        is_active: true,
+      };
+
       return { 
         stats, 
         availablePosts: availablePosts || [], 
@@ -105,8 +119,7 @@ export function Earn() {
         walletData: walletDataRes.data,
         planReferralCounts,
         planDetails,
-        // Daily share promo
-        sharePromo: (sharePromoRes.data && sharePromoRes.data.length > 0) ? sharePromoRes.data[0] : null,
+        sharePromo: dbSharePromo || defaultSharePromo,
         hasSharedToday: !!todayShareRes.data
       };
     },

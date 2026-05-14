@@ -48,7 +48,7 @@ export function Plans() {
         .from('subscription_plans')
         .select('*')
         .eq('is_active', true)
-        .order('price', { ascending: false });
+        .order('price', { ascending: true });
 
       if (!error && data) {
         setPlans(data);
@@ -255,16 +255,16 @@ export function Plans() {
   };
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 pt-12 pb-32 w-full">
+    <main className="max-w-3xl mx-auto px-4 md:px-6 pt-8 pb-32 w-full">
       {/* Hero Section */}
-      <section className="mb-16 text-center md:text-left max-w-3xl">
-        <span className="bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant px-4 py-1.5 rounded-full text-xs md:text-sm font-bold tracking-wider mb-6 inline-block">
+      <section className="mb-10 text-center md:text-left max-w-3xl">
+        <span className="bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant px-3 py-1 rounded-full text-[10px] md:text-xs font-bold tracking-wider mb-4 inline-block">
           ONE-TIME PAYMENT • LIFETIME ACCESS
         </span>
-        <h2 className="text-4xl md:text-6xl font-headline font-extrabold text-on-surface leading-[1.1] tracking-tight mb-6">
+        <h2 className="text-2xl md:text-4xl font-headline font-extrabold text-on-surface leading-[1.1] tracking-tight mb-3">
           Become a Creator & <span className="text-primary italic">Start Earning</span>
         </h2>
-        <p className="text-base md:text-lg text-on-surface-variant leading-relaxed opacity-80">
+        <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed opacity-80">
           Subscribe to a plan to unlock higher earnings, publish articles, and earn more from reading, commenting, and referrals.
         </p>
       </section>
@@ -273,7 +273,7 @@ export function Plans() {
       {isLoading ? (
         <div className="py-20 min-h-[400px]"></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 items-stretch">
           {plans.map((plan) => {
             const isCurrent = currentPlan === plan.id;
             
@@ -290,93 +290,81 @@ export function Plans() {
             const canUpgrade = !isFree && !isCurrent && !isLowerPlan;
             const isProcessing = processingPlan === plan.id;
             
-            // New Plan Logic
             const isVerified = plan.id !== 'free';
             let contentBoost = '';
-            if (plan.id === 'starter') contentBoost = '10% Content Boost';
-            else if (plan.id === 'pro') contentBoost = '25% Content Boost';
-            else if (plan.id === 'elite') contentBoost = '50% Content Boost';
-            else if (plan.id === 'vip') contentBoost = '75% Content Boost';
-            else if (plan.id === 'executive' || plan.id === 'platinum') contentBoost = '100% Boost + Priority Rank';
+            if (plan.id === 'starter') contentBoost = '10% Boost';
+            else if (plan.id === 'pro') contentBoost = '25% Boost';
+            else if (plan.id === 'elite') contentBoost = '50% Boost';
+            else if (plan.id === 'vip') contentBoost = '75% Boost';
+            else if (plan.id === 'executive' || plan.id === 'platinum') contentBoost = '100% Boost';
 
             return (
               <div 
                 key={plan.id}
-                className={`relative flex flex-col p-6 rounded-3xl shadow-sm transition-all duration-300 hover:-translate-y-2
+                className={`relative flex flex-col p-3.5 md:p-4 rounded-2xl transition-all duration-300
                   ${isPopular 
-                    ? 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-xl ring-4 ring-tertiary-fixed-dim/20 md:scale-105 z-10' 
-                    : 'bg-surface-container-lowest text-on-surface border border-surface-container-highest/30 hover:shadow-lg'
+                    ? 'bg-gradient-to-br from-[#006b3f] to-[#008751] text-white shadow-lg ring-2 ring-tertiary-fixed-dim/20' 
+                    : 'bg-surface-container-lowest text-on-surface border border-surface-container-highest/30 shadow-sm hover:shadow-md'
                   }
                   ${isCurrent ? 'ring-2 ring-primary border-primary' : ''}
                 `}
               >
                 {isPopular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-4 py-1 rounded-full text-[10px] font-black tracking-widest uppercase shadow-md whitespace-nowrap">
-                    RECOMMENDED
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-2.5 py-0.5 rounded-full text-[8px] font-black tracking-widest uppercase shadow-sm whitespace-nowrap">
+                    POPULAR
                   </div>
                 )}
                 
-                <div className={`mb-6 ${isPopular ? 'pt-2' : ''}`}>
-                  <h3 className={`text-2xl font-headline font-extrabold mb-1 ${isPopular ? 'text-white' : 'text-emerald-950'}`}>
+                <div className={`mb-3 ${isPopular ? 'pt-1' : ''}`}>
+                  <h3 className={`text-sm md:text-base font-headline font-extrabold mb-0.5 ${isPopular ? 'text-white' : 'text-emerald-950'}`}>
                     {plan.name}
                   </h3>
-                  <p className={`text-sm ${isPopular ? 'text-white/80' : 'text-on-surface-variant'}`}>
-                    {isFree ? 'Get started for free' : 'Maximize your capacity'}
+                  <p className={`text-[10px] ${isPopular ? 'text-white/70' : 'text-on-surface-variant'}`}>
+                    {isFree ? 'Get started free' : 'Maximize capacity'}
                   </p>
                 </div>
                 
-                <div className="mb-8 flex items-baseline gap-1">
-                  <span className="text-4xl font-black">
+                <div className="mb-3 flex items-baseline gap-0.5">
+                  <span className="text-xl md:text-2xl font-black">
                     {displayPrice}
                   </span>
-                  <span className={`text-sm font-medium ${isPopular ? 'text-white/70' : 'text-on-surface-variant'}`}>
+                  <span className={`text-[9px] font-medium ${isPopular ? 'text-white/60' : 'text-on-surface-variant'}`}>
                     one-time
                   </span>
                 </div>
                 
-                <ul className="space-y-4 mb-auto pb-8">
-                  <li className="flex items-center gap-3 text-sm">
-                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
-                    <span><strong className="font-bold">{plan.daily_read_limit}</strong> daily reads</span>
+                <ul className="space-y-1.5 mb-auto pb-3 text-[11px]">
+                  <li className="flex items-center gap-1.5">
+                    <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong>{plan.daily_read_limit}</strong> daily reads</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
-                    <span><strong className="font-bold">{plan.daily_comment_limit}</strong> daily comments</span>
+                  <li className="flex items-center gap-1.5">
+                    <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span><strong>{plan.daily_comment_limit}</strong> daily comments</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
-                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdReadReward || plan.read_reward / 1500).toFixed(2)}` : formatAmount(plan.read_reward)}</strong> per article read</span>
+                  <li className="flex items-center gap-1.5">
+                    <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                    <span><strong>{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdReadReward || plan.read_reward / 1500).toFixed(2)}` : formatAmount(plan.read_reward)}</strong>/read</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
-                    <span><strong className="font-bold">{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdCommentReward || plan.comment_reward / 1500).toFixed(2)}` : formatAmount(plan.comment_reward)}</strong> per comment</span>
+                  <li className="flex items-center gap-1.5">
+                    <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
+                    <span><strong>{isGlobal ? `$${(nonNigerianPlans[plan.id]?.usdCommentReward || plan.comment_reward / 1500).toFixed(2)}` : formatAmount(plan.comment_reward)}</strong>/comment</span>
                   </li>
-                  {!isFree ? (
-                    <li className="flex items-center gap-3 text-sm font-bold">
-                      <span className={`material-symbols-outlined ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-                      <span>25% Referral Commission</span>
-                    </li>
-                  ) : (
-                    <li className="flex items-center gap-3 text-sm text-on-surface-variant/70">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-                      <span>No Referral Commission</span>
-                    </li>
-                  )}
                   {!isFree && (
-                    <li className="flex items-center gap-3 text-sm font-bold">
-                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-200' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                      <span>Weekly Streak Earning Bonus</span>
+                    <li className="flex items-center gap-1.5 font-bold">
+                      <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-tertiary-fixed' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                      <span>25% Referral</span>
                     </li>
                   )}
                   {isVerified && (
-                    <li className="flex items-center gap-3 text-sm font-bold">
-                      <span className={`material-symbols-outlined ${isPopular ? 'text-blue-300' : 'text-blue-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                      <span>Verified Profile Badge</span>
+                    <li className="flex items-center gap-1.5 font-bold">
+                      <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-blue-300' : 'text-blue-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                      <span>Verified Badge</span>
                     </li>
                   )}
                   {contentBoost && (
-                    <li className="flex items-center gap-3 text-sm font-bold">
-                      <span className={`material-symbols-outlined ${isPopular ? 'text-orange-300' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
+                    <li className="flex items-center gap-1.5 font-bold">
+                      <span className={`material-symbols-outlined text-[14px] ${isPopular ? 'text-orange-300' : 'text-orange-500'}`} style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
                       <span>{contentBoost}</span>
                     </li>
                   )}
@@ -385,13 +373,13 @@ export function Plans() {
                 <button 
                   onClick={() => canUpgrade && handleUpgradeClick(plan, actualPrice)}
                   disabled={isCurrent || isProcessing || isLowerPlan}
-                  className={`w-full py-4 rounded-xl font-bold transition-all mt-auto active:scale-95
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all mt-auto active:scale-95
                     ${isProcessing ? 'opacity-70 cursor-wait' : ''}
                     ${isCurrent ? 'bg-surface-container text-on-surface-variant cursor-default' : 
                       isLowerPlan ? 'bg-surface-container-highest/20 text-on-surface-variant/50 cursor-not-allowed opacity-50' :
                       isPopular 
-                      ? 'bg-white text-emerald-800 shadow-md hover:bg-emerald-50' 
-                      : 'bg-primary text-white shadow-md hover:bg-emerald-800'
+                      ? 'bg-white text-emerald-800 shadow-sm hover:bg-emerald-50' 
+                      : 'bg-primary text-white shadow-sm hover:bg-emerald-800'
                     }
                   `}
                 >
@@ -413,41 +401,27 @@ export function Plans() {
         </div>
       )}
 
-      {/* Asymmetric Value Section */}
-      <section className="mt-16 md:mt-24 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">
-        <div className="md:col-span-7 bg-surface-container-low rounded-3xl p-6 md:p-12 overflow-hidden relative">
-          <div className="bg-white/40 absolute -right-20 -bottom-20 w-80 h-80 rounded-full blur-3xl hidden md:block"></div>
-          <div className="relative z-10">
-            <h3 className="text-2xl md:text-3xl font-headline font-bold mb-8 text-on-primary-fixed-variant">Why upgrade?</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-container rounded-2xl flex items-center justify-center text-on-primary-container">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
-                </div>
-                <h4 className="font-bold text-base md:text-lg">Pay Once, Earn Forever</h4>
-                <p className="text-sm text-on-surface-variant leading-relaxed">
-                  No recurring charges. Your one-time payment unlocks lifetime access to higher earning rates and exclusive features.
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-secondary-container rounded-2xl flex items-center justify-center text-on-secondary-container">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>speed</span>
-                </div>
-                <h4 className="font-bold text-base md:text-lg">Unlimited Velocity</h4>
-                <p className="text-sm text-on-surface-variant leading-relaxed">
-                  Higher plans unlock more daily reads and comments, meaning you can earn significantly more every day.
-                </p>
-              </div>
+      {/* Why Upgrade — Compact */}
+      <section className="mt-10 bg-surface-container-low rounded-2xl p-5 md:p-8 overflow-hidden relative">
+        <h3 className="text-lg md:text-xl font-headline font-bold mb-5 text-on-primary-fixed-variant">Why upgrade?</h3>
+        <div className="grid grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <div className="w-8 h-8 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container">
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
             </div>
+            <h4 className="font-bold text-xs md:text-sm">Pay Once, Earn Forever</h4>
+            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+              One-time payment unlocks lifetime access to higher earning rates.
+            </p>
           </div>
-        </div>
-        <div className="md:col-span-5 hidden md:block">
-          <div className="rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
-            <img 
-              alt="Premium Access" 
-              className="w-full aspect-square object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAE8kqNLHrgYs_wuhNxAksUEaSFuK6qRaXpBUG0Ixel61-AmVKGUBZY_mKFli3Ml-UMRExyMl-AamMJz6ebZ6NHaHrw_-BpMEHXRQT_zMikQRLsot742DXE5ci945ahx1SaZco9A8Sj8sDz39Ny8f0NGuhY8ho8QplsxOi3z5DqORazMiwY60TmikSQT3XpBmQUe4GuMSIc9Kme6_Tbl0nA5fuZcS7zH4QY0xAmCgwMCoyehnmO4h390ZW7Nz95UMdBIue_2Jodwk" 
-            />
+          <div className="space-y-2">
+            <div className="w-8 h-8 bg-secondary-container rounded-xl flex items-center justify-center text-on-secondary-container">
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>speed</span>
+            </div>
+            <h4 className="font-bold text-xs md:text-sm">Unlimited Velocity</h4>
+            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+              Higher plans unlock more daily reads and comments for bigger daily earnings.
+            </p>
           </div>
         </div>
       </section>
